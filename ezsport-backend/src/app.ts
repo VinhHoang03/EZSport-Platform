@@ -8,17 +8,14 @@ import addressRoutes from './routes/address.routes';
 import providerRequestRoutes from './routes/providerRequest.routes';
 import providerRoutes from './routes/provider.routes';
 import adminRoutes from './routes/admin.routes';
+import courtRoutes from './routes/court.routes';
 
 
 const app: Application = express();
 
-const allowedOrigins = [
-  "http://localhost:5173"
-];
-
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -43,7 +40,8 @@ app.use("/service-requests", serviceResquestRoutes);
 app.use("/addresses", addressRoutes);
 app.use("/provider-requests", providerRequestRoutes);
 app.use("/providers", providerRoutes);
-app.use("/admin", adminRoutes);;
+app.use("/admin", adminRoutes);
+app.use("/courts", courtRoutes);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
