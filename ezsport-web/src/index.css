@@ -126,3 +126,66 @@ h1, h2, h3, h4, h5, .font-headline {
     box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
   }
 }
+
+/* Routing Machine Styles */
+.leaflet-routing-container {
+  display: none !important; /* Hide the default instructions panel */
+}
+
+/* Google Maps Mutant Fix */
+.leaflet-google-mutant {
+  z-index: 1 !important;
+  cursor: grab !important;
+}
+
+.leaflet-google-mutant:active {
+  cursor: grabbing !important;
+}
+
+.leaflet-pane {
+  z-index: 2 !important;
+}
+
+.leaflet-top, .leaflet-bottom {
+  z-index: 1000 !important;
+}
+
+.custom-routing-icon {
+  background: none;
+  border: none;
+}
+
+.routing-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.routing-dot.start {
+  background-color: #4285F4; /* Google Blue */
+}
+
+.routing-dot.end {
+  background-color: #EA4335; /* Google Red */
+}
+
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+
+.hover-bg-light:hover {
+  background-color: #f8f9fa !important;
+  transform: translateY(-2px);
+}
+
+h1 {
+  font-size: 60px;
+}
+
+.react-text {
+  color: blue;
+  font-weight: bold;
+}
+

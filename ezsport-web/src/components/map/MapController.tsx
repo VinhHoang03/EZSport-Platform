@@ -9,14 +9,27 @@ interface MapControllerProps {
 const MapController: React.FC<MapControllerProps> = ({ onLocationFound }) => {
   const [position, setPosition] = useState<L.LatLng | null>(null);
   const [userLocation, setUserLocation] = useState<L.LatLng | null>(null);
+  const [hasCentered, setHasCentered] = useState(false);
 
   const map = useMapEvents({
     click(e) {
       setPosition(e.latlng);
     },
     locationfound(e) {
+      // Only update if position changed significantly (>20m) to avoid re-routing flicker
+      if (userLocation) {
+        const dist = e.latlng.distanceTo(userLocation);
+        if (dist < 20) return; // ignore small GPS jitter
+      }
+
       setUserLocation(e.latlng);
-      map.flyTo(e.latlng, 15);
+      
+      // Only flyTo on the very first location fix to avoid jumping while moving
+      if (!hasCentered) {
+        map.flyTo(e.latlng, 15);
+        setHasCentered(true);
+      }
+      
       if (onLocationFound) {
         onLocationFound(e.latlng.lat, e.latlng.lng);
       }
