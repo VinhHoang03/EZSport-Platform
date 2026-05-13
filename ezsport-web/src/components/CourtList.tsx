@@ -21,9 +21,10 @@ interface Court {
 interface CourtListProps {
   courts: Court[];
   onFilterClick?: () => void;
+  onDirectionsClick?: (lat: number, lng: number) => void;
 }
 
-const CourtList: React.FC<CourtListProps> = ({ courts, onFilterClick }) => {
+const CourtList: React.FC<CourtListProps> = ({ courts, onFilterClick, onDirectionsClick }) => {
   return (
     <Col md={4} className="h-100 d-flex flex-column bg-white border-end">
       <FilterBar count={courts.length} onFilterClick={onFilterClick} />
@@ -33,6 +34,7 @@ const CourtList: React.FC<CourtListProps> = ({ courts, onFilterClick }) => {
           <CourtCard 
             key={court.id} 
             {...court} 
+            onDirectionsClick={onDirectionsClick}
           />
         ))}
       </div>
