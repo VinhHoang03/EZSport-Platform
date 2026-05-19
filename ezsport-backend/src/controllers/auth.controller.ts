@@ -38,7 +38,8 @@ export const register = async (req: Request, res: Response) => {
       data.email,
       data.password,
       data.fullName,
-      data.phone
+      data.phone,
+      data.role
     );
 
     res.status(201).json({
