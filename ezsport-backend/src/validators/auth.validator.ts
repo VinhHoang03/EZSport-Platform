@@ -15,7 +15,8 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   fullName: z.string().min(2),
-  phone: z.string().optional()
+  phone: z.string().optional(),
+  role: z.string().optional()
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

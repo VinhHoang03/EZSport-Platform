@@ -58,56 +58,83 @@ const SearchBar: React.FC<SearchBarProps> = ({
       drag
       dragElastic={0.1}
       whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
-      className="position-absolute bottom-0 start-50 translate-middle-x z-3 mb-5 bg-white rounded-pill shadow-lg d-flex align-items-center p-2 border border-success border-opacity-10 w-75 mw-100 cursor-grab"
-      style={{ maxWidth: '750px', touchAction: 'none', backgroundColor: '#ffffff', color: '#2c2f2f' }}
+      className="position-absolute bottom-0 start-50 translate-middle-x z-3 mb-5 rounded-pill shadow-lg d-flex align-items-center p-2 border cursor-grab"
+      style={{ 
+        maxWidth: '780px', 
+        width: '85%',
+        touchAction: 'none', 
+        backgroundColor: 'rgba(255, 255, 255, 0.90)', 
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        color: '#0f172a',
+        borderColor: 'rgba(26,107,60,0.15)',
+        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.15)'
+      }}
     >
 
       {/* Drag Handle */}
-      <div className="px-2 text-muted opacity-50">
-        <span className="material-symbols-outlined fs-5">drag_indicator</span>
+      <div className="px-2 text-muted opacity-50" style={{ cursor: 'grab' }}>
+        <span className="material-symbols-outlined fs-5" style={{ color: '#64748b' }}>drag_indicator</span>
       </div>
 
-      <div className="flex-fill d-flex align-items-center px-2 border-end border-light">
-        <span className="material-symbols-outlined text-success fs-5 me-2">sports_tennis</span>
-        <Form.Control 
-          className="bg-transparent border-0 shadow-none fw-bold small p-0" 
-          placeholder="Thể thao" 
-          type="text" 
-          value={sport}
-          onChange={(e) => setSport(e.target.value)}
-        />
+      <div className="flex-fill d-flex align-items-center px-3 border-end" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+        <span className="material-symbols-outlined fs-5 me-2" style={{ color: '#1a6b3c' }}>sports_tennis</span>
+        <div>
+          <div style={{ fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Môn thể thao</div>
+          <Form.Control 
+            className="bg-transparent border-0 shadow-none fw-bold small p-0" 
+            placeholder="Pickleball, Cầu lông..." 
+            type="text" 
+            value={sport}
+            onChange={(e) => setSport(e.target.value)}
+            style={{ fontSize: '13.5px', color: '#0f172a' }}
+          />
+        </div>
       </div>
-      <div className="flex-fill d-flex align-items-center px-3 border-end border-light">
-        <span className="material-symbols-outlined text-success fs-5 me-2">location_on</span>
-        <Form.Control 
-          ref={autocompleteRef}
-          className="bg-transparent border-0 shadow-none fw-bold small p-0" 
-          placeholder="Địa chỉ, khu vực..." 
-          type="text" 
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
+      <div className="flex-fill d-flex align-items-center px-3 border-end" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+        <span className="material-symbols-outlined fs-5 me-2" style={{ color: '#1a6b3c' }}>location_on</span>
+        <div style={{ width: '100%' }}>
+          <div style={{ fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Địa điểm</div>
+          <Form.Control 
+            ref={autocompleteRef}
+            className="bg-transparent border-0 shadow-none fw-bold small p-0" 
+            placeholder="Địa chỉ, quận..." 
+            type="text" 
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            style={{ fontSize: '13.5px', color: '#0f172a' }}
+          />
+        </div>
       </div>
       <div className="flex-fill d-flex align-items-center px-3">
-        <span className="material-symbols-outlined text-success fs-5 me-2">calendar_today</span>
-        <Form.Control 
-          className="bg-transparent border-0 shadow-none fw-bold small p-0" 
-          placeholder="Ngày chơi" 
-          type="text" 
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        <span className="material-symbols-outlined fs-5 me-2" style={{ color: '#1a6b3c' }}>calendar_today</span>
+        <div>
+          <div style={{ fontSize: '9px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Ngày đặt</div>
+          <Form.Control 
+            className="bg-transparent border-0 shadow-none fw-bold small p-0" 
+            placeholder="Hôm nay" 
+            type="text" 
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{ fontSize: '13.5px', color: '#0f172a' }}
+          />
+        </div>
       </div>
       <Button 
         variant="success" 
-        className="rounded-circle d-flex align-items-center justify-content-center shadow-sm ms-2"
-        style={{ width: '48px', height: '48px' }}
+        className="rounded-circle d-flex align-items-center justify-content-center shadow-sm ms-2 hover-scale border-0"
+        style={{ 
+          width: '46px', 
+          height: '46px', 
+          background: '#1a6b3c',
+          boxShadow: '0 8px 20px rgba(26,107,60,0.3)'
+        }}
       >
-        <span className="material-symbols-outlined">search</span>
+        <span className="material-symbols-outlined fs-5" style={{ color: 'white' }}>search</span>
       </Button>
     </motion.div>
   );
 };
 
-
 export default SearchBar;
+

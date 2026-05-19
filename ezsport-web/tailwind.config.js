@@ -61,15 +61,16 @@ export default {
               "secondary-container": "#86faac"
       },
       "borderRadius": {
-              "DEFAULT": "0.25rem",
+              "DEFAULT": "9999px",
               "lg": "0.5rem",
               "xl": "0.75rem",
               "full": "9999px"
       },
       "fontFamily": {
+              "heading": ["Instrument Serif", "serif"],
+              "body": ["Barlow", "sans-serif"],
               "headline": ["Plus Jakarta Sans"],
               "display": ["Plus Jakarta Sans"],
-              "body": ["Inter"],
               "label": ["Inter"]
       }
     },
