@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import MapController from './map/MapController';
 import RoutingMachine from './map/RoutingMachine';
 import GoogleLayer from './map/GoogleLayer';
-
+import { motion } from 'framer-motion';
 // Fix for default marker icon
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -161,8 +161,19 @@ const MapComponent: React.FC<MapComponentProps> = ({
       </MapContainer>
 
       {/* Map Type Switcher */}
-      <div className="position-absolute top-0 end-0 m-4 d-flex flex-column gap-2" style={{ zIndex: 1100 }}>
-        <div className="bg-white p-1 rounded-3 shadow-sm border d-flex flex-column">
+      <motion.div 
+        drag
+        dragMomentum={false}
+        className="position-absolute m-4 d-flex flex-column gap-2" 
+        style={{ zIndex: 1100, right: 0, top: 0, cursor: 'grab' }}
+        whileDrag={{ cursor: 'grabbing', scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}
+      >
+        <div className="bg-white p-1 rounded-4 shadow border d-flex flex-column" style={{ pointerEvents: 'auto' }}>
+          {/* Drag Handle */}
+          <div className="w-100 d-flex justify-content-center pt-1 pb-2" style={{ opacity: 0.3 }}>
+            <div style={{ width: '32px', height: '4px', background: '#94a3b8', borderRadius: '4px' }} />
+          </div>
+          
           <button 
             className={`btn btn-sm border-0 d-flex align-items-center gap-2 px-3 py-2 ${mapType === 'roadmap' ? 'text-success fw-bold bg-light' : 'text-muted'}`}
             onClick={() => setMapType('roadmap')}
@@ -186,7 +197,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
             Giao thông
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Routing Overlay - Google Maps Style */}
       {routingDestination && (

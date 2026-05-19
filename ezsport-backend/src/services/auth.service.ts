@@ -39,7 +39,8 @@ export const registerService = async (
   email: string,
   password: string,
   fullName: string,
-  phone?: string
+  phone?: string,
+  role?: string
 ) => {
 
   const existingUser = await User.findOne({ email });
@@ -50,11 +51,20 @@ export const registerService = async (
 
   const passwordHash = await hashPassword(password);
 
+  // Map frontend role terms to DB schema enums
+  let dbRole: "CUSTOMER" | "PROVIDER" | "ADMIN" = "CUSTOMER";
+  if (role === "owner" || role === "PROVIDER") {
+    dbRole = "PROVIDER";
+  } else if (role === "admin" || role === "ADMIN") {
+    dbRole = "ADMIN";
+  }
+
   const user = await User.create({
     email,
     passwordHash,
     fullName,
-    phone
+    phone,
+    role: dbRole
   });
 
   return user;

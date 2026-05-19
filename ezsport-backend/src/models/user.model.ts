@@ -13,6 +13,7 @@ export interface IUser extends Document {
 
   resetPasswordTokenHash?: string;
   resetPasswordExpire?: Date;
+  loyaltyPoints: number;
 }
 
 const UserSchema = new Schema<IUser>(
@@ -46,6 +47,11 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ["ACTIVE", "INACTIVE", "BANNED"],
       default: "ACTIVE"
+    },
+
+    loyaltyPoints: {
+      type: Number,
+      default: 0
     },
 
     resetPasswordTokenHash: String,
