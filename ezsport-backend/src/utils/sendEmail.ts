@@ -2,13 +2,20 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 dotenv.config();
 
+const emailUser = process.env.EMAIL_USER;
+const emailPassword = process.env.EMAIL_PASSWORD?.replace(/\s/g, "");
+
+if (!emailUser || !emailPassword) {
+  throw new Error("Missing EMAIL_USER or EMAIL_PASSWORD environment variables for email transport");
+}
+
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
   secure: true, // SSL
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD?.replace(/\s/g, ""), // xoá khoảng trắng
+    user: emailUser,
+    pass: emailPassword,
   },
 });
 
@@ -51,8 +58,8 @@ export const sendResetPasswordEmail = async (
     subject: "Đặt lại mật khẩu",
     html: `
       <p>Bạn đã yêu cầu đặt lại mật khẩu.</p>
-      <p>Link có hiệu lực trong <b>5 phút</b>.</p>
-      <a href="${resetLink}">Đổi mật khẩu</a>
+      <p>Link có hiệu lực trong <b>1 giờ</b>.</p>
+      <p><a href="${resetLink}">Nhấp để đổi mật khẩu</a></p>
       <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
     `,
   });

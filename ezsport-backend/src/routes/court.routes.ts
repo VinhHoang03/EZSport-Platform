@@ -1,3 +1,4 @@
+/*
 import express from "express";
 import { getCourts, createCourt, deleteCourt, checkIn } from "../controllers/court.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
@@ -9,4 +10,8 @@ router.post("/", createCourt);
 router.delete("/:id", deleteCourt);
 router.post("/:id/check-in", authMiddleware as any, checkIn as any);
 
+export default router;
+*/
+import express from "express";
+const router = express.Router();
 export default router;

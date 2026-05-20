@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { loginService } from "../services/auth.service";
 import { registerService } from "../services/auth.service";
+import { googleLoginService } from "../services/auth.service";
 import { registerSchema } from "../validators/auth.validator";
 import {
   forgotPasswordService,
@@ -26,6 +27,24 @@ export const login = async (req: Request, res: Response) => {
       message: error.message
     });
 
+  }
+};
+
+export const googleLogin = async (req: Request, res: Response) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) throw new Error("Google credential is required");
+
+    const result = await googleLoginService(credential);
+
+    res.status(200).json({
+      message: "Google login success",
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      message: error.message
+    });
   }
 };
 
@@ -64,11 +83,10 @@ export const forgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
-    const resetUrl = await forgotPasswordService(email);
+    await forgotPasswordService(email);
 
     res.json({
-      message: "Reset password link generated",
-      resetUrl
+      message: "Reset password link sent to your email",
     });
 
   } catch (error: any) {

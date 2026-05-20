@@ -1,24 +1,10 @@
 import { z } from "zod";
-
-export const loginSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Invalid email format"),
-
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters")
-});
+import { UserRole } from "../enum/user.enum";
 
 export const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  fullName: z.string().min(2),
+  email: z.string().email("Email không hợp lệ"),
+  password: z.string().min(6, "Mật khẩu phải từ 6 ký tự trở lên"),
+  fullName: z.string().min(1, "Họ và tên là bắt buộc"),
   phone: z.string().optional(),
-  role: z.string().optional()
+  role: z.nativeEnum(UserRole).optional().default(UserRole.PLAYER),
 });
-
-export type RegisterInput = z.infer<typeof registerSchema>;
-
-export type LoginInput = z.infer<typeof loginSchema>;
