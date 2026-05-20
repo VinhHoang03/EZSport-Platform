@@ -1,3 +1,4 @@
+/*
 import User from "../models/user.model";
 
 interface UpdateProfileInput {
@@ -31,3 +32,5 @@ export const updateProfileService = async (
 
   return user;
 };
+*/
+export {};

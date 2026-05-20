@@ -1,3 +1,4 @@
+/*
 import express from "express";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { getProfile } from "../controllers/user.controller";
@@ -9,9 +10,7 @@ router.get("/me", authMiddleware, getProfile);
 router.put("/profile", authMiddleware, updateProfile);
 
 export default router;
-
-
-
-
-
-
+*/
+import express from "express";
+const router = express.Router();
+export default router;

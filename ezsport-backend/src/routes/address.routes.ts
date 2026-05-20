@@ -1,3 +1,4 @@
+/*
 import { Router } from "express";
 import {
   getUserAddresses,
@@ -10,10 +11,6 @@ import {
 import { authMiddleware, requireRole } from "../middlewares/auth.middleware";
 
 const router = Router();
-
-/**
- * CUSTOMER routes
- */
 
 router.get(
   "/",
@@ -43,10 +40,6 @@ router.delete(
   deleteAddress
 );
 
-/**
- * service history
- */
-
 router.get(
   "/service-history",
   authMiddleware,
@@ -56,4 +49,8 @@ router.get(
 
 console.log("Address routes loaded");
 
+export default router;
+*/
+import { Router } from "express";
+const router = Router();
 export default router;

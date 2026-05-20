@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Button } from 'react-bootstrap';
-import SearchBar from './components/SearchBar';
-import MapComponent from './components/MapComponent';
-import Navigation from './components/Navigation';
-import CourtList from './components/CourtList';
-import LeftFilterSidebar from './components/sidebar/LeftFilterSidebar';
-import NavigationPanel from './components/NavigationPanel';
+import SearchBar from './components/shared/SearchBar';
+import MapComponent from './components/shared/MapComponent';
+import Navigation from './components/shared/Navigation';
+import CourtList from './components/player/CourtList';
+import LeftFilterSidebar from './components/player/LeftFilterSidebar';
+import NavigationPanel from './components/shared/NavigationPanel';
 import api from './api/api';
-import AddCourtModal from './components/AddCourtModal';
-import { LandingPage } from './components/LandingPage';
-import { AuthPage } from './components/AuthPage';
+import AddCourtModal from './components/player/AddCourtModal';
+import { LandingPage } from './components/shared/LandingPage';
+import { AuthPage } from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
-import { CourtDetail } from './components/CourtDetail';
-import { CheckoutPage } from './components/CheckoutPage';
-import { BookingSuccessPage } from './components/BookingSuccessPage';
-import { ProfilePage } from './components/ProfilePage';
-import { OwnerDashboard } from './components/OwnerDashboard';
-import { AdminDashboard } from './components/AdminDashboard';
-import { PlaymatesPage } from './components/PlaymatesPage';
-import { AIChatbot } from './components/AIChatbot';
+import { CourtDetail } from './components/player/CourtDetail';
+import { CheckoutPage } from './components/player/CheckoutPage';
+import { BookingSuccessPage } from './components/player/BookingSuccessPage';
+import { ProfilePage } from './components/player/ProfilePage';
+import { OwnerDashboard } from './components/owner/OwnerDashboard';
+import { AdminDashboard } from './components/admin/AdminDashboard';
+import { PlaymatesPage } from './components/player/PlaymatesPage';
+import { AIChatbot } from './components/shared/AIChatbot';
 // Haversine formula to calculate distance between two coordinates in KM
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371;
@@ -34,18 +34,20 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const App: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
+
+  // Detect reset-password route from URL path — now handled by router
   const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'court-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
 
   // Redirect on page change: if authenticated and on a guest-only page, send to the right home
   useEffect(() => {
     if (isAuthenticated && (currentPage === 'landing' || currentPage === 'auth')) {
-      if (user?.role === 'ADMIN') {
+      if (user?.role === 'admin') {
         setCurrentPage('admin-dashboard');
-      } else if (user?.role === 'PROVIDER') {
+      } else if (user?.role === 'owner') {
         setCurrentPage('owner-dashboard');
       } else {
-        setCurrentPage('app');
+        setCurrentPage('venues');
       }
     }
   }, [isAuthenticated, currentPage, user]);
@@ -56,12 +58,12 @@ const App: React.FC = () => {
   const handleLogoClick = () => {
     if (!isAuthenticated) {
       setCurrentPage('landing');
-    } else if (user?.role === 'ADMIN') {
+    } else if (user?.role === 'admin') {
       setCurrentPage('admin-dashboard');
-    } else if (user?.role === 'PROVIDER') {
+    } else if (user?.role === 'owner') {
       setCurrentPage('owner-dashboard');
     } else {
-      setCurrentPage('app');
+      setCurrentPage('venues');
     }
   };
   const [sport, setSport] = useState('Pickleball');
@@ -197,7 +199,7 @@ const App: React.FC = () => {
   if (currentPage === 'landing') {
     return (
       <LandingPage 
-        onExplore={() => setCurrentPage('app')} 
+        onExplore={() => setCurrentPage('venues')} 
         onLogin={() => {
           setAuthInitialMode('login');
           setAuthInitialAccountType('player');
@@ -218,12 +220,12 @@ const App: React.FC = () => {
       <AuthPage 
         onBackToLanding={() => setCurrentPage('landing')} 
         onSuccess={(role?: string) => {
-          if (role === 'ADMIN') {
+          if (role === 'admin') {
             setCurrentPage('admin-dashboard');
-          } else if (role === 'PROVIDER') {
+          } else if (role === 'owner') {
             setCurrentPage('owner-dashboard');
           } else {
-            setCurrentPage('app');
+            setCurrentPage('venues');
           }
         }}
         initialMode={authInitialMode}
@@ -406,7 +408,7 @@ const App: React.FC = () => {
   if (currentPage === 'booking-success') {
     return (
       <BookingSuccessPage 
-        onGoHome={() => setCurrentPage('app')}
+        onGoHome={() => setCurrentPage('venues')}
         onViewMyBookings={() => setCurrentPage('profile')}
       />
     );
@@ -415,7 +417,7 @@ const App: React.FC = () => {
   if (currentPage === 'profile') {
     return (
       <ProfilePage 
-        onGoHome={() => setCurrentPage('app')}
+        onGoHome={() => setCurrentPage('venues')}
         onFindCourts={() => setCurrentPage('venues')}
         onPageChange={(page) => setCurrentPage(page)}
         onLogoClick={handleLogoClick}
