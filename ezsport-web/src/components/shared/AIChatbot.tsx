@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CourtRecommendation {
-  id: number;
+  id: number | string;
   name: string;
   rating: number;
   location: string;
@@ -27,8 +27,8 @@ interface Message {
 
 interface AIChatbotProps {
   onDirectionsClick?: (lat: number, lng: number, name?: string) => void;
-  onDetailClick?: (id: number) => void;
-  onBookingClick?: (id: number) => void;
+  onDetailClick?: (id: number | string) => void;
+  onBookingClick?: (id: number | string) => void;
   onLocationFound?: (lat: number, lng: number, address?: string) => void;
   setCurrentPage?: (page: any) => void;
 }

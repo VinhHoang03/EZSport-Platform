@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, Button, Badge } from 'react-bootstrap';
 
 interface CourtCardProps {
-  id: number;
+  id: number | string;
   name: string;
   image: string;
   rating: number;
@@ -15,8 +15,8 @@ interface CourtCardProps {
   lng: number;
   sportType?: string;
   onDirectionsClick?: (lat: number, lng: number) => void;
-  onDetailClick?: (id: number) => void;
-  onBookingClick?: (id: number) => void;
+  onDetailClick?: (id: number | string) => void;
+  onBookingClick?: (id: number | string) => void;
   index?: number;
   layout?: 'vertical' | 'horizontal';
 }

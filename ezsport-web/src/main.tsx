@@ -6,19 +6,8 @@ import './index.css';
 import router from './app/router';
 import { AuthProvider } from './context/AuthContext';
 
-// Load Google Maps SDK dynamically
-const loadGoogleMaps = () => {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  if (!apiKey || document.querySelector('#google-maps-script')) return;
-  const script = document.createElement('script');
-  script.id = 'google-maps-script';
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-  script.async = true;
-  script.defer = true;
-  document.head.appendChild(script);
-};
-
-loadGoogleMaps();
+// Google Maps SDK is loaded via index.html (with language=vi&region=VN)
+// Do NOT load it again here to prevent duplicate custom element registration errors.
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

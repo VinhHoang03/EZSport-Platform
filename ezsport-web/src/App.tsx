@@ -37,7 +37,7 @@ const App: React.FC = () => {
 
   // Detect reset-password route from URL path — now handled by router
   const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'court-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
-  const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
+  const [selectedCourtId, setSelectedCourtId] = useState<number | string | null>(null);
 
   // Redirect on page change: if authenticated and on a guest-only page, send to the right home
   useEffect(() => {
@@ -47,7 +47,7 @@ const App: React.FC = () => {
       } else if (user?.role === 'owner') {
         setCurrentPage('owner-dashboard');
       } else {
-        setCurrentPage('venues');
+        setCurrentPage('app');
       }
     }
   }, [isAuthenticated, currentPage, user]);
@@ -63,7 +63,7 @@ const App: React.FC = () => {
     } else if (user?.role === 'owner') {
       setCurrentPage('owner-dashboard');
     } else {
-      setCurrentPage('venues');
+      setCurrentPage('app');
     }
   };
   const [sport, setSport] = useState('Pickleball');
@@ -81,7 +81,11 @@ const App: React.FC = () => {
   const fetchCourts = async () => {
     try {
       const response = await api.get('/courts');
-      setCourts(response.data.data);
+      const formattedCourts = response.data.data.map((court: any) => ({
+        ...court,
+        id: court._id, // Map MongoDB _id to frontend id
+      }));
+      setCourts(formattedCourts);
     } catch (error) {
       console.error('Error fetching courts:', error);
     }

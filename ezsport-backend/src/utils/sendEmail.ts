@@ -5,19 +5,21 @@ dotenv.config();
 const emailUser = process.env.EMAIL_USER;
 const emailPassword = process.env.EMAIL_PASSWORD?.replace(/\s/g, "");
 
-if (!emailUser || !emailPassword) {
-  throw new Error("Missing EMAIL_USER or EMAIL_PASSWORD environment variables for email transport");
-}
+let transporter: nodemailer.Transporter | null = null;
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // SSL
-  auth: {
-    user: emailUser,
-    pass: emailPassword,
-  },
-});
+if (!emailUser || !emailPassword) {
+  console.warn("WARNING: Missing EMAIL_USER or EMAIL_PASSWORD environment variables for email transport. Email sending is disabled.");
+} else {
+  transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true, // SSL
+    auth: {
+      user: emailUser,
+      pass: emailPassword,
+    },
+  });
+}
 
 interface EmailOptions {
   to: string;
@@ -32,6 +34,10 @@ interface EmailOptions {
 }
 
 export const sendEmail = async (options: EmailOptions) => {
+  if (!transporter) {
+    console.warn(`[SMTP Disabled] Would send email to: ${options.to}\nSubject: ${options.subject}\nContent: ${options.text || options.html}`);
+    return;
+  }
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_USER,

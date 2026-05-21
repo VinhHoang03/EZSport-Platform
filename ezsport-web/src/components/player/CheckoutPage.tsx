@@ -3,7 +3,7 @@ import { Container, Row, Col, Card, Form, Button, InputGroup, Badge } from 'reac
 import Navigation from '../shared/Navigation';
 
 interface CheckoutPageProps {
-  courtId: number;
+  courtId: number | string;
   onBackClick: () => void;
   onSuccessClick: () => void;
   onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;
