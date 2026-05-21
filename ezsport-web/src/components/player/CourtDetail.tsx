@@ -4,7 +4,7 @@ import Navigation from '../shared/Navigation';
 import Footer from '../shared/Footer';
 
 interface CourtDetailProps {
-  courtId: number;
+  courtId: number | string;
   onBackClick: () => void;
   onConfirmBooking?: (bookingDetails: any) => void;
   onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;

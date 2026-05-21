@@ -65,7 +65,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               const role = result.user.role;
               if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
               else if (role === 'owner') navigate(ROUTES.OWNER_DASHBOARD);
-              else navigate(ROUTES.VENUES);
+              else navigate(ROUTES.MAP);
             } catch (err: any) {
               setError(err.response?.data?.message || err.message || 'Đăng nhập bằng Google thất bại');
             } finally {
@@ -125,7 +125,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       } else {
         if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
         else if (role === 'owner') navigate(ROUTES.OWNER_DASHBOARD);
-        else navigate(ROUTES.VENUES);
+        else navigate(ROUTES.MAP);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Email hoặc mật khẩu không đúng');
@@ -414,23 +414,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
               {/* Social Logins */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '28px' }}>
-                <div ref={googleButtonRef} />
-                {!googleButtonRendered && (
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={loading || !googleReady}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                      background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px',
-                      padding: '11px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.02)', opacity: loading || !googleReady ? 0.65 : 1,
-                    }}
-                  >
-                    <img src="https://d261zod40n0w22.cloudfront.net/google-logo.svg" alt="Google" onError={(e) => { e.currentTarget.src = "https://www.gstatic.com/images/branding/product/1x/gsa_android_48dp.png" }} style={{ width: 16, height: 16 }} />
-                    Google
-                  </button>
-                )}
+                {/* Google button wrapper — always occupies column 1 */}
+                <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                  <div ref={googleButtonRef} style={{ width: '100%' }} />
+                  {!googleButtonRendered && (
+                    <button
+                      type="button"
+                      onClick={handleGoogleLogin}
+                      disabled={loading || !googleReady}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                        width: '100%',
+                        background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px',
+                        padding: '11px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)', opacity: loading || !googleReady ? 0.65 : 1,
+                      }}
+                    >
+                      <img src="https://d261zod40n0w22.cloudfront.net/google-logo.svg" alt="Google" onError={(e) => { e.currentTarget.src = "https://www.gstatic.com/images/branding/product/1x/gsa_android_48dp.png" }} style={{ width: 16, height: 16 }} />
+                      Google
+                    </button>
+                  )}
+                </div>
+                {/* Facebook button — always column 2 */}
                 <button style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                   background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px',

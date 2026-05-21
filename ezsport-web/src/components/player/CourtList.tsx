@@ -4,7 +4,7 @@ import CourtCard from '../ui/CourtCard';
 import FilterBar from './FilterBar';
 
 interface Court {
-  id: number;
+  id: number | string;
   name: string;
   image: string;
   rating: number;
@@ -24,8 +24,8 @@ interface CourtListProps {
   currentLocationName?: string;
   onFilterClick?: () => void;
   onDirectionsClick?: (lat: number, lng: number) => void;
-  onDetailClick?: (id: number) => void;
-  onBookingClick?: (id: number) => void;
+  onDetailClick?: (id: number | string) => void;
+  onBookingClick?: (id: number | string) => void;
 }
 
 const CourtList: React.FC<CourtListProps> = ({ 

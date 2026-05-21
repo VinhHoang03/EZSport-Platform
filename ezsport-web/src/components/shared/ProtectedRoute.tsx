@@ -18,7 +18,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
     // Redirect to correct home based on role
     if (user.role === 'admin') return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
     if (user.role === 'owner') return <Navigate to={ROUTES.OWNER_DASHBOARD} replace />;
-    return <Navigate to={ROUTES.VENUES} replace />;
+    return <Navigate to={ROUTES.MAP} replace />;
   }
 
   return <Outlet />;

@@ -51,13 +51,20 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ── Player ──
+  // ── Player: Map (App.tsx has its own full layout — no PlayerLayout wrapper) ──
+  {
+    element: <ProtectedRoute allowedRoles={['player']} />,
+    children: [
+      { path: ROUTES.MAP, element: s(MapPage) },
+    ],
+  },
+
+  // ── Player: Other pages (use PlayerLayout with shared Navigation) ──
   {
     element: <ProtectedRoute allowedRoles={['player']} />,
     children: [{
       element: <PlayerLayout />,
       children: [
-        { path: ROUTES.MAP,             element: s(MapPage) },
         { path: ROUTES.VENUES,          element: s(VenuesPage) },
         { path: ROUTES.COURT_DETAIL,    element: s(CourtDetailPage) },
         { path: ROUTES.CHECKOUT,        element: s(CheckoutPageWrapper) },

@@ -34,7 +34,7 @@ const createCustomIcon = (emoji: string, price: string) => {
 };
 
 interface CourtLocation {
-  id: number;
+  id: number | string;
   name: string;
   lat: number;
   lng: number;
@@ -89,11 +89,30 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   const handleLocate = () => {
     if (map) {
-      map.locate({ 
-        watch: true, 
-        enableHighAccuracy: true,
-        setView: false 
-      });
+      if (userLocation) {
+        map.flyTo([userLocation.lat, userLocation.lng], 15);
+      } else {
+        map.locate({ 
+          setView: true, 
+          maxZoom: 15
+        });
+        
+        // Trigger browser geolocation API as backup and auto center
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              if (onLocationFound) {
+                onLocationFound(lat, lng);
+              }
+              map.flyTo([lat, lng], 15);
+            },
+            (err) => console.warn('Geolocation error:', err),
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        }
+      }
     }
   };
 
@@ -236,16 +255,27 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
       {/* Floating Buttons */}
       <div 
-        className="position-absolute bottom-0 end-0 m-4 d-flex flex-column gap-3" 
-        style={{ zIndex: 1100, marginBottom: '40px' }}
+        className="position-fixed d-flex flex-column gap-3" 
+        style={{ 
+          zIndex: 9999, 
+          bottom: '180px', 
+          right: '24px' 
+        }}
       >
         <button
           onClick={handleLocate}
-          style={{ width: '56px', height: '56px', backgroundColor: 'white' }}
-          className="btn shadow-lg rounded-circle d-flex align-items-center justify-content-center border hover-bg-light transition-all"
+          style={{ 
+            width: '56px', 
+            height: '56px', 
+            backgroundColor: 'white', 
+            border: '2px solid #16a34a', 
+            boxShadow: '0 10px 25px -5px rgba(22, 163, 74, 0.3), 0 8px 10px -6px rgba(22, 163, 74, 0.3)',
+            cursor: 'pointer'
+          }}
+          className="btn rounded-circle d-flex align-items-center justify-content-center hover-bg-light transition-all"
           title="Vị trí của tôi"
         >
-          <span className="material-symbols-outlined text-success" style={{ fontSize: '30px' }}>my_location</span>
+          <span className="material-symbols-outlined" style={{ fontSize: '30px', color: '#16a34a', fontWeight: 'bold' }}>my_location</span>
         </button>
       </div>
     </div>

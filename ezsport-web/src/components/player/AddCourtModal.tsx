@@ -36,10 +36,11 @@ const AddCourtModal: React.FC<AddCourtModalProps> = ({ show, onHide, onSuccess }
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
 
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    image: 'https://images.unsplash.com/photo-1626224580194-49c84910e591?q=80&w=2070&auto=format&fit=crop',
     location: '',
     price: '300.000',
     lat: 16.0544,
@@ -127,7 +128,19 @@ const AddCourtModal: React.FC<AddCourtModalProps> = ({ show, onHide, onSuccess }
     setError(null);
 
     try {
-      await api.post('/courts', formData);
+      const submitData = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        submitData.append(key, value as any);
+      });
+      if (imageFile) {
+        submitData.append('image', imageFile);
+      } else {
+        submitData.append('image', 'https://images.unsplash.com/photo-1626224580194-49c84910e591?q=80&w=2070&auto=format&fit=crop');
+      }
+
+      await api.post('/courts', submitData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       onSuccess();
       onHide();
     } catch (err: any) {
@@ -155,6 +168,16 @@ const AddCourtModal: React.FC<AddCourtModalProps> = ({ show, onHide, onSuccess }
                   value={formData.name} 
                   onChange={handleChange} 
                   required 
+                  className="bg-light border-0 py-2 shadow-none"
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold text-muted">Hình ảnh sân</Form.Label>
+                <Form.Control 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e: any) => setImageFile(e.target.files?.[0] || null)}
                   className="bg-light border-0 py-2 shadow-none"
                 />
               </Form.Group>
