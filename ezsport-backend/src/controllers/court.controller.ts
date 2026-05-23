@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
+import { validationResult } from "express-validator";
 import Court from "../models/court.model";
 import { User } from "../models/user.model";
 import CheckIn from "../models/checkin.model";
 import { calculateDistance } from "../utils/distance.util";
+import { CourtService } from "../services/court.service";
 
 export const getCourts = async (req: Request, res: Response) => {
     try {
@@ -102,5 +104,102 @@ export const deleteCourt = async (req: Request, res: Response) => {
         res.status(200).json({ message: "Delete court success" });
     } catch (error: any) {
         res.status(400).json({ message: error.message });
+    }
+};
+
+/**
+ * AI gợi ý sân dựa trên prompt của người dùng
+ */
+export const suggestCourts = async (req: Request, res: Response) => {
+    try {
+        // Kiểm tra validation errors từ middleware
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                message: "Dữ liệu không hợp lệ",
+                errors: errors.array(),
+            });
+        }
+
+        const { prompt, userLat, userLng, maxDistance, limit } = req.body;
+
+        const result = await CourtService.suggestCourts({
+            prompt: prompt.trim(),
+            userLat: userLat ? parseFloat(userLat) : undefined,
+            userLng: userLng ? parseFloat(userLng) : undefined,
+            maxDistance: maxDistance ? parseFloat(maxDistance) : 10,
+            limit: limit ? parseInt(limit) : 5,
+        });
+
+        res.status(200).json({
+            message: "AI gợi ý sân thành công",
+            data: result,
+        });
+    } catch (error: any) {
+        console.error("Error in suggestCourts controller:", error);
+        res.status(500).json({ 
+            message: "Lỗi khi gợi ý sân",
+            error: error.message 
+        });
+    }
+};
+
+/**
+ * Tạo mô tả chi tiết cho sân bằng AI
+ */
+export const generateDescription = async (req: Request, res: Response) => {
+    try {
+        const id = req.params.id as string;
+
+        if (!id) {
+            return res.status(400).json({ message: "Thiếu ID sân" });
+        }
+
+        const description = await CourtService.generateCourtDescription(id);
+
+        // Cập nhật mô tả vào database
+        await Court.findByIdAndUpdate(id, { description });
+
+        res.status(200).json({
+            message: "Tạo mô tả thành công",
+            data: { description },
+        });
+    } catch (error: any) {
+        console.error("Error in generateDescription controller:", error);
+        res.status(500).json({ 
+            message: "Lỗi khi tạo mô tả",
+            error: error.message 
+        });
+    }
+};
+
+/**
+ * So sánh nhiều sân bằng AI
+ */
+export const compareCourts = async (req: Request, res: Response) => {
+    try {
+        // Kiểm tra validation errors từ middleware
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                message: "Dữ liệu không hợp lệ",
+                errors: errors.array(),
+            });
+        }
+
+        const { courtIds } = req.body;
+
+        const comparison = await CourtService.compareCourts(courtIds);
+
+        res.status(200).json({
+            message: "So sánh sân thành công",
+            data: { comparison },
+        });
+    } catch (error: any) {
+        console.error("Error in compareCourts controller:", error);
+        res.status(500).json({ 
+            message: "Lỗi khi so sánh sân",
+            error: error.message 
+        });
     }
 };
