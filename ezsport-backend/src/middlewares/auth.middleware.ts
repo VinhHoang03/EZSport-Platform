@@ -19,7 +19,11 @@ declare module "express-serve-static-core" {
 }
 
 export function verifyToken(req: Request, res: Response, next: NextFunction): void {
-  const token = req.cookies?.accessToken as string | undefined;
+  // Hỗ trợ cả cookie và Authorization Bearer header
+  const cookieToken = req.cookies?.accessToken as string | undefined;
+  const authHeader = req.headers?.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+  const token = cookieToken || bearerToken;
 
   if (!token) {
     res.status(401).json({ message: "Không có token" });
