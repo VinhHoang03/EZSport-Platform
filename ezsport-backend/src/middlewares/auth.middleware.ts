@@ -19,12 +19,14 @@ declare module "express-serve-static-core" {
 }
 
 export function verifyToken(req: Request, res: Response, next: NextFunction): void {
-  const token = req.cookies?.accessToken as string | undefined;
+  const authHeader = req.headers.authorization;
 
-  if (!token) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({ message: "Không có token" });
     return;
   }
+
+  const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as AuthPayload;
