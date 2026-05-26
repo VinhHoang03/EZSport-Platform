@@ -12,9 +12,9 @@ import {
 export const login = async (req: Request, res: Response) => {
   try {
 
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    const result = await loginService(email, password);
+    const result = await loginService(username, password);
 
     res.status(200).json({
       message: "Login success",
@@ -54,6 +54,7 @@ export const register = async (req: Request, res: Response) => {
     const data = registerSchema.parse(req.body);
 
     const user = await registerService(
+      data.username,
       data.email,
       data.password,
       data.fullName,

@@ -3,14 +3,14 @@ import { Container, Row, Col, Card, Form, Button, InputGroup, Badge } from 'reac
 import Navigation from '../shared/Navigation';
 
 interface CheckoutPageProps {
-  courtId: number | string;
+  venueId: number | string;
   onBackClick: () => void;
   onSuccessClick: () => void;
   onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;
   onLogoClick?: () => void;
 }
 
-export const CheckoutPage: React.FC<CheckoutPageProps> = ({ courtId: _courtId, onBackClick, onSuccessClick, onPageChange, onLogoClick }) => {
+export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, onBackClick, onSuccessClick, onPageChange, onLogoClick }) => {
   const [usePoints, setUsePoints] = useState<boolean>(true);
   const [voucherCode, setVoucherCode] = useState<string>('EZSPORT50');
   const [appliedVoucher, setAppliedVoucher] = useState<boolean>(true);
@@ -29,7 +29,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ courtId: _courtId, o
 
   // Booking details mock
   const booking = {
-    courtName: 'EZSport Arena Central',
+    venueName: 'EZSport Arena Central',
     sport: 'CẦU LÔNG',
     address: '81C Lê Văn Hiến, Ngũ Hành Sơn, Đà Nẵng',
     image: '/images/badminton.png',
@@ -104,7 +104,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ courtId: _courtId, o
                   <div>
                     <div className="d-flex align-items-center gap-2 mb-1.5 flex-wrap">
                       <h6 className="fw-extrabold text-dark m-0" style={{ fontSize: '16.5px', fontWeight: 800 }}>
-                        {booking.courtName}
+                        {booking.venueName}
                       </h6>
                       <Badge className="rounded-pill px-2.5 py-1 text-uppercase fw-bold border-0" style={{ fontSize: '9px', backgroundColor: '#dcfce7', color: '#15803d' }}>
                         {booking.sport}

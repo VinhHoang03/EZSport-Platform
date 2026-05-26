@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row } from 'react-bootstrap';
-import CourtList from '../../components/player/CourtList';
-import LeftFilterSidebar from '../../components/player/LeftFilterSidebar';
-import MapComponent from '../../components/shared/MapComponent';
-import api from '../../api/api';
+import CourtList from '../../../components/player/VenueList';
+import LeftFilterSidebar from '../../../components/player/LeftFilterSidebar';
+import MapComponent from '../../../components/shared/MapComponent';
+import api from '../../../api/api';
 
 interface Court {
   id: string;
@@ -39,7 +39,7 @@ const VenuesPage: React.FC = () => {
   useEffect(() => {
     const fetchCourts = async () => {
       try {
-        const response = await api.get('/courts');
+        const response = await api.get('/venues');
         const formatted: Court[] = response.data.data.map((court: any) => ({
           ...court,
           id: court._id,
@@ -124,7 +124,7 @@ const VenuesPage: React.FC = () => {
             layout="horizontal"
             currentLocationName="Đà Nẵng, Việt Nam"
             onDetailClick={(id) => navigate(`/venues/${id}`)}
-            onBookingClick={(id) => navigate(`/venues/${id}/checkout`)}
+            onBookingClick={(id) => navigate(`/booking/${id}`)}
             onDirectionsClick={() => {}}
           />
           <div className="col-md-5 h-100 position-relative bg-light">

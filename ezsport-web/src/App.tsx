@@ -3,19 +3,19 @@ import { Container, Row, Col, Button } from 'react-bootstrap';
 import SearchBar from './components/shared/SearchBar';
 import MapComponent from './components/shared/MapComponent';
 import Navigation from './components/shared/Navigation';
-import CourtList from './components/player/CourtList';
+import VenueList from './components/player/VenueList';
+
 import LeftFilterSidebar from './components/player/LeftFilterSidebar';
 import NavigationPanel from './components/shared/NavigationPanel';
 import api from './api/api';
-import AddCourtModal from './components/player/AddCourtModal';
 import { LandingPage } from './components/shared/LandingPage';
 import { AuthPage } from './components/auth/AuthPage';
 import { useAuth } from './context/AuthContext';
-import { CourtDetail } from './components/player/CourtDetail';
+import { VenueDetail } from './components/player/VenueDetail';
 import { CheckoutPage } from './components/player/CheckoutPage';
 import { BookingSuccessPage } from './components/player/BookingSuccessPage';
 import { ProfilePage } from './components/player/ProfilePage';
-import { OwnerDashboard } from './components/owner/OwnerDashboard';
+import { OwnerPage } from './pages/owner/OwnerPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { PlaymatesPage } from './components/player/PlaymatesPage';
 import { AIChatbot } from './components/shared/AIChatbot';
@@ -32,14 +32,60 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return (R * c).toFixed(1);
 };
 
+interface Venue {
+  _id: string;
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  location: string;
+  distance?: string;
+  price: string;
+  emoji: string;
+  active: boolean;
+  trending: boolean;
+  sportType?: string;
+  lat: number;
+  lng: number;
+}
+
+interface BackendVenue {
+  _id: string;
+  name: string;
+  image?: string;
+  rating?: number;
+  location?: string;
+  distance?: string;
+  price?: string;
+  emoji?: string;
+  isActive?: boolean;
+  trending?: boolean;
+  sportType?: string;
+  lat: number;
+  lng: number;
+}
+
+type ApiError = {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+};
+
+const isApiError = (value: unknown): value is ApiError => {
+  return typeof value === 'object' && value !== null && 'response' in value;
+};
+
 const App: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
 
   // Detect reset-password route from URL path — now handled by router
-  const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'court-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
-  const [selectedCourtId, setSelectedCourtId] = useState<number | string | null>(null);
+  const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'venue-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
+  const [selectedVenueId, setSelectedVenueId] = useState<number | string | null>(null);
 
   // Redirect on page change: if authenticated and on a guest-only page, send to the right home
+  // Redirect from public pages to the proper authenticated home page.
   useEffect(() => {
     if (isAuthenticated && (currentPage === 'landing' || currentPage === 'auth')) {
       if (user?.role === 'admin') {
@@ -75,24 +121,36 @@ const App: React.FC = () => {
   const [destinationName, setDestinationName] = useState('');
   const [navMinimized, setNavMinimized] = useState(false); // navigation panel minimized state
 
-  const [courts, setCourts] = useState<any[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [venues, setVenues] = useState<Venue[]>([]);
 
-  const fetchCourts = async () => {
+  const fetchVenues = async () => {
     try {
-      const response = await api.get('/courts');
-      const formattedCourts = response.data.data.map((court: any) => ({
-        ...court,
-        id: court._id, // Map MongoDB _id to frontend id
+      const response = await api.get('/venues');
+      const responseData = response.data.data as BackendVenue[];
+      const formattedVenues: Venue[] = responseData.map((venue) => ({
+        _id: venue._id,
+        id: venue._id,
+        name: venue.name,
+        image: venue.image ?? '',
+        rating: venue.rating ?? 0,
+        location: venue.location ?? 'Unknown location',
+        distance: venue.distance,
+        price: venue.price ?? '0đ',
+        emoji: venue.emoji ?? '🏓',
+        active: venue.isActive ?? true,
+        trending: venue.trending ?? false,
+        sportType: venue.sportType,
+        lat: venue.lat,
+        lng: venue.lng,
       }));
-      setCourts(formattedCourts);
-    } catch (error) {
-      console.error('Error fetching courts:', error);
+      setVenues(formattedVenues);
+    } catch (error: unknown) {
+      console.error('Error fetching venues:', error);
     }
   };
 
   useEffect(() => {
-    fetchCourts();
+    fetchVenues();
   }, []);
 
   const handleDirections = useCallback((lat: number, lng: number, name?: string) => {
@@ -135,28 +193,31 @@ const App: React.FC = () => {
     if (!routingDestination || !userLocation) return;
 
     // Tìm ID của sân đang dẫn đường
-    const currentCourt = processedCourts.find(c => c.lat === routingDestination.lat && c.lng === routingDestination.lng);
-    if (!currentCourt) return;
+    const currentVenue = processedVenues.find(v => v.lat === routingDestination.lat && v.lng === routingDestination.lng);
+    if (!currentVenue) return;
 
     try {
-      const response = await api.post(`/courts/${currentCourt._id}/check-in`, {
+      const response = await api.post(`/venues/${currentVenue._id}/check-in`, {
         userLat: userLocation.lat,
         userLng: userLocation.lng
       });
 
       alert(`🎉 Chúc mừng! Bạn đã nhận được ${response.data.pointsEarned} điểm tích lũy.\nTổng điểm hiện tại: ${response.data.totalPoints}`);
       handleClearRoute();
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Có lỗi xảy ra khi check-in');
+    } catch (error: unknown) {
+      const message = isApiError(error) && typeof error.response?.data?.message === 'string'
+        ? error.response.data.message
+        : 'Có lỗi xảy ra khi check-in';
+      alert(message);
     }
   };
 
   // Calculate dynamic distances based on user location
-  const processedCourts = courts.map(court => ({
-    ...court,
+  const processedVenues = venues.map(venue => ({
+    ...venue,
     distance: userLocation
-      ? `${calculateDistance(userLocation.lat, userLocation.lng, court.lat, court.lng)} km`
-      : (court.distance || '0.0 km'),
+      ? `${calculateDistance(userLocation.lat, userLocation.lng, venue.lat, venue.lng)} km`
+      : (venue.distance || '0.0 km'),
   }));
 
   // States for Left Filter Sidebar
@@ -168,10 +229,10 @@ const App: React.FC = () => {
   const [minRating, setMinRating] = useState<number>(4); // default 4 stars
 
   // Apply all vertical filters dynamically
-  const filteredCourts = processedCourts.filter(court => {
+  const filteredVenues = processedVenues.filter(venue => {
     // 1. Filter by Sport Type
     if (selectedSports.length > 0) {
-      const lowerSport = (court.sportType || '').toLowerCase();
+      const lowerSport = (venue.sportType || '').toLowerCase();
       const match = selectedSports.some(sportVal => {
         const lowerVal = sportVal.toLowerCase();
         return lowerSport.includes(lowerVal) || 
@@ -183,17 +244,17 @@ const App: React.FC = () => {
 
     // 2. Filter by Distance
     if (userLocation) {
-      const dist = parseFloat(calculateDistance(userLocation.lat, userLocation.lng, court.lat, court.lng));
+      const dist = parseFloat(calculateDistance(userLocation.lat, userLocation.lng, venue.lat, venue.lng));
       if (dist > maxDistance) return false;
     }
 
     // 3. Filter by Price Min / Max
-    const priceNum = parseInt((court.price || '').replace(/[^0-9]/g, ''), 10) || 0;
+    const priceNum = parseInt((venue.price || '').replace(/[^0-9]/g, ''), 10) || 0;
     if (priceMin && priceNum < parseInt(priceMin, 10)) return false;
     if (priceMax && priceNum > parseInt(priceMax, 10)) return false;
 
     // 4. Filter by Rating
-    if (court.rating < minRating) return false;
+    if ((venue.rating ?? 0) < minRating) return false;
 
     return true;
   });
@@ -214,7 +275,7 @@ const App: React.FC = () => {
           setAuthInitialAccountType('owner');
           setCurrentPage('auth');
         }}
-        courts={courts}
+        venues={venues}
       />
     );
   }
@@ -246,7 +307,6 @@ const App: React.FC = () => {
         
         {/* Shared Top Navigation Header */}
         <Navigation 
-          onAddCourtClick={() => setShowAddModal(true)} 
           onLogoClick={handleLogoClick} 
           onLoginClick={() => {
             setAuthInitialMode('login');
@@ -306,20 +366,20 @@ const App: React.FC = () => {
               <Row className="h-100 g-0">
                 
                 {/* Cột giữa: Results List */}
-                <CourtList
-                  courts={filteredCourts}
+                <VenueList
+                  venues={filteredVenues}
                   layout="horizontal"
                   currentLocationName={location}
                   onDirectionsClick={(lat, lng) => {
-                    const court = processedCourts.find(c => c.lat === lat && c.lng === lng);
-                    handleDirections(lat, lng, court?.name);
+                    const venue = processedVenues.find(v => v.lat === lat && v.lng === lng);
+                    handleDirections(lat, lng, venue?.name);
                   }}
                   onDetailClick={(id) => {
-                    setSelectedCourtId(id);
-                    setCurrentPage('court-detail');
+                    setSelectedVenueId(id);
+                    setCurrentPage('venue-detail');
                   }}
                   onBookingClick={(id) => {
-                    setSelectedCourtId(id);
+                    setSelectedVenueId(id);
                     setCurrentPage('checkout');
                   }}
                 />
@@ -328,15 +388,15 @@ const App: React.FC = () => {
                 <Col md={5} className="h-100 position-relative bg-light">
                   <div className="position-absolute h-100 w-100">
                     <MapComponent
-                      courts={filteredCourts}
+                      venues={filteredVenues}
                       onLocationFound={handleLocationSelect}
                       userLocation={userLocation}
                       routingDestination={routingDestination}
                       routeSummary={routeSummary}
                       onClearRoute={handleClearRoute}
                       onDirectionsClick={(lat, lng) => {
-                        const court = processedCourts.find(c => c.lat === lat && c.lng === lng);
-                        handleDirections(lat, lng, court?.name);
+                        const venue = processedVenues.find(v => v.lat === lat && v.lng === lng);
+                        handleDirections(lat, lng, venue?.name);
                       }}
                       onRouteInfo={handleRouteInfo}
                       isNavigating={isNavigating}
@@ -371,11 +431,11 @@ const App: React.FC = () => {
         <AIChatbot
           onDirectionsClick={handleDirections}
           onDetailClick={(id) => {
-            setSelectedCourtId(id);
-            setCurrentPage('court-detail');
+            setSelectedVenueId(id);
+            setCurrentPage('venue-detail');
           }}
           onBookingClick={(id) => {
-            setSelectedCourtId(id);
+            setSelectedVenueId(id);
             setCurrentPage('checkout');
           }}
           onLocationFound={handleLocationSelect}
@@ -385,10 +445,10 @@ const App: React.FC = () => {
     );
   }
 
-  if (currentPage === 'court-detail') {
+  if (currentPage === 'venue-detail') {
     return (
-      <CourtDetail 
-        courtId={selectedCourtId || 1} 
+      <VenueDetail 
+        venueId={selectedVenueId || 1} 
         onBackClick={() => setCurrentPage('venues')} 
         onConfirmBooking={() => setCurrentPage('checkout')}
         onPageChange={(page) => setCurrentPage(page)}
@@ -400,8 +460,8 @@ const App: React.FC = () => {
   if (currentPage === 'checkout') {
     return (
       <CheckoutPage 
-        courtId={selectedCourtId || 1} 
-        onBackClick={() => setCurrentPage('court-detail')} 
+        venueId={selectedVenueId || 1} 
+        onBackClick={() => setCurrentPage('venue-detail')} 
         onSuccessClick={() => setCurrentPage('booking-success')}
         onPageChange={(page) => setCurrentPage(page)}
         onLogoClick={handleLogoClick}
@@ -422,7 +482,7 @@ const App: React.FC = () => {
     return (
       <ProfilePage 
         onGoHome={() => setCurrentPage('venues')}
-        onFindCourts={() => setCurrentPage('venues')}
+        onFindVenues={() => setCurrentPage('venues')}
         onPageChange={(page) => setCurrentPage(page)}
         onLogoClick={handleLogoClick}
       />
@@ -440,7 +500,7 @@ const App: React.FC = () => {
 
   if (currentPage === 'owner-dashboard') {
     return (
-      <OwnerDashboard 
+      <OwnerPage 
         onGoHome={() => setCurrentPage('landing')}
       />
     );
@@ -458,7 +518,6 @@ const App: React.FC = () => {
   return (
     <div className="vh-100 d-flex flex-column bg-white">
       <Navigation 
-        onAddCourtClick={() => setShowAddModal(true)} 
         onLogoClick={handleLogoClick} 
         onLoginClick={() => {
           setAuthInitialMode('login');
@@ -477,21 +536,21 @@ const App: React.FC = () => {
       <Container fluid className="flex-grow-1 overflow-hidden p-0">
         <Row className="h-100 g-0">
           {currentPage === 'app' && !isNavigating && (
-            <CourtList
-              courts={processedCourts}
+            <VenueList
+              venues={processedVenues}
               layout="vertical"
               currentLocationName={location}
               onFilterClick={() => setCurrentPage('venues')} // Click "Bộ lọc" goes to Venues discovery page!
               onDirectionsClick={(lat, lng) => {
-                const court = processedCourts.find(c => c.lat === lat && c.lng === lng);
-                handleDirections(lat, lng, court?.name);
+                const venue = processedVenues.find(v => v.lat === lat && v.lng === lng);
+                handleDirections(lat, lng, venue?.name);
               }}
               onDetailClick={(id) => {
-                setSelectedCourtId(id);
-                setCurrentPage('court-detail');
+                setSelectedVenueId(id);
+                setCurrentPage('venue-detail');
               }}
               onBookingClick={(id) => {
-                setSelectedCourtId(id);
+                setSelectedVenueId(id);
                 setCurrentPage('checkout');
               }}
             />
@@ -505,15 +564,15 @@ const App: React.FC = () => {
           >
             <div className="position-absolute h-100 w-100">
               <MapComponent
-                courts={processedCourts}
+                venues={processedVenues}
                 onLocationFound={handleLocationSelect}
                 userLocation={userLocation}
                 routingDestination={routingDestination}
                 routeSummary={routeSummary}
                 onClearRoute={handleClearRoute}
                 onDirectionsClick={(lat, lng) => {
-                  const court = processedCourts.find(c => c.lat === lat && c.lng === lng);
-                  handleDirections(lat, lng, court?.name);
+                  const venue = processedVenues.find(v => v.lat === lat && v.lng === lng);
+                  handleDirections(lat, lng, venue?.name);
                 }}
                 onRouteInfo={handleRouteInfo}
                 isNavigating={isNavigating}
@@ -574,20 +633,14 @@ const App: React.FC = () => {
         </Row>
       </Container>
 
-      <AddCourtModal
-        show={showAddModal}
-        onHide={() => setShowAddModal(false)}
-        onSuccess={fetchCourts}
-      />
-
       <AIChatbot
         onDirectionsClick={handleDirections}
         onDetailClick={(id) => {
-          setSelectedCourtId(id);
-          setCurrentPage('court-detail');
+          setSelectedVenueId(id);
+          setCurrentPage('venue-detail');
         }}
         onBookingClick={(id) => {
-          setSelectedCourtId(id);
+          setSelectedVenueId(id);
           setCurrentPage('checkout');
         }}
         onLocationFound={handleLocationSelect}

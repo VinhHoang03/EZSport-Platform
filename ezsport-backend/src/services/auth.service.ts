@@ -76,24 +76,27 @@ class AuthService {
   }
 
   async register({
+    username,
     email,
     password,
     fullName,
     phone,
     role,
   }: {
-    email: string;
+    username: string;
+    email?: string;
     password: string;
     fullName: string;
     phone?: string;
     role?: string;
   }) {
-    const existing = await User.findOne({ email });
-    if (existing) throw new Error("Email đã tồn tại");
+    const existing = await User.findOne({ username });
+    if (existing) throw new Error("Username đã tồn tại");
 
     const hashed = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
+      username,
       fullName,
       email,
       password: hashed,
@@ -104,6 +107,7 @@ class AuthService {
     return {
       user: {
         _id: newUser.id,
+        username: newUser.username,
         email: newUser.email,
         fullName: newUser.fullName,
         phone: newUser.phone,
@@ -112,8 +116,8 @@ class AuthService {
     };
   }
 
-  async login({ email, password }: { email: string; password: string }) {
-    const user = await User.findOne({ email });
+  async login({ username, password }: { username: string; password: string }) {
+    const user = await User.findOne({ username });
     if (!user || !user.password) throw new Error("Không tìm thấy tài khoản");
 
     if (user.status === UserStatus.BANNED) {
@@ -135,6 +139,7 @@ class AuthService {
     return {
       user: {
         _id: user.id,
+        username: user.username,
         email: user.email,
         fullName: user.fullName,
         avatar: user.avatar,
@@ -159,7 +164,9 @@ class AuthService {
 
     let user = await User.findOne({ email });
     if (!user) {
+      
       user = await User.create({
+        username: email.split('@')[0],
         fullName: name || email.split('@')[0],
         email,
         password: '',
@@ -185,6 +192,7 @@ class AuthService {
     return {
       user: {
         _id: user.id,
+        username: user.username,
         email: user.email,
         fullName: user.fullName,
         avatar: user.avatar,
@@ -249,18 +257,19 @@ const AuthServiceInstance = new AuthService();
 export default AuthServiceInstance;
 
 // Named exports for controller compatibility
-export const loginService = async (email: string, password: string) => {
-  return await AuthServiceInstance.login({ email, password });
+export const loginService = async (username: string, password: string) => {
+  return await AuthServiceInstance.login({ username, password });
 };
 
 export const registerService = async (
-  email: string,
+  username: string,
+  email: string | undefined,
   password: string,
   fullName: string,
   phone?: string,
   role?: string
 ) => {
-  return await AuthServiceInstance.register({ email, password, fullName, phone, role });
+  return await AuthServiceInstance.register({ username, email, password, fullName, phone, role });
 };
 
 export const forgotPasswordService = async (email: string) => {

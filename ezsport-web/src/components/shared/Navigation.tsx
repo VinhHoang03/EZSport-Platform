@@ -56,7 +56,7 @@ const Navigation: React.FC<NavigationProps> = ({
           <Nav className="me-auto d-none d-md-flex gap-4 ms-5 align-items-center" style={{ fontSize: '17px', fontWeight: 700 }}>
             {user?.role === 'owner' ? (
               <>
-                <Nav.Link 
+                {/* <Nav.Link 
                   onClick={() => onPageChange?.('owner-dashboard')} 
                   className={currentPage === 'owner-dashboard' ? "text-success pb-1" : "text-secondary hover-text-dark"}
                   style={{ cursor: 'pointer', color: currentPage === 'owner-dashboard' ? '#1a6b3c !important' : '', borderBottom: currentPage === 'owner-dashboard' ? '2.5px solid #1a6b3c' : '' }}
@@ -66,7 +66,7 @@ const Navigation: React.FC<NavigationProps> = ({
                 <Nav.Link onClick={onAddCourtClick} className="text-success fw-bold cursor-pointer d-flex align-items-center gap-1 hover-scale" style={{ color: '#1a6b3c !important' }}>
                   <span className="material-symbols-outlined fs-5">add_circle</span>
                   Thêm sân
-                </Nav.Link>
+                </Nav.Link> */}
               </>
             ) : user?.role === 'admin' ? (
               <>

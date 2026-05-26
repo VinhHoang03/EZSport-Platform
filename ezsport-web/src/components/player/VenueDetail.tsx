@@ -1,72 +1,128 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Button, Badge, Form, Card } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Button, Badge, Card, Spinner } from 'react-bootstrap';
 import Navigation from '../shared/Navigation';
 import Footer from '../shared/Footer';
+import SlotPicker from './SlotPicker';
+import { venueService, type Venue } from '../../services/venue.service';
 
-interface CourtDetailProps {
-  courtId: number | string;
+type BookingDetails = {
+  venueId: number | string;
+  slot?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+    basePrice: number;
+  };
+};
+
+interface VenueDetailProps {
+  venueId: number | string;
   onBackClick: () => void;
-  onConfirmBooking?: (bookingDetails: any) => void;
+  onConfirmBooking?: (bookingDetails: BookingDetails) => void;
   onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;
   onLogoClick?: () => void;
+  venueData?: Venue | null;
+  venueLoading?: boolean;
 }
 
-export const CourtDetail: React.FC<CourtDetailProps> = ({ courtId, onBackClick, onConfirmBooking, onPageChange, onLogoClick }) => {
-  const [selectedDate, setSelectedDate] = useState<number>(18); // default MON 18
-  const [selectedTime, setSelectedTime] = useState<string>('09:00');
-  const [duration, setDuration] = useState<string>('2 Giờ');
+export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, onConfirmBooking, onPageChange, onLogoClick, venueData: externalVenueData, venueLoading: externalVenueLoading }) => {
   const [isLiked, setIsLiked] = useState<boolean>(false);
+  const [internalVenueData, setInternalVenueData] = useState<Venue | null>(null);
+  const [internalLoading, setInternalLoading] = useState<boolean>(!externalVenueData && !!venueId);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const venueData = externalVenueData ?? internalVenueData;
+  const loading = externalVenueLoading ?? internalLoading;
 
-  // Mock data for EZSport Arena Central (ID: 1)
+  useEffect(() => {
+    if (externalVenueData || !venueId) {
+      return;
+    }
+
+    let isCanceled = false;
+    setInternalLoading(true);
+    setFetchError(null);
+
+    venueService
+      .getVenueById(String(venueId))
+      .then((data) => {
+        if (!isCanceled) {
+          setInternalVenueData(data);
+        }
+      })
+      .catch((err) => {
+        if (!isCanceled) {
+          console.error('[VenueDetail] Failed to fetch venue:', err?.response?.status, err?.message);
+          setFetchError(err?.message || 'Không thể tải thông tin sân');
+          setInternalVenueData(null);
+        }
+      })
+      .finally(() => {
+        if (!isCanceled) {
+          setInternalLoading(false);
+        }
+      });
+
+    return () => {
+      isCanceled = true;
+    };
+  }, [venueId, externalVenueData]);
+
+  // Use pricePerHour directly from model (numeric), fallback parse from price string
+  const pricePerHour = venueData?.pricePerHour
+    ?? (() => {
+        if (!venueData?.price) return 180000;
+        const raw = venueData.price.replace(/[^0-9]/g, '');
+        const num = parseInt(raw, 10);
+        return num < 10000 ? num * 1000 : num;
+      })();
+
+  const formatVND = (n: number) => n.toLocaleString('vi-VN') + 'đ';
+
+  // Use real API data if available, otherwise fallback to mock
   const venue = {
-    name: 'EZSport Arena Central',
-    location: '81C Lê Văn Hiến, Ngũ Hành Sơn, Đà Nẵng',
-    rating: 4.9,
-    reviewsCount: 1128,
-    price: 180,
-    openHours: '06:00 - 22:00',
-    sports: ['PICKLEBALL', 'CẦU LÔNG'],
-    description:
-      'Chào mừng bạn đến với EZSport Arena Central, điểm đến thể thao hàng đầu tại Đà Nẵng. Cơ sở của chúng tôi cung cấp các sân đấu trong nhà đẳng cấp quốc tế được thiết kế đặc biệt cho Pickleball và Cầu lông hiệu suất cao. Với hệ thống chiếu sáng đạt chuẩn thi đấu và mặt sàn tiêu chuẩn Olympic, chúng tôi mang đến môi trường không thể tuyệt vời hơn cho cả vận động viên chuyên nghiệp lẫn người chơi phong trào.\n\nVị trí trung tâm giúp chúng tôi trở thành điểm đến hoàn hảo cho các buổi tập sáng sớm, các trận đấu giờ nghỉ trưa hay các giải đấu buổi tối. Đội ngũ nhân viên chuyên nghiệp của chúng tôi luôn tận tâm đảm bảo trải nghiệm của bạn luôn mượt mà, từ lúc nhận sân cho đến lúc nghỉ ngơi tại khu vực phòng chờ cao cấp.',
-    amenities: [
-      { name: 'Bãi đậu xe miễn phí', icon: 'local_parking' },
-      { name: 'Tủ đồ & Phòng tắm', icon: 'shower' },
-      { name: 'Wi-Fi miễn phí', icon: 'wifi' },
-      { name: 'Cà phê thể thao', icon: 'local_cafe' }
-    ]
+    name: venueData?.name ?? 'EZSport Arena Central',
+    location: venueData?.location ?? '81C Lê Văn Hiến, Ngũ Hành Sơn, Đà Nẵng',
+    rating: venueData?.rating ?? 4.9,
+    reviewsCount: venueData?.reviewsCount ?? 1128,
+    price: venueData?.pricePerHour ?? 180000,
+    openHours: venueData ? `${venueData.openTime} - ${venueData.closeTime}` : '06:00 - 22:00',
+    sports: venueData?.sportTypes?.length
+      ? venueData.sportTypes.map(s => s.toUpperCase())
+      : ['PICKLEBALL', 'CẦU LÔNG'],
+    description: venueData?.description ?? 'Chào mừng bạn đến với EZSport Arena Central, điểm đến thể thao hàng đầu tại Đà Nẵng. Cơ sở của chúng tôi cung cấp các sân đấu trong nhà đẳng cấp quốc tế được thiết kế đặc biệt cho Pickleball và Cầu lông hiệu suất cao. Với hệ thống chiếu sáng đạt chuẩn thi đấu và mặt sàn tiêu chuẩn Olympic, chúng tôi mang đến môi trường không thể tuyệt vời hơn cho cả vận động viên chuyên nghiệp lẫn người chơi phong trào.\n\nVị trí trung tâm giúp chúng tôi trở thành điểm đến hoàn hảo cho các buổi tập sáng sớm, các trận đấu giờ nghỉ trưa hay các giải đấu buổi tối. Đội ngũ nhân viên chuyên nghiệp của chúng tôi luôn tận tâm đảm bảo trải nghiệm của bạn luôn mượt mà, từ lúc nhận sân cho đến lúc nghỉ ngơi tại khu vực phòng chờ cao cấp.',
+    image: venueData?.image ?? '/images/pickleball.png',
+    amenities: (venueData?.amenities?.filter(a => a.available) ?? []).length
+      ? (venueData?.amenities ?? []).filter(a => a.available).map(a => ({ name: a.label, icon: a.icon }))
+      : [
+          { name: 'Bãi đậu xe miễn phí', icon: 'local_parking' },
+          { name: 'Tủ đồ & Phòng tắm', icon: 'shower' },
+          { name: 'Wi-Fi miễn phí', icon: 'wifi' },
+          { name: 'Cà phê thể thao', icon: 'local_cafe' },
+        ],
   };
 
-  const dates = [
-    { day: 'MON', num: 18 },
-    { day: 'TUE', num: 19 },
-    { day: 'WED', num: 20 },
-    { day: 'THU', num: 21 },
-    { day: 'FRI', num: 22 }
-  ];
-
-  const timeSlots = [
-    { time: '07:00', disabled: true },
-    { time: '08:00', disabled: false },
-    { time: '09:00', disabled: false },
-    { time: '10:00', disabled: true },
-    { time: '11:00', disabled: true },
-    { time: '12:00', disabled: true },
-    { time: '13:00', disabled: false },
-    { time: '14:00', disabled: false },
-    { time: '15:00', disabled: false }
-  ];
+  // Show loading spinner while fetching
+  if (loading) {
+    return (
+      <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <Navigation currentPage="venues" onLogoClick={onLogoClick || onBackClick} onPageChange={onPageChange || onBackClick} />
+        <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+          <Spinner variant="success" />
+        </div>
+      </div>
+    );
+  }
 
   const handleBooking = () => {
     if (onConfirmBooking) {
-      onConfirmBooking({
-        courtId,
-        date: `2026-05-${selectedDate}`,
-        time: selectedTime,
-        duration,
-        totalPrice: 375000
-      });
-    } else {
-      alert(`Đặt sân thành công!\nSân: ${venue.name}\nNgày: Thứ Hai, ngày ${selectedDate}/05/2026\nGiờ: ${selectedTime} (${duration})\nTổng cộng: 375.000đ`);
+      onConfirmBooking({ venueId });
+    }
+  };
+
+  const handleSlotSelect = (slot: { date: string; startTime: string; endTime: string; duration: number; basePrice: number }) => {
+    if (onConfirmBooking) {
+      onConfirmBooking({ venueId, slot });
     }
   };
 
@@ -82,6 +138,12 @@ export const CourtDetail: React.FC<CourtDetailProps> = ({ courtId, onBackClick, 
       {/* Main Content Area */}
       <div className="overflow-auto flex-grow-1 py-4">
         <Container>
+
+          {fetchError && (
+            <div className="alert alert-warning mb-4" style={{ fontSize: '13px' }}>
+              ⚠️ Không thể tải dữ liệu sân. Đang hiển thị nội dung dự phòng.
+            </div>
+          )}
 
           {/* Back Button */}
           <Button
@@ -103,7 +165,7 @@ export const CourtDetail: React.FC<CourtDetailProps> = ({ courtId, onBackClick, 
                 style={{ height: '450px', borderRadius: '24px' }}
               >
                 <img
-                  src="/images/pickleball.png"
+                  src={venue.image}
                   alt="Main Arena"
                   className="w-100 h-100 object-fit-cover"
                 />
@@ -149,7 +211,7 @@ export const CourtDetail: React.FC<CourtDetailProps> = ({ courtId, onBackClick, 
                   <div className="overflow-hidden shadow-sm" style={{ height: '217px', borderRadius: '18px' }}>
                     <img
                       src="/images/badminton.png"
-                      alt="Court view 1"
+                      alt="Venue view 1"
                       className="w-100 h-100 object-fit-cover hover-scale"
                     />
                   </div>
@@ -478,7 +540,7 @@ export const CourtDetail: React.FC<CourtDetailProps> = ({ courtId, onBackClick, 
                           BẮT ĐẦU TỪ
                         </span>
                         <span className="fw-extrabold text-success fs-3" style={{ color: '#1a6b3c', fontWeight: 900 }}>
-                          {venue.price}k<span className="text-muted fw-normal" style={{ fontSize: '14px' }}>/ giờ</span>
+                          {formatVND(pricePerHour)}<span className="text-muted fw-normal" style={{ fontSize: '14px' }}>/ giờ</span>
                         </span>
                       </div>
                       <Badge className="bg-light text-dark border py-2 px-3 rounded-pill fw-bold d-flex align-items-center gap-1">
@@ -486,110 +548,12 @@ export const CourtDetail: React.FC<CourtDetailProps> = ({ courtId, onBackClick, 
                         Đặt ngay
                       </Badge>
                     </div>
-
-                    {/* Date Selector */}
-                    <h6 className="text-muted small fw-bold mb-2.5" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Chọn ngày
-                    </h6>
-                    <div className="d-flex gap-2 mb-4 overflow-auto pb-2">
-                      {dates.map(d => (
-                        <div
-                          key={d.num}
-                          onClick={() => setSelectedDate(d.num)}
-                          className="d-flex flex-column align-items-center justify-content-center p-2 flex-shrink-0 cursor-pointer"
-                          style={{
-                            width: '54px',
-                            height: '62px',
-                            borderRadius: '16px',
-                            background: selectedDate === d.num ? '#1a6b3c' : '#ffffff',
-                            color: selectedDate === d.num ? '#ffffff' : '#0f172a',
-                            border: selectedDate === d.num ? '1px solid #1a6b3c' : '1px solid #e2e8f0',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          <span className="small fw-semibold opacity-75" style={{ fontSize: '10px' }}>{d.day}</span>
-                          <span className="fw-bold fs-6">{d.num}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Pick a Time slots */}
-                    <h6 className="text-muted small fw-bold mb-2.5" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Chọn giờ
-                    </h6>
-                    <Row className="g-2 mb-4">
-                      {timeSlots.map(slot => (
-                        <Col xs={4} key={slot.time}>
-                          <Button
-                            disabled={slot.disabled}
-                            variant={selectedTime === slot.time ? 'success' : 'light'}
-                            onClick={() => setSelectedTime(slot.time)}
-                            className="w-100 py-2.5 rounded-3 fw-bold shadow-none text-center"
-                            style={{
-                              background: slot.disabled
-                                ? '#f8fafc'
-                                : selectedTime === slot.time
-                                  ? '#1a6b3c'
-                                  : '#ffffff',
-                              color: slot.disabled
-                                ? '#cbd5e1'
-                                : selectedTime === slot.time
-                                  ? '#ffffff'
-                                  : '#0f172a',
-                              border: slot.disabled
-                                ? '1px solid #f1f5f9'
-                                : selectedTime === slot.time
-                                  ? '1px solid #1a6b3c'
-                                  : '1px solid #e2e8f0',
-                              fontSize: '13px',
-                              textDecoration: slot.disabled ? 'line-through' : 'none'
-                            }}
-                          >
-                            {slot.time}
-                          </Button>
-                        </Col>
-                      ))}
-                    </Row>
-
-                    {/* Duration selector */}
-                    <h6 className="text-muted small fw-bold mb-2" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Thời lượng
-                    </h6>
-                    <Form.Select
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      className="py-2.5 rounded-3 border-secondary mb-4 shadow-none"
-                      style={{ fontSize: '14.5px', cursor: 'pointer', border: '1px solid #cbd5e1' }}
-                    >
-                      <option>1 Giờ</option>
-                      <option>2 Giờ</option>
-                      <option>3 Giờ</option>
-                      <option>4 Giờ</option>
-                    </Form.Select>
-
-                    {/* Horizontal Divider */}
-                    <hr className="my-4 opacity-50" style={{ borderStyle: 'dashed' }} />
-
-                    {/* Price breakdown details */}
-                    <div className="d-flex flex-column gap-2 mb-4" style={{ fontSize: '14px' }}>
-                      <div className="d-flex justify-content-between text-secondary">
-                        <span>Tiền sân ({duration === '1 Giờ' ? '1h' : duration === '2 Giờ' ? '2h' : duration === '3 Giờ' ? '3h' : '4h'} x {venue.price}k)</span>
-                        <span className="fw-semibold text-dark">
-                          {duration === '1 Giờ' ? '180.000đ' : duration === '2 Giờ' ? '360.000đ' : duration === '3 Giờ' ? '540.000đ' : '720.000đ'}
-                        </span>
-                      </div>
-
-                      <div className="d-flex justify-content-between text-secondary">
-                        <span>Phí dịch vụ</span>
-                        <span className="fw-semibold text-dark">15.000đ</span>
-                      </div>
-
-                      <div className="d-flex justify-content-between align-items-center mt-3">
-                        <span className="fw-bold text-dark fs-5">Tổng cộng</span>
-                        <span className="fw-extrabold text-success fs-4" style={{ color: '#1a6b3c', fontWeight: 900 }}>
-                          {duration === '1 Giờ' ? '195.000đ' : duration === '2 Giờ' ? '375.000đ' : duration === '3 Giờ' ? '555.000đ' : '735.000đ'}
-                        </span>
-                      </div>
+                    {/* Slot picker from Figma design */}
+                    <div className="mb-4">
+                      <SlotPicker
+                        venueId={String(venueId)}
+                        onSlotSelect={handleSlotSelect}
+                      />
                     </div>
 
                     {/* Booking Action Button */}

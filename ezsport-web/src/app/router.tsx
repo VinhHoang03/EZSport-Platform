@@ -16,13 +16,18 @@ const RegisterPage          = lazy(() => import('../pages/public/RegisterPage'))
 const ForgotPasswordPage    = lazy(() => import('../pages/public/ForgotPasswordPage'));
 const ResetPasswordPage     = lazy(() => import('../components/auth/ResetPasswordPage'));
 const MapPage               = lazy(() => import('../pages/player/MapPage'));
-const VenuesPage            = lazy(() => import('../pages/player/VenuesPage'));
-const CourtDetailPage       = lazy(() => import('../pages/player/CourtDetailPage'));
+const VenueListPage         = lazy(() => import('../pages/player/venues/VenueListPage'));
+const VenueDetailPage       = lazy(() => import('../pages/player/venues/VenueDetailPage'));
 const CheckoutPageWrapper   = lazy(() => import('../pages/player/CheckoutPageWrapper'));
 const BookingSuccessWrapper = lazy(() => import('../pages/player/BookingSuccessWrapper'));
+const BookingPage           = lazy(() => import('../pages/player/booking/BookingPage'));
+const BookingConfirmPage    = lazy(() => import('../pages/player/booking/BookingConfirmPage'));
+const BookingSuccessPage    = lazy(() => import('../pages/player/booking/BookingSuccessPage'));
+const MyBookingsPage        = lazy(() => import('../pages/player/booking/MyBookingsPage'));
+const BookingDetailPage     = lazy(() => import('../pages/player/booking/BookingDetailPage'));
 const ProfilePageWrapper    = lazy(() => import('../pages/player/ProfilePageWrapper'));
 const PlaymatesWrapper      = lazy(() => import('../pages/player/PlaymatesWrapper'));
-const OwnerDashboardWrapper = lazy(() => import('../pages/owner/OwnerDashboardWrapper'));
+const OwnerPageWrapper      = lazy(() => import('../pages/owner/OwnerPageWrapper'));
 const AdminDashboardWrapper = lazy(() => import('../pages/admin/AdminDashboardWrapper'));
 
 const Loader = () => (
@@ -65,12 +70,18 @@ const router = createBrowserRouter([
     children: [{
       element: <PlayerLayout />,
       children: [
-        { path: ROUTES.VENUES,          element: s(VenuesPage) },
-        { path: ROUTES.COURT_DETAIL,    element: s(CourtDetailPage) },
+        { path: ROUTES.VENUES,          element: s(VenueListPage) },
+        { path: ROUTES.VENUE_DETAIL,    element: s(VenueDetailPage) },
         { path: ROUTES.CHECKOUT,        element: s(CheckoutPageWrapper) },
         { path: ROUTES.BOOKING_SUCCESS, element: s(BookingSuccessWrapper) },
         { path: ROUTES.PROFILE,         element: s(ProfilePageWrapper) },
         { path: ROUTES.PLAYMATES,       element: s(PlaymatesWrapper) },
+        // New booking flow
+        { path: ROUTES.BOOKING,              element: s(BookingPage) },
+        { path: ROUTES.BOOKING_CONFIRM,      element: s(BookingConfirmPage) },
+        { path: ROUTES.BOOKING_SUCCESS_NEW,  element: s(BookingSuccessPage) },
+        { path: ROUTES.MY_BOOKINGS,          element: s(MyBookingsPage) },
+        { path: ROUTES.BOOKING_DETAIL,       element: s(BookingDetailPage) },
       ],
     }],
   },
@@ -81,7 +92,7 @@ const router = createBrowserRouter([
     children: [{
       element: <OwnerLayout />,
       children: [
-        { path: ROUTES.OWNER_DASHBOARD, element: s(OwnerDashboardWrapper) },
+        { path: ROUTES.OWNER_PAGE, element: s(OwnerPageWrapper) },
       ],
     }],
   },

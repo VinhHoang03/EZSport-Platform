@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Col, Form, Pagination } from 'react-bootstrap';
-import CourtCard from '../ui/CourtCard';
+import VenueCard from '../ui/VenueCard';
 import FilterBar from './FilterBar';
 
-interface Court {
+interface Venue {
   id: number | string;
   name: string;
   image: string;
@@ -18,8 +18,8 @@ interface Court {
   sportType?: string;
 }
 
-interface CourtListProps {
-  courts: Court[];
+interface VenueListProps {
+  venues: Venue[];
   layout?: 'vertical' | 'horizontal';
   currentLocationName?: string;
   onFilterClick?: () => void;
@@ -28,8 +28,8 @@ interface CourtListProps {
   onBookingClick?: (id: number | string) => void;
 }
 
-const CourtList: React.FC<CourtListProps> = ({ 
-  courts, 
+const VenueList: React.FC<VenueListProps> = ({ 
+  venues, 
   layout = 'vertical', 
   currentLocationName,
   onFilterClick, 
@@ -45,13 +45,13 @@ const CourtList: React.FC<CourtListProps> = ({
   if (layout === 'vertical') {
     return (
       <Col md={4} className="h-100 d-flex flex-column bg-white border-end">
-        <FilterBar count={courts.length} onFilterClick={onFilterClick} />
+        <FilterBar count={venues.length} onFilterClick={onFilterClick} />
 
         <div className="flex-grow-1 overflow-auto px-4 pb-5 custom-scrollbar">
-          {courts.map((court) => (
-            <CourtCard 
-              key={court.id} 
-              {...court} 
+          {venues.map((venue) => (
+            <VenueCard 
+              key={venue.id} 
+              {...venue} 
               layout="vertical"
               onDirectionsClick={onDirectionsClick}
               onDetailClick={onDetailClick}
@@ -74,7 +74,7 @@ const CourtList: React.FC<CourtListProps> = ({
         <div className="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-3">
           <div>
             <h5 className="fw-bold mb-1" style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.5px' }}>
-              Tìm thấy {courts.length} sân
+              Tìm thấy {venues.length} sân
             </h5>
             <div className="text-muted d-flex align-items-center gap-1.5" style={{ fontSize: '13px', fontWeight: '500' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '15px', color: '#94a3b8' }}>location_on</span>
@@ -145,15 +145,15 @@ const CourtList: React.FC<CourtListProps> = ({
 
       </div>
 
-      {/* ── Court List Scroll Container ── */}
+      {/* ── Venue List Scroll Container ── */}
       <div 
         className="flex-grow-1 overflow-auto px-4 py-3 custom-scrollbar" 
         style={{ background: '#f8fafc' }}
       >
-        {courts.map((court, i) => (
-          <CourtCard 
-            key={court.id} 
-            {...court} 
+        {venues.map((venue, i) => (
+          <VenueCard 
+            key={venue.id} 
+            {...venue} 
             index={i + 1}
             layout="horizontal"
             onDirectionsClick={onDirectionsClick}
@@ -261,4 +261,4 @@ const CourtList: React.FC<CourtListProps> = ({
   );
 };
 
-export default CourtList;
+export default VenueList;

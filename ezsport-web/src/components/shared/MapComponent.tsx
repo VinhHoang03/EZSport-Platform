@@ -44,7 +44,8 @@ interface CourtLocation {
 }
 
 interface MapComponentProps {
-  courts: CourtLocation[];
+  courts?: CourtLocation[];
+  venues?: CourtLocation[];
   onLocationFound?: (lat: number, lng: number) => void;
   userLocation?: { lat: number, lng: number } | null;
   routingDestination?: { lat: number, lng: number } | null;
@@ -56,13 +57,14 @@ interface MapComponentProps {
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({ 
-  courts, onLocationFound, userLocation, routingDestination, routeSummary, onClearRoute, onDirectionsClick, onRouteInfo, isNavigating
+  courts, venues, onLocationFound, userLocation, routingDestination, routeSummary, onClearRoute, onDirectionsClick, onRouteInfo, isNavigating
 }) => {
   const daNangCenter: [number, number] = [16.0544, 108.2022];
   const [map, setMap] = useState<L.Map | null>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid' | 'terrain'>('roadmap');
   const [showTraffic, setShowTraffic] = useState(false);
   const prevNavigating = useRef(isNavigating);
+  const locations = courts ?? venues ?? [];
 
   // Fix: when layout changes (col-8 <-> col-12), invalidate map size after CSS transition
   useEffect(() => {
@@ -153,7 +155,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
         {/* Route is drawn directly by RoutingMachine as a Leaflet Polyline */}
 
-        {courts.map(court => (
+        {locations.map(court => (
           <Marker
             key={court.id}
             position={[court.lat, court.lng]}
@@ -239,7 +241,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
               <div className="text-muted small">
                 {!userLocation 
                   ? 'Vui lòng cho phép truy cập vị trí' 
-                  : `Đến ${courts.find(c => (c.lat === routingDestination.lat && c.lng === routingDestination.lng))?.name || 'sân đã chọn'}`}
+                  : `Đến ${locations.find(c => (c.lat === routingDestination.lat && c.lng === routingDestination.lng))?.name || 'sân đã chọn'}`}
               </div>
             </div>
           </div>
