@@ -1,5 +1,6 @@
 import { Application } from "express";
 import authRoutes from "./auth.routes";
+<<<<<<< HEAD
 import bookingRoutes from "./booking.routes";
 import venueRoutes from "./venue.routes";
 import courtRoutes from "./court.routes";

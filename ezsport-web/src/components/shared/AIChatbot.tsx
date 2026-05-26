@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { aiService } from '../../services/ai.service';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../api/api';
 
 interface CourtRecommendation {
   id: number | string;
@@ -12,7 +15,7 @@ interface CourtRecommendation {
   lng: number;
   sportType: string;
   emoji: string;
-  availableSlot: string;
+  availableSlot?: string;
   image: string;
 }
 
@@ -33,51 +36,6 @@ interface AIChatbotProps {
   setCurrentPage?: (page: any) => void;
 }
 
-const MOCK_COURTS_RECS: CourtRecommendation[] = [
-  {
-    id: 1,
-    name: "Sân Pickleball Tiên Sơn - Đà Nẵng",
-    rating: 4.9,
-    location: "02 Phan Đăng Lưu, Hòa Cường Bắc, Hải Châu, Đà Nẵng",
-    distance: "0.8 km",
-    price: "120.000",
-    lat: 16.0354,
-    lng: 108.2222,
-    sportType: "Pickleball",
-    emoji: "🏓",
-    availableSlot: "Còn trống: 08:30 - 10:00",
-    image: "/images/pickleball.png"
-  },
-  {
-    id: 2,
-    name: "Sân Cầu Lông Nguyễn Du - Hải Châu",
-    rating: 4.7,
-    location: "19 Bay Bút, Hải Châu, Đà Nẵng",
-    distance: "1.5 km",
-    price: "80.000",
-    lat: 16.0624,
-    lng: 108.2152,
-    sportType: "Badminton",
-    emoji: "🏸",
-    availableSlot: "Còn trống: 08:00 - 09:30",
-    image: "/images/badminton.png"
-  },
-  {
-    id: 3,
-    name: "Sân Pickleball Hòa Xuân - Cẩm Lệ",
-    rating: 4.8,
-    location: "Đường Nguyễn Phước Lan, Hòa Xuân, Cẩm Lệ, Đà Nẵng",
-    distance: "3.2 km",
-    price: "150.000",
-    lat: 16.0024,
-    lng: 108.2182,
-    sportType: "Pickleball",
-    emoji: "🏓",
-    availableSlot: "Còn trống: 08:30 - 11:00",
-    image: "/images/pickleball.png"
-  }
-];
-
 export const AIChatbot: React.FC<AIChatbotProps> = ({
   onDirectionsClick,
   onDetailClick,
@@ -85,31 +43,146 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   onLocationFound,
   setCurrentPage
 }) => {
+  const { user, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       sender: 'ai',
-      text: "Xin chào! 🌟 Tôi là **Trợ lý Thông minh EZSport AI**. \n\nTôi có thể tự động xác định vị trí của bạn và tìm kiếm các sân thể thao (Pickleball, Cầu lông...) còn lịch trống gần nhất ở Đà Nẵng. Bạn muốn chơi thể thao lúc mấy giờ?",
+      text: "Xin chào! 🌟 Tôi là EZSport AI - trợ lý thông minh giúp bạn tìm sân thể thao. Bạn muốn tìm sân gì hôm nay? 🏃",
       timestamp: new Date()
     }
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load lịch sử chat từ server khi mở chatbot (chỉ khi đã login)
+  const loadChatHistory = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setIsLoadingHistory(true);
+    try {
+      const res = await api.get('/chat-history');
+      const historyMessages: Message[] = res.data.data.map((msg: any, index: number) => ({
+        id: `history-${index}-${msg.timestamp}`,
+        sender: msg.sender as 'user' | 'ai',
+        text: msg.text,
+        timestamp: new Date(msg.timestamp),
+        recommendations: msg.recommendations?.length > 0
+          ? msg.recommendations.map((r: any) => ({
+              id: r._id,
+              name: r.name,
+              rating: r.rating,
+              location: r.location,
+              distance: r.distance != null ? `${Number(r.distance).toFixed(1)} km` : 'N/A',
+              price: r.price,
+              lat: r.lat,
+              lng: r.lng,
+              sportType: r.sportType,
+              emoji: r.emoji,
+              image: r.image,
+            }))
+          : undefined,
+      }));
+
+      if (historyMessages.length > 0) {
+        setMessages([
+          {
+            id: 'welcome',
+            sender: 'ai',
+            text: `Chào mừng trở lại ${user?.fullName?.split(' ').pop() || ''}! 😊 Đây là lịch sử chat trước của bạn.`,
+            timestamp: new Date()
+          },
+          ...historyMessages
+        ]);
+      }
+    } catch (err) {
+      console.log('Không tải được lịch sử chat');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [isAuthenticated, user]);
+
+  // Load history khi chatbot mở lần đầu
+  const hasLoadedHistory = useRef(false);
+  useEffect(() => {
+    if (isOpen && isAuthenticated && !hasLoadedHistory.current) {
+      hasLoadedHistory.current = true;
+      loadChatHistory();
+    }
+  }, [isOpen, isAuthenticated, loadChatHistory]);
+
+  // Reset flag khi user logout
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasLoadedHistory.current = false;
+      setMessages([{
+        id: 'welcome',
+        sender: 'ai',
+        text: "Xin chào! 🌟 Tôi là EZSport AI - trợ lý thông minh giúp bạn tìm sân thể thao. Bạn muốn tìm sân gì hôm nay? 🏃",
+        timestamp: new Date()
+      }]);
+    }
+  }, [isAuthenticated]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
+  // Lưu cặp message vào DB (chỉ khi đã login)
+  const saveToHistory = async (userText: string, aiText: string, recommendations?: CourtRecommendation[]) => {
+    if (!isAuthenticated) return;
+    try {
+      await api.post('/chat-history', {
+        userMessage: { text: userText },
+        aiMessage: {
+          text: aiText,
+          recommendations: recommendations?.map(r => ({
+            _id: r.id,
+            name: r.name,
+            location: r.location,
+            price: r.price,
+            rating: r.rating,
+            sportType: r.sportType,
+            emoji: r.emoji,
+            image: r.image,
+            lat: r.lat,
+            lng: r.lng,
+          })) || [],
+        },
+      });
+    } catch (err) {
+      console.log('Không lưu được lịch sử chat');
+    }
+  };
+
+  // Xóa lịch sử chat
+  const handleClearHistory = async () => {
+    if (!isAuthenticated) return;
+    if (!confirm('Bạn có chắc muốn xóa toàn bộ lịch sử chat không?')) return;
+    try {
+      await api.delete('/chat-history');
+      hasLoadedHistory.current = false;
+      setMessages([{
+        id: 'welcome',
+        sender: 'ai',
+        text: "Đã xóa lịch sử chat! 🗑️ Bạn có thể bắt đầu cuộc trò chuyện mới.",
+        timestamp: new Date()
+      }]);
+    } catch (err) {
+      console.log('Không xóa được lịch sử');
+    }
+  };
+
   const handleSuggestClick = (suggestion: string) => {
     handleSendMessage(suggestion);
   };
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
     if (!query) return;
 
@@ -127,55 +200,80 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
     };
     setMessages(prev => [...prev, userMessage]);
 
-    // 2. Simulate AI Processing
+    // 2. Call Real AI API
     setIsTyping(true);
 
-    setTimeout(() => {
-      const lowerQuery = query.toLowerCase();
-      let aiText = "";
-      let recommendations: CourtRecommendation[] = [];
-      let isLocationScan = false;
+    try {
+      let userLat: number | undefined;
+      let userLng: number | undefined;
 
-      // Check if prompt wants to play in Da Nang at 8:30 (Matches "đà nẵng" and "8h30" or "8:30")
-      if (
-        (lowerQuery.includes('đà nẵng') || lowerQuery.includes('danang')) && 
-        (lowerQuery.includes('8h30') || lowerQuery.includes('8:30') || lowerQuery.includes('tám rưỡi'))
-      ) {
-        isLocationScan = true;
-        aiText = "📍 **Đang xác định GPS...**\nĐã nhận diện vị trí của bạn tại **Đà Nẵng**. \n\nHệ thống quét phòng máy tìm thấy **3 sân** gần bạn nhất có lịch trống lúc **08:30 sáng**:";
-        recommendations = MOCK_COURTS_RECS;
-
-        // Auto trigger location focus in Da Nang center
-        if (onLocationFound) {
-          onLocationFound(16.0544, 108.2022, 'Đà Nẵng, Việt Nam');
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+          });
+          userLat = position.coords.latitude;
+          userLng = position.coords.longitude;
+        } catch (geoError) {
+          console.log('Không lấy được vị trí, tiếp tục không có location');
         }
-      } else if (lowerQuery.includes('pickleball')) {
-        aiText = "🏓 Dưới đây là các cụm sân **Pickleball** nổi bật nhất, còn trống nhiều khung giờ vàng sáng nay:";
-        recommendations = MOCK_COURTS_RECS.filter(c => c.sportType === 'Pickleball');
-      } else if (lowerQuery.includes('cầu lông') || lowerQuery.includes('badminton')) {
-        aiText = "🏸 Dưới đây là sân **Cầu lông** gần bạn nhất hoạt động từ sáng sớm:";
-        recommendations = MOCK_COURTS_RECS.filter(c => c.sportType === 'Badminton');
-      } else if (lowerQuery.includes('chào') || lowerQuery.includes('hello')) {
-        aiText = "Xin chào bạn! Thật vui được hỗ trợ bạn. Bạn hãy thử gõ: *'Tôi ở Đà Nẵng muốn chơi 8h30'* để trải nghiệm khả năng tự động định vị tìm sân siêu nhanh của tôi nhé!";
-      } else {
-        // Default reply
-        aiText = "Tôi đã ghi nhận nhu cầu của bạn. Đây là một số sân thể thao hoạt động sôi nổi nhất quanh khu vực Đà Nẵng để bạn tham khảo:";
-        recommendations = MOCK_COURTS_RECS;
       }
+
+      const result = await aiService.suggestCourts({
+        prompt: query,
+        userLat,
+        userLng,
+        maxDistance: 10,
+        limit: 5
+      });
+
+      const recommendations: CourtRecommendation[] = result.suggestions.map(court => ({
+        id: court._id,
+        name: court.name,
+        rating: court.rating,
+        location: court.location,
+        distance: court.distance != null ? `${Number(court.distance).toFixed(1)} km` : 'N/A',
+        price: court.price, // Giữ nguyên giá gốc từ DB
+        lat: court.lat,
+        lng: court.lng,
+        sportType: court.sportType,
+        emoji: court.emoji,
+        availableSlot: undefined,
+        image: court.image
+      }));
 
       const aiMsgId = Math.random().toString(36).substring(7);
       const aiMessage: Message = {
         id: aiMsgId,
         sender: 'ai',
-        text: aiText,
+        text: result.aiExplanation,
         timestamp: new Date(),
         recommendations: recommendations.length > 0 ? recommendations : undefined,
-        isLocationScan
+        isLocationScan: false
       };
 
       setMessages(prev => [...prev, aiMessage]);
       setIsTyping(false);
-    }, 1500);
+
+      // 3. Lưu vào database (nếu đã login)
+      saveToHistory(query, result.aiExplanation, recommendations.length > 0 ? recommendations : undefined);
+
+      if (userLat && userLng && onLocationFound) {
+        onLocationFound(userLat, userLng);
+      }
+
+    } catch (error: any) {
+      console.error('AI Error:', error);
+      const errorMsgId = Math.random().toString(36).substring(7);
+      const errorMessage: Message = {
+        id: errorMsgId,
+        sender: 'ai',
+        text: `Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn: ${error.message}\n\nVui lòng thử lại.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setIsTyping(false);
+    }
   };
 
   const handleDirections = (rec: CourtRecommendation) => {
@@ -209,6 +307,29 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
         setCurrentPage('court-detail');
       }
     }
+  };
+
+  // Format giá tiền từ DB để hiển thị đẹp
+  const formatPrice = (price: string): string => {
+    if (!price) return 'Liên hệ';
+    
+    // Nếu đã có định dạng đẹp (có chữ VNĐ, đ, /giờ, /h) → giữ nguyên
+    if (/[a-zA-ZđĐ\/]/.test(price) && !/^\d+$/.test(price.replace(/[.,\s]/g, ''))) {
+      return price;
+    }
+    
+    // Tách số từ chuỗi (hỗ trợ range như "70000-120000" hay "70.000 - 120.000")
+    const nums = price.replace(/[^\d]/g, ' ').trim().split(/\s+/).filter(Boolean).map(Number).filter(n => n > 0);
+    
+    if (nums.length === 0) return price;
+    
+    const fmt = (n: number) => n.toLocaleString('vi-VN');
+    
+    if (nums.length === 1) {
+      return `${fmt(nums[0])}đ/h`;
+    }
+    // Range giá
+    return `${fmt(Math.min(...nums))} - ${fmt(Math.max(...nums))}đ/h`;
   };
 
   return (
@@ -278,35 +399,69 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                 background: 'linear-gradient(135deg, #166534 0%, #15803d 100%)'
               }}
             >
-              <div className="d-flex align-items-center gap-2.5">
+              <div className="d-flex align-items-center gap-2" style={{ gap: '10px' }}>
                 <div 
                   className="bg-white bg-opacity-20 rounded-circle d-flex align-items-center justify-content-center"
-                  style={{ width: '40px', height: '40px' }}
+                  style={{ width: '40px', height: '40px', flexShrink: 0 }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#fff' }}>smart_toy</span>
+                  {isLoadingHistory
+                    ? <span className="spinner-border spinner-border-sm text-white" />
+                    : <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#fff' }}>smart_toy</span>
+                  }
                 </div>
                 <div>
-                  <h6 className="m-0 fw-bold d-flex align-items-center gap-1.5" style={{ fontSize: '15px' }}>
+                  <h6 className="m-0 fw-bold d-flex align-items-center" style={{ fontSize: '15px', gap: '6px' }}>
                     EZSport AI Bot
                     <span 
                       className="rounded-circle" 
                       style={{ width: '8px', height: '8px', background: '#4ade80', display: 'inline-block' }}
                     />
                   </h6>
-                  <span className="text-white text-opacity-75" style={{ fontSize: '11px' }}>Hỗ trợ đặt sân tự động</span>
+                  <span className="text-white text-opacity-75" style={{ fontSize: '11px' }}>
+                    {isAuthenticated && user ? `👤 ${user.fullName}` : 'Hỗ trợ đặt sân tự động'}
+                  </span>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsOpen(false)}
-                className="btn btn-link text-white p-1 opacity-75 hover-opacity-100 border-0 shadow-none"
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
-              </button>
+              <div className="d-flex align-items-center" style={{ gap: '4px' }}>
+                {/* Nút xóa lịch sử - chỉ hiện khi đã login */}
+                {isAuthenticated && (
+                  <button
+                    onClick={handleClearHistory}
+                    className="btn btn-link text-white p-1 border-0 shadow-none"
+                    title="Xóa lịch sử chat"
+                    style={{ opacity: 0.7 }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete_sweep</span>
+                  </button>
+                )}
+                <button 
+                  onClick={() => setIsOpen(false)}
+                  className="btn btn-link text-white p-1 border-0 shadow-none"
+                  style={{ opacity: 0.75 }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+                </button>
+              </div>
             </div>
 
             {/* Content Feed */}
             <div className="flex-grow-1 overflow-auto p-4 d-flex flex-column gap-3" style={{ background: 'rgba(248, 250, 252, 0.4)' }}>
               
+              {/* Loading history indicator */}
+              {isLoadingHistory && (
+                <div className="text-center py-3 text-muted" style={{ fontSize: '12px' }}>
+                  <span className="spinner-border spinner-border-sm text-success me-2" />
+                  Đang tải lịch sử chat...
+                </div>
+              )}
+
+              {/* Login prompt for guests */}
+              {!isAuthenticated && messages.length <= 1 && (
+                <div className="text-center py-2 px-3 rounded-3 mb-1" style={{ background: 'rgba(22,163,74,0.08)', fontSize: '11.5px', color: '#166534' }}>
+                  🔐 Đăng nhập để lưu lịch sử chat của bạn!
+                </div>
+              )}
+
               {messages.map((msg) => (
                 <div 
                   key={msg.id}
@@ -367,9 +522,16 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                               style={{ width: '60px', height: '60px', background: '#f1f5f9' }}
                             >
                               <img 
-                                src={rec.sportType.toLowerCase() === 'pickleball' ? '/images/pickleball.png' : '/images/badminton.png'} 
+                                src={rec.image} 
                                 alt={rec.name}
                                 className="w-100 h-100 object-fit-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  const parent = (e.target as HTMLImageElement).parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px">${rec.emoji || '🏟️'}</div>`;
+                                  }
+                                }}
                               />
                             </div>
                             <div className="flex-grow-1 overflow-hidden">
@@ -393,12 +555,16 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
 
                           <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-1">
                             <div className="d-flex flex-column">
-                              <span className="text-success fw-bold" style={{ fontSize: '12px' }}>
-                                {rec.availableSlot}
-                              </span>
+                              {rec.availableSlot && (
+                                <span className="text-success fw-bold" style={{ fontSize: '12px' }}>
+                                  {rec.availableSlot}
+                                </span>
+                              )}
                               <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#16a34a' }}>
-                                {rec.price}đ<span className="text-muted fw-normal" style={{ fontSize: '9px' }}>/h</span>
-                                <span className="text-success fw-bold text-muted fw-normal" style={{ fontSize: '10px', marginLeft: '6px' }}>({rec.distance})</span>
+                                {formatPrice(rec.price)}
+                                {rec.distance && rec.distance !== 'N/A' && (
+                                  <span className="text-muted fw-normal" style={{ fontSize: '10px', marginLeft: '6px' }}>({rec.distance})</span>
+                                )}
                               </span>
                             </div>
                             

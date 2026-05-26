@@ -646,6 +646,7 @@ const App: React.FC = () => {
         onLocationFound={handleLocationSelect}
         setCurrentPage={setCurrentPage}
       />
+
     </div>
   );
 };

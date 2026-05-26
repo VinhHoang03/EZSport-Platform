@@ -1,0 +1,108 @@
+### Test AI Court Suggestion API
+### Sử dụng REST Client extension trong VS Code
+
+@baseUrl = http://localhost:5000/api/courts
+
+### 1. Gợi ý sân - Prompt đơn giản
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Tìm sân bóng đá giá rẻ",
+  "limit": 3
+}
+
+### 2. Gợi ý sân - Prompt chi tiết với vị trí
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Tôi muốn tìm sân cầu lông có điều hòa, giá khoảng 100-200k/giờ, gần trung tâm",
+  "userLat": 21.0285,
+  "userLng": 105.8542,
+  "maxDistance": 5,
+  "limit": 5
+}
+
+### 3. Gợi ý sân - Prompt về thời gian
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Muốn đá bóng với bạn bè tối nay, sân rộng rãi, có đèn chiếu sáng tốt"
+}
+
+### 4. Gợi ý sân - Prompt về chất lượng
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Sân tennis chất lượng cao, không quan tâm giá, có huấn luyện viên"
+}
+
+### 5. Gợi ý sân - Prompt về tiện nghi
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Sân bóng rổ ngoài trời, view đẹp, có chỗ đậu xe"
+}
+
+### 6. Tạo mô tả cho sân (thay YOUR_COURT_ID bằng ID thật)
+POST {{baseUrl}}/YOUR_COURT_ID/ai/description
+
+### 7. So sánh nhiều sân (thay ID bằng ID thật)
+POST {{baseUrl}}/ai/compare
+Content-Type: application/json
+
+{
+  "courtIds": [
+    "60d5ec49f1b2c72b8c8e4f1a",
+    "60d5ec49f1b2c72b8c8e4f1b",
+    "60d5ec49f1b2c72b8c8e4f1c"
+  ]
+}
+
+### 8. Test với prompt tiếng Anh
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Looking for a cheap football field near downtown"
+}
+
+### 9. Test với prompt không rõ ràng
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Muốn chơi thể thao"
+}
+
+### 10. Test validation error - prompt quá ngắn
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "ab"
+}
+
+### 11. Test validation error - không có prompt
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "limit": 5
+}
+
+### 12. Test với nhiều tiêu chí phức tạp
+POST {{baseUrl}}/ai/suggest
+Content-Type: application/json
+
+{
+  "prompt": "Tìm sân bóng đá mini 5-7 người, có mái che, giá sinh viên dưới 300k/giờ, gần trường đại học, có dịch vụ cho thuê giày và bóng, sân cỏ nhân tạo chất lượng cao, có phòng thay đồ và nhà vệ sinh sạch sẽ",
+  "userLat": 21.0285,
+  "userLng": 105.8542,
+  "maxDistance": 3,
+  "limit": 3
+}

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Court from "../models/court.model";
 import Venue from "../models/venue.model";
 
+
 const parseSportTypes = (raw: any): string[] => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.map(String);
@@ -118,3 +119,4 @@ export const deleteCourt = async (req: Request, res: Response) => {
     res.status(400).json({ message: error.message });
   }
 };
+
