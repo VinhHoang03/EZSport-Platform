@@ -34,6 +34,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   // Form states
   const [ho, setHo] = useState('');
   const [ten, setTen] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -64,7 +65,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               authLogin({ ...result.user, id: result.user._id }, result.accessToken);
               const role = result.user.role;
               if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
-              else if (role === 'owner') navigate(ROUTES.OWNER_DASHBOARD);
+              else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
               else navigate(ROUTES.MAP);
             } catch (err: any) {
               setError(err.response?.data?.message || err.message || 'Đăng nhập bằng Google thất bại');
@@ -117,18 +118,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const result = await authService.login({ email, password });
+      const result = await authService.login({ username: username || email, password });
       authLogin({ ...result.user, id: result.user._id }, result.accessToken);
       const role = result.user.role;
       if (onSuccess) {
         onSuccess(role);
       } else {
         if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
-        else if (role === 'owner') navigate(ROUTES.OWNER_DASHBOARD);
+        else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
         else navigate(ROUTES.MAP);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Email hoặc mật khẩu không đúng');
+      setError(err.response?.data?.message || 'Tên đăng nhập hoặc mật khẩu không đúng');
     } finally {
       setLoading(false);
     }
@@ -152,6 +153,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     try {
       const fullName = `${ho} ${ten}`.trim();
       await authService.register({
+        username,
         email,
         password,
         fullName,
@@ -163,7 +165,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setRegisterStep(3);
       }, 1000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại, email đã tồn tại');
+      setError(err.response?.data?.message || 'Đăng ký thất bại, tên đăng nhập đã tồn tại');
     } finally {
       setLoading(false);
     }
@@ -457,20 +459,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               {error && <Alert variant="danger" className="py-2.5 px-3 border-0 rounded-3 small mb-3">{error}</Alert>}
 
               <Form onSubmit={handleLoginSubmit}>
-                {/* Email */}
+                {/* Username */}
                 <Form.Group className="mb-3">
-                  <Form.Label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Email</Form.Label>
+                  <Form.Label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Tên đăng nhập</Form.Label>
                   <div style={{ position: 'relative' }}>
                     <Form.Control
-                      type="email"
-                      placeholder="alex.nguyen@email.com"
+                      type="text"
+                      placeholder="alex_nguyen"
                       className="py-2.5 shadow-none border-1"
-                      style={{ borderRadius: '10px', fontSize: '14px', borderColor: email.includes('@') ? '#22c55e' : '#cbd5e1', paddingRight: '40px' }}
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      style={{ borderRadius: '10px', fontSize: '14px', borderColor: username.length > 2 ? '#22c55e' : '#cbd5e1', paddingRight: '40px' }}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       required
                     />
-                    {email.includes('@') && (
+                    {username.length > 2 && (
                       <span className="material-symbols-outlined position-absolute end-0 top-50 translate-middle-y me-3 text-success fs-5">check_circle</span>
                     )}
                   </div>
@@ -726,9 +728,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       </Form.Group>
                     </div>
 
-                    {/* Email */}
+                    {/* Username */}
                     <Form.Group className="mb-3">
-                      <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email</Form.Label>
+                      <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Tên đăng nhập</Form.Label>
+                      <Form.Control
+                        type="text"
+                        placeholder="an_nguyen"
+                        className="py-2.5 shadow-none border-1"
+                        style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                      />
+                    </Form.Group>
+
+                    {/* Email (optional) */}
+                    <Form.Group className="mb-3">
+                      <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email (tùy chọn)</Form.Label>
                       <Form.Control
                         type="email"
                         placeholder="an.nguyen@example.com"
@@ -736,7 +752,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        required
                       />
                     </Form.Group>
 

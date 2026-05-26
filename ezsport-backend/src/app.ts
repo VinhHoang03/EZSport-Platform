@@ -1,14 +1,7 @@
 import express, { NextFunction, Request, Response, Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import authRoutes from "./routes/auth.routes";
-import serviceResquestRoutes from "./routes/serviceRequest.routes";
-import userRoutes from "./routes/user.routes";
-import addressRoutes from './routes/address.routes';
-import providerRequestRoutes from './routes/providerRequest.routes';
-import providerRoutes from './routes/provider.routes';
-import adminRoutes from './routes/admin.routes';
-import courtRoutes from './routes/court.routes';
+import route from "./routes/index.routes";
 
 
 const app: Application = express();
@@ -34,14 +27,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   next(err);
 });
 
-app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
-app.use("/service-requests", serviceResquestRoutes);
-app.use("/addresses", addressRoutes);
-app.use("/provider-requests", providerRequestRoutes);
-app.use("/providers", providerRoutes);
-app.use("/admin", adminRoutes);
-app.use("/courts", courtRoutes);
+route(app);
+
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error("GLOBAL ERROR:", err);

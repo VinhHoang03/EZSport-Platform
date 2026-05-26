@@ -191,7 +191,7 @@ class BookingController {
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
 
-      const result = await bookingService.getCourtBookings(courtId, filters);
+      const result = await bookingService.getVenueBookings(courtId, filters);
 
       return res.status(200).json({
         message: "Lấy danh sách đặt sân của sân thành công",

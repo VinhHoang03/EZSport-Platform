@@ -5,12 +5,12 @@ import Navigation from '../shared/Navigation';
 
 interface ProfilePageProps {
   onGoHome: () => void;
-  onFindCourts: () => void;
+  onFindVenues: () => void;
   onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;
   onLogoClick?: () => void;
 }
 
-export const ProfilePage: React.FC<ProfilePageProps> = ({ onGoHome, onFindCourts, onPageChange, onLogoClick }) => {
+export const ProfilePage: React.FC<ProfilePageProps> = ({ onGoHome, onFindVenues, onPageChange, onLogoClick }) => {
   const [activeTab, setActiveTab] = useState('all');
 
   const sidebarMenu = [
@@ -88,7 +88,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onGoHome, onFindCourts
             </div>
 
             <div className="p-4 mt-auto">
-              <Button onClick={onFindCourts} style={{ width: '100%', background: G, border: 'none', borderRadius: '8px', padding: '10px 0', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <Button onClick={onFindVenues} style={{ width: '100%', background: G, border: 'none', borderRadius: '8px', padding: '10px 0', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_circle</span>
                 Đặt sân ngay
               </Button>
@@ -208,7 +208,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onGoHome, onFindCourts
                 <p style={{ color: TX2, fontSize: '14px', maxWidth: '400px', margin: '0 auto 24px', lineHeight: 1.6 }}>
                   Hãy bắt đầu hành trình nâng cao sức khỏe của bạn ngay hôm nay bằng cách tìm kiếm và đặt sân tại các câu lạc bộ hàng đầu.
                 </p>
-                <Button onClick={onFindCourts} style={{ background: G, border: 'none', borderRadius: '8px', padding: '10px 24px', fontWeight: 600, fontSize: '14px' }}>
+                <Button onClick={onFindVenues} style={{ background: G, border: 'none', borderRadius: '8px', padding: '10px 24px', fontWeight: 600, fontSize: '14px' }}>
                   Tìm sân ngay
                 </Button>
               </div>

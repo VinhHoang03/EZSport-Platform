@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import FadingVideo from './FadingVideo';
 import BlurText from './BlurText';
 import { Arrow } from '../ui/LandingIcons';
-import VenueCard from '../ui/VenueCard';
+import VenueCard from '../ui/VenueCard1';
 import Footer from './Footer';
 import { G, GL, GD, OG, W, SL, TX, TX2, glass } from '../../utils/theme';
 
@@ -26,7 +26,9 @@ export const LandingPage: React.FC<{
   onLogin?: () => void;
   onRegisterVenue?: () => void;
   courts?: any[];
-}> = ({ onExplore, onLogin, onRegisterVenue, courts = [] }) => {
+  venues?: any[];
+}> = ({ onExplore, onLogin, onRegisterVenue, courts = [], venues = [] }) => {
+  const displayCourts = venues.length > 0 ? venues : courts;
   const f = "'Inter', 'Barlow', sans-serif";
 
   // Auto-playing Promo Ads State
@@ -184,8 +186,8 @@ export const LandingPage: React.FC<{
             </button>
           </motion.div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }}>
-            {courts && courts.length > 0 ? (
-              courts.slice(0, 3).map((court, index) => (
+            {displayCourts && displayCourts.length > 0 ? (
+              displayCourts.slice(0, 3).map((court, index) => (
                 <VenueCard
                   key={court._id || index}
                   delay={index * 0.12}

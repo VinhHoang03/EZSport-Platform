@@ -1,12 +1,13 @@
 import api from '../api/api';
 
 export interface LoginPayload {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface RegisterPayload {
-  email: string;
+  username: string;
+  email?: string;
   password: string;
   fullName: string;
   phone?: string;
@@ -16,7 +17,8 @@ export interface RegisterPayload {
 export interface AuthUser {
   _id: string;
   id?: string;
-  email: string;
+  username?: string;
+  email?: string;
   fullName: string;
   avatar?: string;
   role: string;
