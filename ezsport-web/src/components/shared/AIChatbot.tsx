@@ -19,6 +19,27 @@ interface CourtRecommendation {
   image: string;
 }
 
+const normalizeRecommendation = (court: any): CourtRecommendation => {
+  const venue = court?.venue || {};
+  const sportType = court?.sportType || court?.sportTypes?.[0] || 'sport';
+  const price = court?.price || venue?.price || court?.pricePerHour;
+  const image = court?.image || court?.images?.[0] || venue?.images?.[0] || '';
+
+  return {
+    id: court?._id || court?.id,
+    name: court?.name || 'Sân thể thao',
+    rating: Number(court?.rating || venue?.rating || 4),
+    location: court?.location || venue?.location || venue?.address || 'Đà Nẵng',
+    distance: court?.distance != null ? `${Number(court.distance).toFixed(1)} km` : 'N/A',
+    price: price != null ? String(price) : 'Liên hệ',
+    lat: Number(court?.lat || venue?.lat || 0),
+    lng: Number(court?.lng || venue?.lng || 0),
+    sportType: String(sportType),
+    emoji: court?.emoji || '🏟️',
+    image,
+  };
+};
+
 interface Message {
   id: string;
   sender: 'user' | 'ai';
@@ -27,6 +48,26 @@ interface Message {
   recommendations?: CourtRecommendation[];
   isLocationScan?: boolean;
 }
+
+const normalizePromptText = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
+
+const hasSportKeyword = (value: string): boolean => {
+  const text = normalizePromptText(value);
+  return /(cau long|badminton|pickleball|bong da|da banh|soccer|football|tennis|bong ro|basketball)/.test(text);
+};
+
+const hasSearchContext = (value: string): boolean => {
+  const text = normalizePromptText(value);
+  return /(thanh khe|hai chau|ngu hanh son|gu hanh son|son tra|lien chieu|cam le|hoa vang|hoa xuan|ngay mai|hom nay|toi nay|\b([01]?\d|2[0-3])\s*(h|:)\s*([0-5]\d)?\b)/.test(text);
+};
+
+const shouldMergeWithPreviousSearch = (value: string): boolean =>
+  hasSportKeyword(value) && !hasSearchContext(value);
 
 interface AIChatbotProps {
   onDirectionsClick?: (lat: number, lng: number, name?: string) => void;
@@ -72,19 +113,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
         text: msg.text,
         timestamp: new Date(msg.timestamp),
         recommendations: msg.recommendations?.length > 0
-          ? msg.recommendations.map((r: any) => ({
-              id: r._id,
-              name: r.name,
-              rating: r.rating,
-              location: r.location,
-              distance: r.distance != null ? `${Number(r.distance).toFixed(1)} km` : 'N/A',
-              price: r.price,
-              lat: r.lat,
-              lng: r.lng,
-              sportType: r.sportType,
-              emoji: r.emoji,
-              image: r.image,
-            }))
+          ? msg.recommendations.map(normalizeRecommendation)
           : undefined,
       }));
 
@@ -185,6 +214,12 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
     if (!query) return;
+    const previousSearchContext = [...messages]
+      .reverse()
+      .find((msg) => msg.sender === 'user' && hasSearchContext(msg.text))?.text;
+    const promptForApi = shouldMergeWithPreviousSearch(query) && previousSearchContext
+      ? `${query} ${previousSearchContext}`
+      : query;
 
     if (!textToSend) {
       setInputText('');
@@ -220,27 +255,14 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
       }
 
       const result = await aiService.suggestCourts({
-        prompt: query,
+        prompt: promptForApi,
         userLat,
         userLng,
         maxDistance: 10,
         limit: 5
       });
 
-      const recommendations: CourtRecommendation[] = result.suggestions.map(court => ({
-        id: court._id,
-        name: court.name,
-        rating: court.rating,
-        location: court.location,
-        distance: court.distance != null ? `${Number(court.distance).toFixed(1)} km` : 'N/A',
-        price: court.price, // Giữ nguyên giá gốc từ DB
-        lat: court.lat,
-        lng: court.lng,
-        sportType: court.sportType,
-        emoji: court.emoji,
-        availableSlot: undefined,
-        image: court.image
-      }));
+      const recommendations: CourtRecommendation[] = result.suggestions.map(normalizeRecommendation);
 
       const aiMsgId = Math.random().toString(36).substring(7);
       const aiMessage: Message = {
@@ -537,7 +559,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                             <div className="flex-grow-1 overflow-hidden">
                               <div className="d-flex justify-content-between align-items-center">
                                 <span className="badge bg-success bg-opacity-10 text-success fw-bold" style={{ fontSize: '8px' }}>
-                                  {rec.sportType.toUpperCase()}
+                                  {(rec.sportType || 'sport').toUpperCase()}
                                 </span>
                                 <div className="d-flex align-items-center gap-0.5 text-warning" style={{ fontSize: '11px' }}>
                                   <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1", fontSize: '13px' }}>star</span>

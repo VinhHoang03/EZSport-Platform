@@ -39,80 +39,8 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
   const { logout, user } = useAuth();
   
   // Interactive bookings state
-  const [bookingsList, setBookingsList] = useState<Booking[]>([
-    {
-      id: 'BK20250516042',
-      name: 'Nguyễn Văn A',
-      phone: '0901 234 567',
-      email: 'van.nguyen@gmail.com',
-      avatar: '11',
-      court: 'Sân A1',
-      date: 'Thứ 5, 13/05/2026',
-      timeSlot: '09:00 - 11:00',
-      duration: '120 phút',
-      paymentMethod: 'Chuyển khoản',
-      amount: '400.000 VND',
-      status: 'confirmed',
-      notes: 'Khách quen, chuẩn bị sẵn giỏ nước suối.',
-      top: 60, // 08:00 is 0px, 09:00 is 60px
-      height: 120, // 2 hours = 120px
-      column: 1
-    },
-    {
-      id: 'BK20250516043',
-      name: 'Lê Thị C',
-      phone: '0934 567 890',
-      email: 'thi.le@gmail.com',
-      avatar: '33',
-      court: 'Sân A2',
-      date: 'Thứ 5, 13/05/2026',
-      timeSlot: '11:00 - 12:30',
-      duration: '90 phút',
-      paymentMethod: 'Chuyển khoản',
-      amount: '300.000 VND',
-      status: 'confirmed',
-      notes: 'Yêu cầu bật đèn nếu trời tối.',
-      top: 180, // 11:00 is 180px
-      height: 90, // 1.5 hours = 90px
-      column: 2
-    },
-    {
-      id: 'BK20250516044',
-      name: 'Trần Nam B',
-      phone: '0987 654 321',
-      email: 'nam.tran@gmail.com',
-      avatar: '12',
-      court: 'Sân A1',
-      date: 'Thứ 5, 13/05/2026',
-      timeSlot: '12:30 - 14:00',
-      duration: '90 phút',
-      paymentMethod: 'Tiền mặt',
-      amount: '300.000 VND',
-      status: 'pending_confirm',
-      notes: 'Mượn thêm 2 vợt Pickleball.',
-      top: 270, // 12:30 is 270px
-      height: 90, // 1.5 hours = 90px
-      column: 1
-    },
-    {
-      id: 'BK20250516045',
-      name: 'Mỹ Duyên',
-      phone: '0977 665 544',
-      email: 'duyen.my@gmail.com',
-      avatar: '44',
-      court: 'Sân B1',
-      date: 'Thứ 5, 13/05/2026',
-      timeSlot: '15:30 - 17:00',
-      duration: '90 phút',
-      paymentMethod: 'Chuyển khoản',
-      amount: '350.000 VND',
-      status: 'pending_payment',
-      notes: '',
-      top: 450, // 15:30 is 450px
-      height: 90, // 1.5 hours = 90px
-      column: 3
-    }
-  ]);
+  // Xóa mock data - sẽ fetch booking thật từ API
+  const [bookingsList, setBookingsList] = useState<Booking[]>([]);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
@@ -150,11 +78,11 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
     setSelectedVenueForCourt(null);
   };
 
-  const handleCreateCourt = async (payload: FormData) => {
+  const handleCreateCourt = async (payloads: (FormData | any)[]) => {
     if (!selectedVenueForCourt) return;
     setCreatingCourt(true);
     try {
-      await courtService.createCourt(payload);
+      await courtService.createCourt(payloads);
       alert('Tạo sân thành công.');
       closeCreateCourtModal();
     } catch (error: any) {
@@ -464,7 +392,7 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
             {activeMenu === 'revenue' && (
               <OwnerRevenue />
             )}
-            {/* ─── TAB 4: QUẢN LÝ SÂN ─── */}
+            {/* ─── TAB 4: ĐỊA ĐIỂM / QUẢN LÝ ĐỊA ĐIỂM ─── */}
             {activeMenu === 'venue_info' && (
               <OwnerVenuesTab onOpenCreateCourt={openCreateCourtModal} />
             )}

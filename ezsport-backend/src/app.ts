@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response, Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import route from "./routes/index.routes";
 
 
@@ -17,7 +18,8 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Xử lý lỗi parse JSON (ví dụ: Body đặt JSON nhưng nội dung rỗng/không hợp lệ)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
