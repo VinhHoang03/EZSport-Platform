@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+import api from '../api/api';
 
 export interface CourtSuggestionRequest {
   prompt: string;
@@ -45,7 +43,7 @@ export const aiService = {
    */
   async suggestCourts(data: CourtSuggestionRequest): Promise<CourtSuggestionResponse> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/courts/ai/suggest`, data);
+      const response = await api.post('/courts/ai/suggest', data);
       return response.data.data;
     } catch (error: any) {
       console.error('Error suggesting courts:', error);
@@ -58,7 +56,7 @@ export const aiService = {
    */
   async generateDescription(courtId: string): Promise<string> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/courts/${courtId}/ai/description`);
+      const response = await api.post(`/courts/${courtId}/ai/description`);
       return response.data.data.description;
     } catch (error: any) {
       console.error('Error generating description:', error);
@@ -71,7 +69,7 @@ export const aiService = {
    */
   async compareCourts(courtIds: string[]): Promise<string> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/courts/ai/compare`, { courtIds });
+      const response = await api.post('/courts/ai/compare', { courtIds });
       return response.data.data.comparison;
     } catch (error: any) {
       console.error('Error comparing courts:', error);

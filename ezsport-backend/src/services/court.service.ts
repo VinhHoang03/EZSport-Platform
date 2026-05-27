@@ -1,16 +1,17 @@
-import { openai } from "../configs/openai";
-import Court, { ICourt } from "../models/court.model";
+import { openai } from '../configs/openai';
+import Court from '../models/court.model';
+import { calculateDistance } from '../utils/distance.util';
 
 interface CourtSuggestionParams {
   prompt: string;
   userLat?: number;
   userLng?: number;
-  maxDistance?: number; // km
+  maxDistance?: number;
   limit?: number;
 }
 
 interface CourtSuggestionResponse {
-  suggestions: ICourt[];
+  suggestions: any[];
   aiExplanation: string;
   matchedCriteria: {
     sportType?: string;
@@ -20,225 +21,377 @@ interface CourtSuggestionResponse {
   };
 }
 
+type Intent = 'greeting' | 'identity' | 'thanks' | 'search' | 'unknown';
+
+const SPORT_LABELS: Record<string, string> = {
+  badminton: 'cầu lông',
+  pickleball: 'pickleball',
+  soccer: 'bóng đá',
+  tennis: 'tennis',
+  basketball: 'bóng rổ',
+};
+
+const DISTRICT_LABELS: Record<string, string> = {
+  'thanh khe': 'Thanh Khê',
+  'hai chau': 'Hải Châu',
+  'ngu hanh son': 'Ngũ Hành Sơn',
+  'son tra': 'Sơn Trà',
+  'lien chieu': 'Liên Chiểu',
+  'cam le': 'Cẩm Lệ',
+  'hoa vang': 'Hòa Vang',
+  'hoa xuan': 'Hòa Xuân',
+};
+
+const normalizeText = (value: unknown): string =>
+  String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
+
+const detectIntent = (prompt: string): Intent => {
+  const text = normalizeText(prompt).trim();
+
+  if (/^(hi|hello|hey|chao|xin chao|alo)\b/.test(text)) return 'greeting';
+  if (/(ban la ai|ai la gi|lam duoc gi|giup gi|huong dan|cach dung)/.test(text)) return 'identity';
+  if (/(cam on|thanks|thank you|ok|oke|duoc roi)/.test(text)) return 'thanks';
+  if (detectSportType(prompt) || detectDaNangDistrict(prompt) || parseTimeToMinutes(prompt) != null) return 'search';
+
+  return 'unknown';
+};
+
+const detectSportType = (prompt: string): string | undefined => {
+  const text = normalizeText(prompt);
+  const aliases: Record<string, string[]> = {
+    badminton: ['badminton', 'cau long'],
+    pickleball: ['pickleball'],
+    soccer: ['soccer', 'football', 'bong da', 'da banh'],
+    tennis: ['tennis', 'quan vot'],
+    basketball: ['basketball', 'bong ro'],
+  };
+
+  return Object.entries(aliases).find(([, values]) =>
+    values.some((value) => text.includes(value))
+  )?.[0];
+};
+
+const detectDaNangDistrict = (prompt: string): string | undefined => {
+  const text = normalizeText(prompt);
+  const aliases: Record<string, string[]> = {
+    'thanh khe': ['thanh khe'],
+    'hai chau': ['hai chau'],
+    'ngu hanh son': ['ngu hanh son', 'gu hanh son'],
+    'son tra': ['son tra'],
+    'lien chieu': ['lien chieu'],
+    'cam le': ['cam le'],
+    'hoa vang': ['hoa vang'],
+    'hoa xuan': ['hoa xuan'],
+  };
+
+  return Object.entries(aliases).find(([, values]) =>
+    values.some((value) => text.includes(value))
+  )?.[0];
+};
+
+const detectDateText = (prompt: string): string | undefined => {
+  const text = normalizeText(prompt);
+  if (text.includes('ngay mai')) return 'ngày mai';
+  if (text.includes('hom nay') || text.includes('toi nay')) return 'hôm nay';
+  if (text.includes('cuoi tuan')) return 'cuối tuần';
+  return undefined;
+};
+
+const parseTimeToMinutes = (prompt: string): number | undefined => {
+  const text = normalizeText(prompt);
+  const explicitTime = text.match(/\b([01]?\d|2[0-3])\s*(?:h|:)\s*([0-5]\d)?\b/);
+  if (explicitTime) return Number(explicitTime[1]) * 60 + Number(explicitTime[2] || 0);
+
+  const hourOnly = text.match(/^(?:luc\s*)?([01]?\d|2[0-3])$/);
+  if (hourOnly) return Number(hourOnly[1]) * 60;
+
+  return undefined;
+};
+
+const formatTime = (timeMinutes?: number): string | undefined => {
+  if (timeMinutes == null) return undefined;
+  return `${Math.floor(timeMinutes / 60)}h${String(timeMinutes % 60).padStart(2, '0')}`;
+};
+
+const clockToMinutes = (time?: string): number | undefined => {
+  const match = String(time || '').match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (!match) return undefined;
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const isOpenAt = (court: any, timeMinutes: number): boolean => {
+  const venue = court.venue || {};
+  const open = clockToMinutes(venue.openTime);
+  const close = clockToMinutes(venue.closeTime);
+  if (open == null || close == null) return true;
+  return timeMinutes >= open && timeMinutes <= close;
+};
+
+const courtMatchesSport = (court: any, sportType: string): boolean => {
+  const sports = court.sportTypes || court.sportType || court.venue?.sportTypes || [];
+  return (Array.isArray(sports) ? sports : [sports])
+    .map(normalizeText)
+    .includes(normalizeText(sportType));
+};
+
+const courtMatchesLocation = (court: any, location: string): boolean => {
+  const venue = court.venue || {};
+  const haystack = normalizeText([
+    court.name,
+    court.location,
+    court.description,
+    venue.name,
+    venue.location,
+    venue.description,
+  ].filter(Boolean).join(' '));
+
+  return haystack.includes(location);
+};
+
+const toPlainCourt = (court: any) => court.toObject ? court.toObject() : court;
+
+const getCourtVenue = (court: any) => court.venue || {};
+
+const getCourtLocation = (court: any) => {
+  const venue = getCourtVenue(court);
+  return venue.location || court.location || 'Đà Nẵng';
+};
+
+const buildCriteriaText = (sportType?: string, location?: string, time?: number, dateText?: string) => {
+  const parts = [
+    sportType ? `môn ${SPORT_LABELS[sportType] || sportType}` : undefined,
+    location ? `khu vực ${DISTRICT_LABELS[location] || location}` : undefined,
+    time != null ? `${dateText ? `${dateText} ` : ''}lúc ${formatTime(time)}` : undefined,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(', ') : 'yêu cầu của bạn';
+};
+
+const buildNeedMoreInfoMessage = (sportType?: string, location?: string, time?: number, dateText?: string) => {
+  const known = buildCriteriaText(sportType, location, time, dateText);
+
+  if (time != null && !sportType && !location) {
+    return `Bạn muốn đặt sân ${dateText ? `${dateText} ` : ''}lúc ${formatTime(time)}. Bạn cho tôi biết thêm môn thể thao và khu vực muốn chơi nhé, ví dụ: "cầu lông Thanh Khê ${formatTime(time)}".`;
+  }
+
+  if (location && !sportType) {
+    return `Bạn muốn tìm sân ở ${DISTRICT_LABELS[location] || location}. Bạn muốn chơi môn nào: cầu lông, pickleball, bóng đá, tennis hay bóng rổ?`;
+  }
+
+  return `Mình đã hiểu ${known}. Nếu muốn lọc chính xác hơn, bạn có thể thêm khu vực hoặc giờ chơi, ví dụ: "${sportType ? SPORT_LABELS[sportType] : 'cầu lông'} Thanh Khê 20h".`;
+};
+
+const buildNoMatchMessage = (sportType?: string, location?: string, time?: number, dateText?: string) =>
+  `Hiện chưa có sân phù hợp với ${buildCriteriaText(sportType, location, time, dateText)} trong hệ thống. Bạn có thể thử khu vực gần đó hoặc bỏ bớt điều kiện thời gian/khu vực.`;
+
+const buildSuggestionMessage = (courts: any[], sportType?: string, location?: string, time?: number, dateText?: string) => {
+  const count = courts.length;
+  const criteria = buildCriteriaText(sportType, location, time, dateText);
+  const firstLocation = courts[0] ? getCourtLocation(courts[0]) : '';
+
+  if (count === 1) {
+    return `Mình tìm thấy 1 sân phù hợp với ${criteria}: ${courts[0].name} ở ${firstLocation}. Bạn có thể xem chi tiết hoặc đặt sân ngay bên dưới.`;
+  }
+
+  return `Mình tìm thấy ${count} sân phù hợp với ${criteria}. Mình đã ưu tiên các sân đúng môn, đúng khu vực và còn trong khung giờ mở cửa. Bạn xem các lựa chọn bên dưới nhé.`;
+};
+
+const applyDistance = (courts: any[], userLat?: number, userLng?: number, maxDistance?: number) => {
+  if (!userLat || !userLng) return courts.map(toPlainCourt);
+
+  return courts
+    .map((court: any) => {
+      const venue = getCourtVenue(court);
+      const lat = venue.lat || court.lat;
+      const lng = venue.lng || court.lng;
+      return {
+        ...toPlainCourt(court),
+        distance: lat && lng ? calculateDistance(userLat, userLng, lat, lng) : 999,
+      };
+    })
+    .filter((court: any) => maxDistance ? court.distance <= maxDistance : true)
+    .sort((a: any, b: any) => a.distance - b.distance);
+};
+
 export class CourtService {
-  /**
-   * Sử dụng OpenAI để phân tích prompt và gợi ý sân phù hợp
-   */
-  static async suggestCourts(
-    params: CourtSuggestionParams
-  ): Promise<CourtSuggestionResponse> {
+  static async suggestCourts(params: CourtSuggestionParams): Promise<CourtSuggestionResponse> {
     const { prompt, userLat, userLng, maxDistance = 10, limit = 5 } = params;
+    const requestedSportType = detectSportType(prompt);
+    const requestedLocation = detectDaNangDistrict(prompt);
+    const requestedTime = parseTimeToMinutes(prompt);
+    const requestedDateText = detectDateText(prompt);
+    const intent = detectIntent(prompt);
 
     try {
-      // Bước 1: Lấy tất cả sân đang hoạt động
-      const allCourts = await Court.find({ isActive: true });
-
-      if (allCourts.length === 0) {
+      if (intent === 'greeting') {
         return {
           suggestions: [],
-          aiExplanation: "Hiện tại không có sân nào khả dụng trong hệ thống.",
+          aiExplanation: 'Chào bạn, mình là EZSport AI. Bạn muốn tìm sân môn gì, ở khu vực nào và khoảng mấy giờ?',
           matchedCriteria: {},
         };
       }
 
-      // Bước 2: Tạo context về các sân có sẵn cho AI
-      const courtsContext = allCourts
-        .map(
-          (court, index) =>
-            `${index + 1}. ${court.name}
-   - Loại sân: ${court.sportType}
-   - Địa điểm: ${court.location}
-   - Giá: ${court.price}
-   - Đánh giá: ${court.rating}/5
-   - Mô tả: ${court.description || "Không có mô tả"}
-   - ID: ${court._id}`
-        )
-        .join("\n\n");
+      if (intent === 'identity') {
+        return {
+          suggestions: [],
+          aiExplanation: 'Mình là EZSport AI, trợ lý giúp bạn tìm sân thể thao ở Đà Nẵng. Bạn có thể nhắn kiểu: "cầu lông Thanh Khê 20h", "pickleball gần tôi", hoặc "sân bóng đá Hải Châu tối nay".',
+          matchedCriteria: {},
+        };
+      }
 
-      // Bước 3: Gọi AI - thông minh, trò chuyện tự nhiên
-      const systemPrompt = `Bạn là EZSport AI - trợ lý thông minh của nền tảng đặt sân thể thao EZSport tại Việt Nam.
-Bạn thân thiện, vui vẻ và có thể trò chuyện tự nhiên với người dùng.
+      if (intent === 'thanks') {
+        return {
+          suggestions: [],
+          aiExplanation: 'Không có gì. Khi cần tìm sân, bạn chỉ cần gửi môn thể thao, khu vực và giờ chơi là được.',
+          matchedCriteria: {},
+        };
+      }
 
-Danh sách sân hiện có trong hệ thống:
-${courtsContext}
+      if (intent === 'unknown') {
+        return {
+          suggestions: [],
+          aiExplanation: 'Mình chưa hiểu bạn muốn tìm sân nào. Bạn thử nhập theo mẫu: "cầu lông Thanh Khê 20h" hoặc "pickleball Ngũ Hành Sơn ngày mai" nhé.',
+          matchedCriteria: {},
+        };
+      }
 
-CÁCH XỬ LÝ CÁC LOẠI TIN NHẮN:
+      const allCourts = await Court.find({ isActive: true }).populate('venue');
 
-1. CHÀO HỎI ("hello", "hi", "xin chào", "chào", "hey", v.v):
-   → Chào lại thân thiện, tự giới thiệu là AI của EZSport, hỏi user muốn tìm sân gì
-   → recommendedCourtIds = []
+      if (allCourts.length === 0) {
+        return {
+          suggestions: [],
+          aiExplanation: 'Hiện tại hệ thống chưa có sân khả dụng.',
+          matchedCriteria: {},
+        };
+      }
 
-2. HỎI VỀ BẠN LÀ AI ("bạn là ai", "bạn làm được gì", v.v):
-   → Giới thiệu: là EZSport AI, có thể tìm sân, gợi ý, so sánh sân thể thao
-   → recommendedCourtIds = []
+      if (requestedTime != null && !requestedSportType && !requestedLocation) {
+        return {
+          suggestions: [],
+          aiExplanation: buildNeedMoreInfoMessage(undefined, undefined, requestedTime, requestedDateText),
+          matchedCriteria: {},
+        };
+      }
 
-3. TÌM SÂN / HỎI VỀ THỂ THAO:
-   → Gợi ý sân phù hợp nhất từ danh sách trên, tối đa ${limit} sân
-   → recommendedCourtIds = [danh sách ID sân phù hợp]
+      if (requestedLocation && !requestedSportType) {
+        return {
+          suggestions: [],
+          aiExplanation: buildNeedMoreInfoMessage(undefined, requestedLocation, requestedTime, requestedDateText),
+          matchedCriteria: { location: requestedLocation },
+        };
+      }
 
-4. CẢM ƠN / KÉT THÚC HỘI THOẠI:
-   → Trả lời lịch sự, hỏi có cần thêm gì không
-   → recommendedCourtIds = []
-
-5. CHỦ ĐỀ KHÁC (thời tiết, nấu ăn, tin tức, v.v):
-   → Trả lời ngắn gọn lịch sự, sau đó hỏi nhẹ nhàng có muốn tìm sân không
-   → recommendedCourtIds = []
-
-ĐỊNH DẠNG PHẢN HỒI (JSON bắt buộc):
-{
-  "recommendedCourtIds": [],
-  "explanation": "Nội dung tin nhắn trả lời người dùng (tiếng Việt, thân thiện, có thể dùng emoji)",
-  "matchedCriteria": {
-    "sportType": "",
-    "priceRange": "",
-    "location": "",
-    "features": []
-  }
-}
-
-LƯU Ý QUAN TRỌNG:
-- KHÔNG BAO GIỜ nói cứng nhắc kiểu "Tôi chỉ có thể giúp tìm sân thể thao"
-- Luôn trả lời tự nhiên như một người bạn thân thiện
-- Dùng emoji để tin nhắn sinh động hơn 😊`;
-
-      const completion = await openai.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.85,
-        response_format: { type: "json_object" },
+      const candidateCourts = allCourts.filter((court: any) => {
+        if (requestedSportType && !courtMatchesSport(court, requestedSportType)) return false;
+        if (requestedLocation && !courtMatchesLocation(court, requestedLocation)) return false;
+        if (requestedTime != null && !isOpenAt(court, requestedTime)) return false;
+        return true;
       });
 
-      const aiResponse = completion.choices[0].message.content;
-      if (!aiResponse) {
-        throw new Error("AI không trả về kết quả");
+      if (candidateCourts.length === 0) {
+        return {
+          suggestions: [],
+          aiExplanation: buildNoMatchMessage(requestedSportType, requestedLocation, requestedTime, requestedDateText),
+          matchedCriteria: {
+            sportType: requestedSportType,
+            location: requestedLocation,
+          },
+        };
       }
 
-      const parsedResponse = JSON.parse(aiResponse);
+      const shouldUseDistance = Boolean(userLat && userLng && !requestedLocation);
+      const rankedCourts = shouldUseDistance
+        ? applyDistance(candidateCourts, userLat, userLng, maxDistance)
+        : candidateCourts.map(toPlainCourt);
 
-      // Bước 4: Lấy thông tin chi tiết các sân được gợi ý
-      const recommendedCourtIds = parsedResponse.recommendedCourtIds || [];
-      let suggestedCourts: any[] = allCourts.filter((court) =>
-        recommendedCourtIds.includes(court._id.toString())
-      );
+      const suggestions = rankedCourts.slice(0, limit);
 
-      // Bước 5: Nếu có vị trí người dùng, tính distance và sắp xếp (KHÔNG filter loại bỏ sân xa)
-      if (userLat && userLng) {
-        const { calculateDistance } = await import("../utils/distance.util");
-        
-        suggestedCourts = suggestedCourts
-          .map((court) => ({
-            ...court.toObject(),
-            distance: calculateDistance(userLat, userLng, court.lat, court.lng),
-          }))
-          .sort((a: any, b: any) => a.distance - b.distance)
-          .slice(0, limit);
-      } else {
-        suggestedCourts = suggestedCourts
-          .map((court) => court.toObject ? court.toObject() : court)
-          .slice(0, limit);
+      if (suggestions.length === 0) {
+        return {
+          suggestions: [],
+          aiExplanation: buildNoMatchMessage(requestedSportType, requestedLocation, requestedTime, requestedDateText),
+          matchedCriteria: {
+            sportType: requestedSportType,
+            location: requestedLocation,
+          },
+        };
       }
 
       return {
-        suggestions: suggestedCourts,
-        aiExplanation: parsedResponse.explanation || "Đây là các sân được gợi ý cho bạn.",
-        matchedCriteria: parsedResponse.matchedCriteria || {},
+        suggestions,
+        aiExplanation: buildSuggestionMessage(suggestions, requestedSportType, requestedLocation, requestedTime, requestedDateText),
+        matchedCriteria: {
+          sportType: requestedSportType,
+          location: requestedLocation,
+        },
       };
     } catch (error: any) {
-      console.error("Error in suggestCourts:", error);
-      
-      // Fallback: Nếu AI lỗi, trả về các sân có rating cao nhất
-      const fallbackCourts = await Court.find({ isActive: true })
-        .sort({ rating: -1 })
-        .limit(limit);
-
+      console.error('Error in suggestCourts:', error);
       return {
-        suggestions: fallbackCourts,
-        aiExplanation:
-          "Không thể xử lý yêu cầu của bạn bằng AI. Đây là các sân được đánh giá cao nhất.",
+        suggestions: [],
+        aiExplanation: 'Mình đang gặp lỗi khi tìm sân. Bạn thử lại sau ít phút hoặc nhập rõ hơn theo mẫu: "cầu lông Thanh Khê 20h".',
         matchedCriteria: {},
       };
     }
   }
 
-  /**
-   * Tạo mô tả chi tiết cho sân bằng AI
-   */
   static async generateCourtDescription(courtId: string): Promise<string> {
     try {
-      const court = await Court.findById(courtId);
-      if (!court) {
-        throw new Error("Không tìm thấy sân");
-      }
+      const court = await Court.findById(courtId).populate('venue');
+      if (!court) throw new Error('Không tìm thấy sân');
 
-      const prompt = `Hãy tạo một mô tả hấp dẫn và chi tiết cho sân thể thao sau:
+      const venue = (court as any).venue || {};
+      const prompt = `Viết mô tả ngắn bằng tiếng Việt cho sân:
 - Tên: ${court.name}
-- Loại sân: ${court.sportType}
-- Địa điểm: ${court.location}
-- Giá: ${court.price}
-- Đánh giá: ${court.rating}/5
+- Loại sân: ${((court as any).sportTypes || []).join(', ')}
+- Địa điểm: ${venue.location || 'Đà Nẵng'}
+- Giá: ${venue.price || 'Liên hệ'}
 
-Mô tả nên:
-- Dài khoảng 2-3 câu
-- Nhấn mạnh điểm mạnh của sân
-- Thân thiện và hấp dẫn
-- Phù hợp với người Việt Nam`;
+Yêu cầu: 2-3 câu, tự nhiên, không bịa thông tin ngoài dữ liệu trên.`;
 
       const completion = await openai.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.8,
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
         max_tokens: 200,
       });
 
-      return completion.choices[0].message.content || court.description || "";
+      return completion.choices[0].message.content || (court as any).description || '';
     } catch (error: any) {
-      console.error("Error generating description:", error);
+      console.error('Error generating description:', error);
       throw error;
     }
   }
 
-  /**
-   * So sánh nhiều sân và đưa ra phân tích
-   */
   static async compareCourts(courtIds: string[]): Promise<string> {
     try {
-      const courts = await Court.find({ _id: { $in: courtIds }, isActive: true });
-
-      if (courts.length === 0) {
-        throw new Error("Không tìm thấy sân nào để so sánh");
-      }
+      const courts = await Court.find({ _id: { $in: courtIds }, isActive: true }).populate('venue');
+      if (courts.length === 0) throw new Error('Không tìm thấy sân nào để so sánh');
 
       const courtsInfo = courts
-        .map(
-          (court) =>
-            `- ${court.name}: ${court.sportType}, ${court.price}, rating ${court.rating}/5, tại ${court.location}`
-        )
-        .join("\n");
-
-      const prompt = `Hãy so sánh các sân thể thao sau và đưa ra phân tích chi tiết:
-
-${courtsInfo}
-
-Phân tích nên bao gồm:
-1. Điểm mạnh và điểm yếu của từng sân
-2. Sân nào phù hợp với từng nhu cầu (tiết kiệm, chất lượng cao, gần gũi...)
-3. Đề xuất lựa chọn tốt nhất cho các trường hợp khác nhau
-
-Trả lời bằng tiếng Việt, chi tiết và dễ hiểu.`;
+        .map((court: any) => {
+          const venue = court.venue || {};
+          return `- ${court.name}: ${(court.sportTypes || []).join(', ')}, ${venue.price || 'Liên hệ'}, tại ${venue.location || 'Đà Nẵng'}`;
+        })
+        .join('\n');
 
       const completion = await openai.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
+        model: 'llama-3.3-70b-versatile',
+        messages: [{
+          role: 'user',
+          content: `So sánh các sân sau bằng tiếng Việt, chỉ dùng dữ liệu được cung cấp:\n\n${courtsInfo}`,
+        }],
+        temperature: 0.4,
         max_tokens: 500,
       });
 
-      return completion.choices[0].message.content || "Không thể so sánh các sân.";
+      return completion.choices[0].message.content || 'Không thể so sánh các sân.';
     } catch (error: any) {
-      console.error("Error comparing courts:", error);
+      console.error('Error comparing courts:', error);
       throw error;
     }
   }

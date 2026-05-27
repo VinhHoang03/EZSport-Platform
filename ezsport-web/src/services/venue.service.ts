@@ -55,10 +55,11 @@ export interface Venue {
 export type Court = Venue;
 
 export const venueService = {
-  getVenues: async (params?: { sport?: string; search?: string }): Promise<Venue[]> => {
+  getVenues: async (params?: { sport?: string; search?: string; active?: string }): Promise<Venue[]> => {
     const query = new URLSearchParams();
     if (params?.sport) query.append('sport', params.sport);
     if (params?.search) query.append('search', params.search);
+    if (params?.active) query.append('active', params.active);
     const { data } = await api.get(`/venues?${query.toString()}`);
     return data.data;
   },
@@ -104,11 +105,36 @@ export const courtService = {
     return data.data;
   },
 
-  createCourt: async (payload: FormData): Promise<Court> => {
-    const { data } = await api.post('/courts', payload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return data.data;
+  createCourt: async (payloads: (FormData | any)[]): Promise<Court[]> => {
+    // Handle array of payloads - create all courts
+    if (!Array.isArray(payloads) || payloads.length === 0) {
+      throw new Error('No payloads provided');
+    }
+
+    const results: Court[] = [];
+
+    // Create each court
+    for (const payload of payloads) {
+      try {
+        if (payload instanceof FormData) {
+          const { data } = await api.post('/courts', payload, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          results.push(data.data);
+        } else {
+          // Send as JSON
+          const { data } = await api.post('/courts', payload, {
+            headers: { 'Content-Type': 'application/json' },
+          });
+          results.push(data.data);
+        }
+      } catch (error) {
+        console.error('Error creating court:', error);
+        throw error;
+      }
+    }
+
+    return results;
   },
 
   updateCourt: async (id: string, payload: FormData | Partial<Court>): Promise<Court> => {

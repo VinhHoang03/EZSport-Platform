@@ -75,7 +75,7 @@ const VenueSchema: Schema = new Schema<IVenue>(
     description:  { type: String, default: '' },
 
     // Media
-    image:        { type: String, required: true },
+    image:        { type: String, default: 'https://placehold.co/800x450?text=EZSport+Venue' },
     images:       { type: [String], default: [] },
 
     // Location

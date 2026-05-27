@@ -311,3 +311,8 @@ h1 {
   pointer-events: none;
 }
 
+/* Ensure Google Places Autocomplete dropdown is displayed above all overlays and modals */
+.pac-container {
+  z-index: 99999 !important;
+}
+

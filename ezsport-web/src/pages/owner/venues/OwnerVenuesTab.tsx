@@ -2,13 +2,46 @@ import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Spinner } from 'react-bootstrap';
 import { venueService, type Venue, type Amenity } from '../../../services/venue.service';
 import { W, TX, TX2 } from '../../../utils/theme';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const ChangeView = ({ center }: { center: [number, number] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (center[0] && center[1]) {
+      map.setView(center, map.getZoom());
+    }
+  }, [center, map]);
+  return null;
+};
+
+const MapEventsHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
 
 const SPORT_OPTIONS = [
-  { value: 'badminton',   label: 'Cầu lông',  emoji: '🏸' },
-  { value: 'pickleball',  label: 'Pickleball', emoji: '🏓' },
-  { value: 'soccer',      label: 'Bóng đá',   emoji: '⚽' },
-  { value: 'tennis',      label: 'Tennis',     emoji: '🎾' },
-  { value: 'basketball',  label: 'Bóng rổ',   emoji: '🏀' },
+  { value: 'badminton', label: 'Cầu lông', emoji: '🏸' },
+  { value: 'pickleball', label: 'Pickleball', emoji: '🏓' },
+  { value: 'soccer', label: 'Bóng đá', emoji: '⚽' },
+  { value: 'tennis', label: 'Tennis', emoji: '🎾' },
+  { value: 'basketball', label: 'Bóng rổ', emoji: '🏀' },
 ];
 
 const SPORT_EMOJI: Record<string, string> = {
@@ -16,14 +49,14 @@ const SPORT_EMOJI: Record<string, string> = {
 };
 
 const DEFAULT_AMENITIES: Amenity[] = [
-  { key: 'parking',  label: 'Bãi đỗ xe',         icon: 'local_parking',  available: false },
-  { key: 'shower',   label: 'Tủ đồ & Phòng tắm',  icon: 'shower',         available: false },
-  { key: 'wifi',     label: 'Wi-Fi miễn phí',      icon: 'wifi',           available: false },
-  { key: 'lights',   label: 'Hệ thống đèn',        icon: 'emoji_objects',  available: false },
-  { key: 'water',    label: 'Nước uống',            icon: 'water_drop',     available: false },
-  { key: 'racket',   label: 'Cho thuê vợt',         icon: 'sports_tennis',  available: false },
-  { key: 'canteen',  label: 'Căng tin',             icon: 'local_cafe',     available: false },
-  { key: 'shop',     label: 'Cửa hàng đồ tập',     icon: 'shopping_bag',   available: false },
+  { key: 'parking', label: 'Bãi đỗ xe', icon: 'local_parking', available: false },
+  { key: 'shower', label: 'Tủ đồ & Phòng tắm', icon: 'shower', available: false },
+  { key: 'wifi', label: 'Wi-Fi miễn phí', icon: 'wifi', available: false },
+  { key: 'lights', label: 'Hệ thống đèn', icon: 'emoji_objects', available: false },
+  { key: 'water', label: 'Nước uống', icon: 'water_drop', available: false },
+  { key: 'racket', label: 'Cho thuê vợt', icon: 'sports_tennis', available: false },
+  { key: 'canteen', label: 'Căng tin', icon: 'local_cafe', available: false },
+  { key: 'shop', label: 'Cửa hàng đồ tập', icon: 'shopping_bag', available: false },
 ];
 
 const emptyForm = () => ({
@@ -98,10 +131,107 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestionsContainerRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Helper to extract house number prefix from query (e.g. "81C", "k12/4", "150")
+  const getHouseNumberPrefix = (q: string): string => {
+    const match = q.match(/^((?:hẻm|kiệt|ngõ|k)?\s*\d+[a-z]?(?:\/\d+)*\s*)/i);
+    return match ? match[1] : '';
+  };
+
+  // Fetch suggestions from Nominatim (OpenStreetMap)
+  const fetchSuggestions = async (query: string) => {
+    const prefix = getHouseNumberPrefix(query);
+    const cleanQuery = prefix ? query.substring(prefix.length).trim() : query;
+
+    if (cleanQuery.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    try {
+      const searchUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanQuery)}&format=json&addressdetails=1&limit=5&countrycodes=vn`;
+      const response = await fetch(searchUrl, { headers: { 'Accept-Language': 'vi' } });
+      
+      if (response.ok) {
+        const rawData = await response.json();
+        const formattedData = rawData.map((item: any) => ({
+          ...item,
+          _originalPrefix: prefix ? prefix.trim() : undefined
+        }));
+        setSuggestions(formattedData);
+      } else {
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching Nominatim suggestions:', error);
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const handleLocationChange = (val: string) => {
+    setForm(f => ({ ...f, location: val }));
+    setShowSuggestions(true);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchSuggestions(val);
+    }, 400);
+  };
+
+  const selectSuggestion = (item: any) => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon); // Nominatim uses 'lon'
+
+    let finalAddress = item.display_name;
+    if (item._originalPrefix) {
+      finalAddress = `${item._originalPrefix}, ${item.display_name}`;
+    }
+
+    setForm(f => ({
+      ...f,
+      location: finalAddress,
+      lat: String(lat.toFixed(6)),
+      lng: String(lng.toFixed(6)),
+    }));
+    
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  // Close suggestions dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsContainerRef.current && 
+        !suggestionsContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMapClick = (lat: number, lng: number) => {
+    setForm(f => ({ ...f, lat: String(lat.toFixed(6)), lng: String(lng.toFixed(6)) }));
+  };
+
 
   const fetchVenues = () => {
     setLoading(true);
-    venueService.getVenues().then(setVenues).catch(console.error).finally(() => setLoading(false));
+    venueService.getVenues({ active: 'all' }).then(setVenues).catch(console.error).finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchVenues(); }, []);
@@ -284,9 +414,78 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
                 placeholder="Mô tả về sân, tiện ích, không gian..."
               />
             </div>
-            <div>
+            <div className="position-relative" ref={suggestionsContainerRef}>
               <Label>Địa chỉ *</Label>
-              <input style={inp} value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="VD: 19 Kỳ Đồng, Quận 3, TP.HCM" />
+              <input 
+                style={inp} 
+                value={form.location} 
+                onChange={e => handleLocationChange(e.target.value)} 
+                onFocus={() => form.location.length >= 3 && setShowSuggestions(true)}
+                placeholder="VD: 81C Lê Văn Hiến, Đà Nẵng..." 
+              />
+              {showSuggestions && (suggestions.length > 0 || loadingSuggestions) && (
+                <div 
+                  className="position-absolute w-100 bg-white shadow-lg rounded-3 mt-1" 
+                  style={{ 
+                    zIndex: 9999, 
+                    maxHeight: '280px', 
+                    overflowY: 'auto',
+                    border: '1px solid #cbd5e1',
+                    top: '100%',
+                  }}
+                >
+                  {loadingSuggestions ? (
+                    <div className="p-3 text-muted text-center d-flex align-items-center justify-content-center gap-2">
+                      <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                      <span style={{ fontSize: '13px' }}>Đang tìm kiếm vị trí...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {suggestions[0]?._originalPrefix && (
+                        <div style={{ 
+                          padding: '6px 12px', 
+                          background: '#f0fdf4', 
+                          borderBottom: '1px solid #dcfce7',
+                          fontSize: '11px',
+                          color: '#15803d',
+                          fontWeight: 600,
+                        }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '13px', verticalAlign: 'middle', marginRight: '4px' }}>info</span>
+                          Số nhà "<strong>{suggestions[0]._originalPrefix}</strong>" sẽ được thêm tự động khi bạn chọn địa chỉ
+                        </div>
+                      )}
+                      {suggestions.map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={{ 
+                            padding: '10px 14px',
+                            fontSize: '13px', 
+                            borderBottom: idx < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                            transition: 'background-color 0.15s',
+                            cursor: 'pointer',
+                            backgroundColor: '#fff'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                          onClick={() => selectSuggestion(item)}
+                        >
+                          <div className="d-flex align-items-start gap-2">
+                            <span className="material-symbols-outlined text-success" style={{ fontSize: '18px', marginTop: '1px', flexShrink: 0 }}>location_on</span>
+                            <div style={{ textAlign: 'left', minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {item._originalPrefix ? `${item._originalPrefix}, ` : ''}{item.display_name.split(',')[0]}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {item.display_name.split(',').slice(1).join(',').trim()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <Row className="g-3">
               <Col md={6}>
@@ -298,6 +497,30 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
                 <input style={inp} value={form.lng} onChange={e => setForm(f => ({ ...f, lng: e.target.value }))} placeholder="108.2022" />
               </Col>
             </Row>
+            <div>
+              <div style={{ fontSize: '12px', color: TX2, marginBottom: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span className="material-symbols-outlined text-success" style={{ fontSize: '16px' }}>info</span>
+                Nhấp chuột lên bản đồ hoặc chọn địa chỉ gợi ý từ ô Tìm kiếm để lấy tọa độ tự động (Được hỗ trợ bởi OpenStreetMap)
+              </div>
+              <div style={{ height: '300px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+                <MapContainer
+                  center={[parseFloat(form.lat) || 16.0544, parseFloat(form.lng) || 108.2022]}
+                  zoom={15}
+                  style={{ height: '100%', width: '100%', zIndex: 1 }}
+                >
+                  <TileLayer
+                    url="https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                    subdomains={['0', '1', '2', '3']}
+                    attribution='&copy; Google Maps'
+                  />
+                  {parseFloat(form.lat) && parseFloat(form.lng) && (
+                    <Marker position={[parseFloat(form.lat), parseFloat(form.lng)]} icon={DefaultIcon} />
+                  )}
+                  <ChangeView center={[parseFloat(form.lat) || 16.0544, parseFloat(form.lng) || 108.2022]} />
+                  <MapEventsHandler onMapClick={handleMapClick} />
+                </MapContainer>
+              </div>
+            </div>
             <Row className="g-3">
               <Col md={6}>
                 <Label>Số điện thoại</Label>
