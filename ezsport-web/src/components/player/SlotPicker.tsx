@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Badge, Spinner } from 'react-bootstrap';
 import { bookingService } from '../../services/booking.service';
 
+interface AvailableSlot {
+  time: string;
+  available: boolean;
+  price?: number;
+}
+
 interface SlotPickerProps {
-  venueId: string;
+  courtId: string;
   onSlotSelect: (slot: { date: string; startTime: string; endTime: string; duration: number; basePrice: number }) => void;
   selectedDate?: string;
   selectedStartTime?: string;
@@ -27,25 +33,25 @@ const getNextDays = () => {
   return days;
 };
 
-const SlotPicker: React.FC<SlotPickerProps> = ({ venueId, onSlotSelect, selectedDate, selectedStartTime }) => {
+const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selectedDate, selectedStartTime }) => {
   const days = getNextDays();
   const [activeDate, setActiveDate] = useState(selectedDate || days[0].value);
   const [activeTime, setActiveTime] = useState(selectedStartTime || '');
   const [duration, setDuration] = useState(1);
-  const [slots, setSlots] = useState<{ time: string; available: boolean; price: number }[]>([]);
+  const [slots, setSlots] = useState<AvailableSlot[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!venueId || !activeDate) return;
+    if (!courtId || !activeDate) return;
     setLoading(true);
     bookingService
-      .getAvailableSlots(venueId, activeDate)
-      .then((data: any[]) => {
+      .getAvailableSlots(courtId, activeDate)
+      .then((data: AvailableSlot[]) => {
         setSlots(
-          data.map((s: any) => ({
-            time: s.time,          // backend returns { time, available }
+          data.map((s: AvailableSlot) => ({
+            time: s.time,
             available: s.available,
-            price: s.price ?? 150000,
+            price: s.price ?? 0,
           }))
         );
       })
@@ -70,7 +76,7 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ venueId, onSlotSelect, selected
         ]);
       })
       .finally(() => setLoading(false));
-  }, [venueId, activeDate]);
+  }, [courtId, activeDate]);
 
   const calcEndTime = (start: string, dur: number) => {
     const [h, m] = start.split(':').map(Number);
@@ -80,6 +86,9 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ venueId, onSlotSelect, selected
     return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
   };
 
+
+  const selectedSlot = slots.find((s) => s.time === activeTime);
+  const basePrice = (selectedSlot?.price ?? 0) * duration;
 
   return (
     <div>
@@ -122,7 +131,16 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ venueId, onSlotSelect, selected
               <button
                 key={s.time}
                 disabled={!s.available}
-                onClick={() => setActiveTime(s.time)}
+                onClick={() => {
+                  setActiveTime(s.time);
+                  onSlotSelect({
+                    date: activeDate,
+                    startTime: s.time,
+                    endTime: calcEndTime(s.time, duration),
+                    duration,
+                    basePrice: (s.price ?? 0) * duration,
+                  });
+                }}
                 style={{
                   border: activeTime === s.time ? '2px solid #16a34a' : '1.5px solid #e5e7eb',
                   borderRadius: '10px',
@@ -149,19 +167,32 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ venueId, onSlotSelect, selected
           {DURATIONS.map((d) => (
             <button
               key={d}
-              onClick={() => setDuration(d)}
-               style={{
-            width: '100%',
-            height: '56px',
-            borderRadius: '16px',
-            border: 'none',
-            background: '#f3f4f6',
-            padding: '0 16px',
-            fontSize: '16px',
-            fontWeight: 600,
-            color: '#111827',
-            outline: 'none',
-          }}
+              onClick={() => {
+                setDuration(d);
+                if (activeTime) {
+                  const selectedSlot = slots.find((s) => s.time === activeTime);
+                  onSlotSelect({
+                    date: activeDate,
+                    startTime: activeTime,
+                    endTime: calcEndTime(activeTime, d),
+                    duration: d,
+                    basePrice: (selectedSlot?.price ?? 0) * d,
+                  });
+                }
+              }}
+              style={{
+                width: '100%',
+                height: '56px',
+                borderRadius: '16px',
+                border: duration === d ? '2px solid #16a34a' : '1px solid #e5e7eb',
+                background: duration === d ? '#f0fdf4' : '#f3f4f6',
+                padding: '0 16px',
+                fontSize: '16px',
+                fontWeight: 600,
+                color: duration === d ? '#16a34a' : '#111827',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
             >
               {d}h
             </button>
@@ -169,7 +200,7 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ venueId, onSlotSelect, selected
         </div>
       </div>
 
-      {/* Summary + confirm */}
+      {/* Summary */}
       {activeTime && (
         <div
           className="d-flex align-items-center justify-content-between p-3 rounded-3 mb-3"
@@ -180,7 +211,7 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ venueId, onSlotSelect, selected
             {activeTime} → {calcEndTime(activeTime, duration)} &nbsp;·&nbsp; {duration}h
           </div>
           <Badge bg="success" style={{ fontSize: '13px' }}>
-            {((slots.find((s) => s.time === activeTime)?.price ?? 150000) * duration).toLocaleString('vi-VN')}đ
+            {basePrice.toLocaleString('vi-VN')}đ
           </Badge>
         </div>
       )}

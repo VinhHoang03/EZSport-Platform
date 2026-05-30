@@ -64,7 +64,6 @@ const emptyForm = () => ({
   description: '',
   location: '',
   price: '',
-  pricePerHour: '',
   lat: '',
   lng: '',
   sportTypes: ['badminton'] as string[],
@@ -249,7 +248,6 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
       description: c.description || '',
       location: c.location,
       price: c.price,
-      pricePerHour: String(c.pricePerHour || ''),
       lat: String(c.lat),
       lng: String(c.lng),
       sportTypes: c.sportTypes?.length ? c.sportTypes : ['badminton'],
@@ -276,7 +274,6 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
       fd.append('description', form.description);
       fd.append('location', form.location);
       fd.append('price', form.price);
-      fd.append('pricePerHour', form.pricePerHour || String(parseInt(form.price.replace(/[^0-9]/g, ''), 10) || 0));
       fd.append('lat', form.lat);
       fd.append('lng', form.lng);
       fd.append('sportTypes', JSON.stringify(form.sportTypes));
@@ -561,16 +558,10 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
 
         <Section icon="payments" title="Giá & Giờ hoạt động">
           <div className="d-flex flex-column gap-4">
-            <Row className="g-3">
-              <Col md={8}>
-                <Label>Giá hiển thị *</Label>
-                <input style={inp} value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="VD: 150.000 - 200.000 VNĐ / Giờ" />
-              </Col>
-              <Col md={4}>
-                <Label>Giá / giờ (số) *</Label>
-                <input style={inp} type="number" value={form.pricePerHour} onChange={e => setForm(f => ({ ...f, pricePerHour: e.target.value }))} placeholder="150000" />
-              </Col>
-            </Row>
+            <div>
+              <Label>Giá hiển thị *</Label>
+              <input style={inp} value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="VD: 150.000 - 200.000 VNĐ / Giờ" />
+            </div>
             <Row className="g-3">
               <Col md={6}>
                 <Label>Giờ mở cửa</Label>
@@ -632,7 +623,7 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
     <div style={{ paddingBottom: '40px' }}>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h5 style={{ fontWeight: 800, color: TX, margin: 0 }}>Quản lý sân ({venues.length})</h5>
+          <h5 style={{ fontWeight: 800, color: TX, margin: 0 }}>Quản lý địa điểm ({venues.length})</h5>
           <span style={{ fontSize: '13px', color: TX2 }}>Thêm, sửa, xoá và quản lý trạng thái các sân</span>
         </div>
         <button
@@ -640,7 +631,6 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
           style={{ background: '#0f3d22', color: W, border: 'none', borderRadius: '20px', padding: '10px 20px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-          Thêm địa điểm & sân
         </button>
       </div>
 
@@ -692,17 +682,7 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
                       style={{ flex: 1, border: '1px solid #0f3d22', background: '#f0fdf4', borderRadius: '8px', padding: '7px', fontSize: '12px', fontWeight: 700, color: '#0f3d22', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                     >
                       <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>edit</span>
-                      Chỉnh sửa
                     </button>
-                    {onOpenCreateCourt && (
-                      <button
-                        onClick={() => onOpenCreateCourt(venue)}
-                        style={{ flex: 1, border: '1px solid #0f3d22', background: '#e6fffa', borderRadius: '8px', padding: '7px', fontSize: '12px', fontWeight: 700, color: '#0f3d22', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>sports_tennis</span>
-                        Tạo sân
-                      </button>
-                    )}
                     <button
                       onClick={() => handleDelete(venue)}
                       disabled={deleting}

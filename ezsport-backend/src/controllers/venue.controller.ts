@@ -82,12 +82,6 @@ export const createVenue = async (req: Request, res: Response) => {
       body.emoji = emojiMap[body.sportTypes[0]] ?? '🏟️';
     }
 
-    // pricePerHour: parse from price string if not provided
-    if (!body.pricePerHour && body.price) {
-      const num = parseInt(String(body.price).replace(/[^0-9]/g, ''), 10);
-      body.pricePerHour = num < 10000 ? num * 1000 : num;
-    }
-
     const amenities = parseAmenities(body.amenities);
     if (amenities) body.amenities = amenities;
 
@@ -109,11 +103,6 @@ export const updateVenue = async (req: Request, res: Response) => {
 
     if (body.sportTypes || body.sportType) {
       body.sportTypes = parseSportTypes(body.sportTypes ?? body.sportType);
-    }
-
-    if (body.price && !body.pricePerHour) {
-      const num = parseInt(String(body.price).replace(/[^0-9]/g, ''), 10);
-      body.pricePerHour = num < 10000 ? num * 1000 : num;
     }
 
     const amenities = parseAmenities(body.amenities);

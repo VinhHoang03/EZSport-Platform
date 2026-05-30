@@ -29,7 +29,7 @@ export interface IVenue extends Document {
 
   // Pricing
   price: string;          // display string e.g. "150.000 VNĐ / Giờ"
-  pricePerHour: number;   // numeric for calculation e.g. 150000
+  pricePerHour?: number;  // numeric for compatibility; venue pricing is display-only now
 
   // Hours
   openTime: string;       // '06:00'
@@ -95,7 +95,7 @@ const VenueSchema: Schema = new Schema<IVenue>(
 
     // Pricing
     price:        { type: String, required: true },
-    pricePerHour: { type: Number, required: true, min: 0 },
+    pricePerHour: { type: Number, default: 0, min: 0 },
 
     // Hours
     openTime:     { type: String, default: '06:00' },

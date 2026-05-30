@@ -34,6 +34,7 @@ export const EditCourtModal: React.FC<EditCourtModalProps> = ({
   const [description, setDescription] = useState('');
   const [sportTypes, setSportTypes] = useState<string[]>(['badminton']);
   const [courtType, setCourtType] = useState<'indoor' | 'outdoor'>('indoor');
+  const [pricePerHour, setPricePerHour] = useState('');
 
   const [status, setStatus] = useState<'available' | 'maintenance' | 'inactive'>('available');
   const [isActive, setIsActive] = useState(true);
@@ -44,6 +45,7 @@ export const EditCourtModal: React.FC<EditCourtModalProps> = ({
       setDescription((court as any).description || '');
       setSportTypes(court.sportTypes || ['badminton']);
       setCourtType((court as any).courtType || 'indoor');
+      setPricePerHour(String((court as any).pricePerHour ?? ''));
 
       setStatus((court as any).status || 'available');
       setIsActive((court as any).isActive !== false);
@@ -64,6 +66,7 @@ export const EditCourtModal: React.FC<EditCourtModalProps> = ({
       description,
       sportTypes,
       courtType,
+      pricePerHour: pricePerHour ? Number(pricePerHour) : 0,
       emoji: SPORT_EMOJI[sportTypes[0]] || '🏟️',
       status,
       isActive,
@@ -153,6 +156,19 @@ export const EditCourtModal: React.FC<EditCourtModalProps> = ({
           </div>
 
 
+
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 700, color: TX, display: 'block', marginBottom: '6px' }}>
+              Giá / giờ (VNĐ)
+            </label>
+            <input
+              type="number"
+              style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px', color: TX, background: W }}
+              value={pricePerHour}
+              onChange={e => setPricePerHour(e.target.value)}
+              placeholder="VD: 120000"
+            />
+          </div>
 
           <div>
             <label style={{ fontSize: '13px', fontWeight: 700, color: TX, display: 'block', marginBottom: '6px' }}>

@@ -27,9 +27,10 @@ interface Booking {
 interface BookingCalendarProps {
   bookingsList: Booking[];
   onSelectBooking: (booking: Booking) => void;
+  loading?: boolean;
 }
 
-export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, onSelectBooking }) => {
+export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, onSelectBooking, loading = false }) => {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string>('');
   const [courts, setCourts] = useState<Court[]>([]);
@@ -258,7 +259,6 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
             marginRight: '4px', flexShrink: 0,
           }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>grid_view</span>
-            Sân con
           </div>
 
           {loadingCourts ? (
@@ -351,7 +351,7 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
                     onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#dc2626'; }}
                     onMouseLeave={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.color = 'inherit'; }}
                   >
-                    close
+                    delete
                   </span>
                 </div>
               );
@@ -392,14 +392,18 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
             }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_circle</span>
-            Thêm sân
           </button>
         </div>
       </div>
 
       {/* Calendar Grid */}
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
-        {courts.length === 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '64px 24px' }}>
+            <Spinner variant="success" />
+            <div style={{ fontSize: '13px', color: TX2, marginTop: '12px' }}>Đang tải lịch đặt sân...</div>
+          </div>
+        ) : courts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '64px 24px', border: '1px dashed #cbd5e1', borderRadius: '16px', background: '#f8fafc' }}>
             <span className="material-symbols-outlined text-muted mb-2" style={{ fontSize: '48px' }}>sports_tennis</span>
             <div style={{ fontWeight: 800, color: TX, fontSize: '15px' }}>Không có sân con nào</div>
@@ -553,7 +557,7 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
         venue={selectedVenue}
         onClose={() => setShowModal(false)}
         onCreateCourt={handleCreateCourt}
-        showPrice={false}
+        showPrice={true}
       />
 
       {/* Edit Court Modal */}

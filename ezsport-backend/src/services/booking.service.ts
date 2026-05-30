@@ -1,6 +1,6 @@
 import Booking, { IBooking, BookingStatus } from "../models/booking.model";
+import Court from "../models/court.model";
 import { User } from "../models/user.model";
-import Venue from "../models/venue.model";
 
 class BookingService {
   /**
@@ -11,13 +11,13 @@ class BookingService {
     const user = await User.findById(userId);
     if (!user) throw new Error("Người dùng không tồn tại");
 
-    // Check if venue exists
-    const venue = await Venue.findById(bookingData.venueId);
-    if (!venue) throw new Error("Sân không tồn tại");
+    // Check if court exists
+    const court = await Court.findById(bookingData.courtId);
+    if (!court) throw new Error("Sân không tồn tại");
 
     // Check for booking conflicts
     const existingBooking = await Booking.findOne({
-      venueId: bookingData.venueId,
+      courtId: bookingData.courtId,
       bookingDate: {
         $gte: new Date(bookingData.bookingDate),
         $lt: new Date(new Date(bookingData.bookingDate).getTime() + 86400000), // same day
@@ -44,7 +44,7 @@ class BookingService {
       status: "PENDING",
     });
 
-    return booking.populate("userId venueId");
+    return booking.populate("userId courtId");
   }
 
   /**
@@ -82,7 +82,7 @@ class BookingService {
 
     const [bookings, total] = await Promise.all([
       Booking.find(query)
-        .populate("userId venueId")
+        .populate("userId courtId")
         .sort({ bookingDate: -1 })
         .skip(skip)
         .limit(limit),
@@ -96,7 +96,7 @@ class BookingService {
    * Get booking by ID
    */
   async getBookingById(bookingId: string): Promise<IBooking | null> {
-    return await Booking.findById(bookingId).populate("userId venueId");
+    return await Booking.findById(bookingId).populate("userId courtId");
   }
 
   /**
@@ -122,7 +122,7 @@ class BookingService {
 
     const updated = await Booking.findByIdAndUpdate(bookingId, updateData, {
       new: true,
-    }).populate("userId venueId");
+    }).populate("userId courtId");
 
     return updated;
   }
@@ -146,7 +146,7 @@ class BookingService {
       bookingId,
       { status: "CANCELLED" },
       { new: true }
-    ).populate("userId venueId");
+    ).populate("userId courtId");
 
     return updated;
   }
@@ -155,16 +155,16 @@ class BookingService {
    * Get available time slots for a venue on a specific date
    */
   async getAvailableSlots(
-    venueId: string,
+    courtId: string,
     bookingDate: Date,
     slotDuration: number = 1 // in hours
-  ): Promise<{ time: string; available: boolean }[]> {
-    const venue = await Venue.findById(venueId);
-    if (!venue) throw new Error("Sân không tồn tại");
+  ): Promise<{ time: string; available: boolean; price?: number }[]> {
+    const court = await Court.findById(courtId);
+    if (!court) throw new Error("Sân không tồn tại");
 
-    // Get all confirmed bookings for this venue on the date
+    // Get all confirmed bookings for this court on the date
     const bookings = await Booking.find({
-      venueId,
+      courtId,
       bookingDate: {
         $gte: new Date(bookingDate),
         $lt: new Date(new Date(bookingDate).getTime() + 86400000),
@@ -172,7 +172,7 @@ class BookingService {
       status: { $in: ["CONFIRMED", "CHECKED_IN"] },
     });
 
-    const slots: { time: string; available: boolean }[] = [];
+    const slots: { time: string; available: boolean; price?: number }[] = [];
     // Default hours: 06:00 - 22:00 (can be configured per court)
     const startHour = 6;
     const startMin = 0;
@@ -203,6 +203,7 @@ class BookingService {
       slots.push({
         time: timeStr,
         available: !conflictingBooking,
+        price: court.pricePerHour ?? 0,
       });
 
       // Move to next slot
@@ -220,7 +221,7 @@ class BookingService {
    * Get bookings for a venue (for admin/owner)
    */
   async getVenueBookings(
-    venueId: string,
+    courtId: string,
     filters?: {
       status?: BookingStatus;
       startDate?: Date;
@@ -233,7 +234,7 @@ class BookingService {
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
 
-    const query: any = { venueId };
+    const query: any = { courtId };
 
     if (filters?.status) {
       query.status = filters.status;
@@ -251,7 +252,7 @@ class BookingService {
 
     const [bookings, total] = await Promise.all([
       Booking.find(query)
-        .populate("userId venueId")
+        .populate("userId courtId")
         .sort({ bookingDate: -1 })
         .skip(skip)
         .limit(limit),
@@ -276,7 +277,7 @@ class BookingService {
       bookingId,
       { status: "CONFIRMED" },
       { new: true }
-    ).populate("userId venueId");
+    ).populate("userId courtId");
 
     return updated;
   }
@@ -296,7 +297,7 @@ class BookingService {
       bookingId,
       { status: "CHECKED_IN" },
       { new: true }
-    ).populate("userId venueId");
+    ).populate("userId courtId");
 
     return updated;
   }
@@ -316,7 +317,7 @@ class BookingService {
       bookingId,
       { status: "COMPLETED" },
       { new: true }
-    ).populate("userId venueId");
+    ).populate("userId courtId");
 
     return updated;
   }

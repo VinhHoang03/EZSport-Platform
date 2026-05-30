@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Navigation from '../shared/Navigation';
 import Footer from '../shared/Footer';
 import SlotPicker from './SlotPicker';
-import { venueService, type Venue } from '../../services/venue.service';
+import { courtService, venueService, type Court, type Venue } from '../../services/venue.service';
 import { conversationService } from '../../services/conversation.service';
 import { ROUTES } from '../../constants';
 
@@ -34,10 +34,31 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [internalVenueData, setInternalVenueData] = useState<Venue | null>(null);
   const [internalLoading, setInternalLoading] = useState<boolean>(!externalVenueData && !!venueId);
+  const [selectedSlot, setSelectedSlot] = useState<BookingDetails['slot'] | null>(null);
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [selectedCourtId, setSelectedCourtId] = useState<string>('');
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [creatingChat, setCreatingChat] = useState(false);
   const venueData = externalVenueData ?? internalVenueData;
   const loading = externalVenueLoading ?? internalLoading;
+
+  useEffect(() => {
+    if (!venueId) {
+      return;
+    }
+
+    courtService
+      .getCourts({ venue: String(venueId), active: 'true' })
+      .then((data) => {
+        setCourts(data);
+        if (data.length) {
+          setSelectedCourtId((prev) => prev || data[0]._id);
+        }
+      })
+      .catch((err) => {
+        console.error('[VenueDetail] Failed to fetch courts:', err);
+      });
+  }, [venueId]);
 
   useEffect(() => {
     if (externalVenueData || !venueId) {
@@ -73,8 +94,11 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
     };
   }, [venueId, externalVenueData]);
 
+  const selectedCourt = courts.find((court) => court._id === selectedCourtId) ?? courts[0] ?? null;
+
   // Use pricePerHour directly from model (numeric), fallback parse from price string
-  const pricePerHour = venueData?.pricePerHour
+  const pricePerHour = selectedCourt?.pricePerHour
+    ?? venueData?.pricePerHour
     ?? (() => {
         if (!venueData?.price) return 180000;
         const raw = venueData.price.replace(/[^0-9]/g, '');
@@ -121,14 +145,22 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
 
   const handleBooking = () => {
     if (onConfirmBooking) {
-      onConfirmBooking({ venueId });
+      onConfirmBooking({
+        venueId,
+        slot: selectedSlot ?? undefined,
+        courtId: selectedCourt?._id ?? String(venueId),
+        courtName: selectedCourt?.name ?? venue.name,
+        courtAddress: venue.location,
+        courtImage: venue.image,
+        sport: selectedCourt?.sportTypes?.[0] ?? venue.sports[0] ?? '',
+        basePrice: selectedSlot?.basePrice ?? pricePerHour,
+      } as any);
     }
   };
 
   const handleSlotSelect = (slot: { date: string; startTime: string; endTime: string; duration: number; basePrice: number }) => {
-    if (onConfirmBooking) {
-      onConfirmBooking({ venueId, slot });
-    }
+    // Do not auto-confirm. Store the selected slot and let the user press the confirm button.
+    setSelectedSlot(slot);
   };
 
   const handleChatWithOwner = async () => {
@@ -595,10 +627,40 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                         Đặt ngay
                       </Badge>
                     </div>
+                    {courts.length > 0 && (
+                      <div className="mb-4">
+                        <p className="fw-semibold mb-2" style={{ fontSize: '13px', color: '#374151' }}>Chọn sân</p>
+                        <div className="d-flex flex-column gap-2">
+                          {courts.map((court) => (
+                            <button
+                              key={court._id}
+                              type="button"
+                              onClick={() => setSelectedCourtId(court._id)}
+                              className="text-start"
+                              style={{
+                                border: selectedCourtId === court._id ? '2px solid #16a34a' : '1px solid #e5e7eb',
+                                borderRadius: '14px',
+                                background: selectedCourtId === court._id ? '#f0fdf4' : '#fff',
+                                padding: '10px 12px',
+                                color: '#111827',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <div className="d-flex justify-content-between align-items-center">
+                                <strong style={{ fontSize: '13px' }}>{court.name}</strong>
+                                <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700 }}>{court.pricePerHour?.toLocaleString('vi-VN')}đ/giờ</span>
+                              </div>
+                              <div className="text-muted" style={{ fontSize: '12px' }}>{court.sportTypes?.join(', ')}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Slot picker from Figma design */}
                     <div className="mb-4">
                       <SlotPicker
-                        venueId={String(venueId)}
+                        courtId={selectedCourtId || String(venueId)}
                         onSlotSelect={handleSlotSelect}
                       />
                     </div>
@@ -608,11 +670,12 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                       onClick={handleBooking}
                       className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-3"
                       style={{
-                        background: '#1a6b3c',
+                        background: selectedSlot ? '#1a6b3c' : '#94d3b6',
                         color: '#ffffff',
                         fontSize: '15px',
-                        boxShadow: '0 8px 24px rgba(26, 107, 60, 0.3)'
+                        boxShadow: selectedSlot ? '0 8px 24px rgba(26, 107, 60, 0.3)' : 'none'
                       }}
+                      disabled={!selectedSlot}
                     >
                       Xác nhận đặt sân
                     </Button>

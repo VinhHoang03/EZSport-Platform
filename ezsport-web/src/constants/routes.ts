@@ -17,9 +17,7 @@ export const ROUTES = {
   PLAYMATES: '/playmates',
   MESSAGES: '/messages',
 
-  // Booking flow (new)
-  BOOKING: '/booking/:id',
-  BOOKING_CONFIRM: '/booking/:id/confirm',
+  // Booking flow
   BOOKING_SUCCESS_NEW: '/booking/success/:bookingId',
   MY_BOOKINGS: '/my-bookings',
   BOOKING_DETAIL: '/my-bookings/:bookingId',
