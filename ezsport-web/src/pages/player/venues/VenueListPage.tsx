@@ -120,7 +120,7 @@ const VenuesPage: React.FC = () => {
       <div className="flex-grow-1 h-100 overflow-hidden">
         <Row className="h-100 g-0">
           <CourtList
-            courts={filteredCourts}
+            venues={filteredCourts}
             layout="horizontal"
             currentLocationName="Đà Nẵng, Việt Nam"
             onDetailClick={(id) => navigate(`/venues/${id}`)}

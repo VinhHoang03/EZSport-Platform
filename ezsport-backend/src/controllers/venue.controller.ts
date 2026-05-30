@@ -49,7 +49,7 @@ export const getVenues = async (req: Request, res: Response) => {
 // ── GET /venues/:id ───────────────────────────────────────────────────────────
 export const getVenueById = async (req: Request, res: Response) => {
   try {
-    const venue = await Venue.findById(req.params.id);
+    const venue = await Venue.findById(req.params.id).populate('owner', 'fullName email avatar');
     if (!venue) return res.status(404).json({ message: "Venue not found" });
     res.status(200).json({ message: "Fetch venue success", data: serializeVenue(venue) });
   } catch (error: any) {
@@ -61,6 +61,9 @@ export const getVenueById = async (req: Request, res: Response) => {
 export const createVenue = async (req: Request, res: Response) => {
   try {
     const body = { ...req.body };
+
+    // Auto-assign owner from the logged-in user
+    body.owner = req.user?.id || req.id;
 
     // Image from Cloudinary upload
     if (req.file?.path) body.image = req.file.path;

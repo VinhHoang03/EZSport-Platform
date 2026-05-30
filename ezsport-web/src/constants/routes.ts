@@ -15,6 +15,7 @@ export const ROUTES = {
   BOOKING_SUCCESS: '/booking-success',
   PROFILE: '/profile',
   PLAYMATES: '/playmates',
+  MESSAGES: '/messages',
 
   // Booking flow (new)
   BOOKING: '/booking/:id',

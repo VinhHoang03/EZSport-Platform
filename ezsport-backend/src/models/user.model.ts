@@ -12,6 +12,7 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   lastLogin?: Date;
+  loyaltyPoints?: number;
 }
 
 export interface IUserDocument extends IUser, Document {}
@@ -35,6 +36,7 @@ export interface IUserDocument extends IUser, Document {}
         default: UserStatus.ACTIVE,
       },
       lastLogin: { type: Date, default: null },
+      loyaltyPoints: { type: Number, default: 0, min: 0 },
     },
     { timestamps: true }
   );

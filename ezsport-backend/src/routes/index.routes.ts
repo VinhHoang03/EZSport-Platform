@@ -6,6 +6,7 @@ import courtRoutes from "./court.routes";
 import userRoutes from "./user.routes";
 import adminRoutes from "./admin.routes";
 import chatHistoryRoutes from "./chatHistory.routes";
+import conversationRoutes from "./conversation.routes";
 
 export default function route(app: Application): void {
     app.use("/api/auth", authRoutes);
@@ -16,4 +17,5 @@ export default function route(app: Application): void {
     app.use("/api/users", userRoutes);
     app.use("/api/admin", adminRoutes);
     app.use("/api/chat-history", chatHistoryRoutes);
+    app.use("/api/conversations", conversationRoutes);
 }
