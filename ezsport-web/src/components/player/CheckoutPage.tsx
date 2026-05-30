@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Card, Form, Button, InputGroup, Badge } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Card, Form, Button, InputGroup, Badge, Alert, Spinner } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '../shared/Navigation';
+import { useBookingStore } from '../../store/bookingStore';
+import { bookingService } from '../../services/booking.service';
+import { useAuth } from '../../context/AuthContext';
 
 interface CheckoutPageProps {
   venueId: number | string;
@@ -11,10 +15,16 @@ interface CheckoutPageProps {
 }
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, onBackClick, onSuccessClick, onPageChange, onLogoClick }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { draft } = useBookingStore();
+  
   const [usePoints, setUsePoints] = useState<boolean>(true);
   const [voucherCode, setVoucherCode] = useState<string>('EZSPORT50');
   const [appliedVoucher, setAppliedVoucher] = useState<boolean>(true);
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'zalopay' | 'card' | 'bank'>('card');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Visa card states
   const [cardNumber, setCardNumber] = useState<string>('4111 2222 3333 4444');
@@ -22,13 +32,32 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
   const [cvv, setCvv] = useState<string>('***');
   const [cardName, setCardName] = useState<string>('NGUYEN VAN AN');
 
-  // Booker info states
-  const [bookerName, setBookerName] = useState<string>('Nguyễn Văn An');
-  const [bookerPhone, setBookerPhone] = useState<string>('090 123 4567');
-  const [bookerEmail, setBookerEmail] = useState<string>('an.nguyen@email.com');
+  // Booker info states - get from user or draft
+  const [bookerName, setBookerName] = useState<string>(draft?.bookerName || user?.name || 'Nguyễn Văn An');
+  const [bookerPhone, setBookerPhone] = useState<string>(draft?.bookerPhone || user?.phone || '090 123 4567');
+  const [bookerEmail, setBookerEmail] = useState<string>(draft?.bookerEmail || user?.email || 'an.nguyen@email.com');
 
-  // Booking details mock
-  const booking = {
+  useEffect(() => {
+    if (!draft || !draft.slot) {
+      setError('Không tìm thấy thông tin đặt sân. Vui lòng chọn lại.');
+    }
+  }, [draft]);
+
+  // Booking details from draft
+  const booking = draft ? {
+    venueName: draft.courtName,
+    sport: draft.sport,
+    address: draft.courtAddress,
+    image: draft.courtImage || '/images/badminton.png',
+    date: draft.slot ? new Date(draft.slot.date).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
+    time: draft.slot ? `${draft.slot.startTime} - ${draft.slot.endTime}` : '',
+    courtNo: draft.courtName || `Sân ${draft.courtId}`,
+    duration: `${draft.slot?.duration || 0} giờ`,
+    basePrice: draft.basePrice,
+    serviceFee: draft.serviceFee,
+    discount: draft.discount,
+    pointsDiscount: draft.pointsUsed
+  } : {
     venueName: 'EZSport Arena Central',
     sport: 'CẦU LÔNG',
     address: '81C Lê Văn Hiến, Ngũ Hành Sơn, Đà Nẵng',
@@ -50,6 +79,51 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
   const pointsVal = usePoints ? booking.pointsDiscount : 0;
   const total = subtotal + serviceFee - discountVal - pointsVal;
 
+  const handleConfirmPayment = async () => {
+    if (!draft || !draft.slot) {
+      setError('Thông tin đặt sân không đầy đủ');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const bookingPayload = {
+        courtId: draft.courtId,
+        bookingDate: new Date(draft.slot.date),
+        startTime: draft.slot.startTime,
+        endTime: draft.slot.endTime,
+        duration: draft.slot.duration,
+        sport: draft.sport,
+        basePrice: subtotal,
+        serviceFee: serviceFee,
+        discount: discountVal,
+        pointsUsed: usePoints ? 500 : 0,
+        totalPrice: total,
+        paymentMethod: paymentMethod,
+        bookerName: bookerName,
+        bookerPhone: bookerPhone.replace(/\s/g, ''),
+        bookerEmail: bookerEmail,
+        notes: '',
+      };
+
+      const createdBooking = await bookingService.createBooking(bookingPayload);
+
+      // Sync final total back to store so BookingSuccessPage can display it
+      useBookingStore.getState().setDraft({ totalPrice: total });
+      useBookingStore.getState().setConfirmedBookingId(createdBooking._id);
+
+      navigate(`/booking/success/${createdBooking._id}`);
+      onSuccessClick();
+    } catch (err: any) {
+      console.error('Booking creation failed:', err);
+      setError(err?.response?.data?.message || err?.message || 'Tạo đơn đặt sân thất bại');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Navigation Header */}
@@ -62,6 +136,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
       {/* Main Content Area */}
       <div className="overflow-auto flex-grow-1 py-4">
         <Container>
+
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-3">
+              <Alert.Heading>Lỗi!</Alert.Heading>
+              <p>{error}</p>
+            </Alert>
+          )}
 
           {/* Breadcrumbs or Back Link */}
           <Button
@@ -465,16 +547,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
                   </div>
 
                   <Button
-                    onClick={onSuccessClick}
-                    className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-1"
+                    onClick={handleConfirmPayment}
+                    disabled={isSubmitting}
+                    className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-1 d-flex align-items-center justify-content-center gap-2"
                     style={{
                       background: '#0f172a',
                       color: '#ffffff',
                       fontSize: '15px',
-                      boxShadow: '0 8px 24px rgba(15, 23, 42, 0.2)'
+                      boxShadow: '0 8px 24px rgba(15, 23, 42, 0.2)',
+                      opacity: isSubmitting ? 0.7 : 1
                     }}
                   >
-                    Xác nhận & Thanh toán
+                    {isSubmitting ? (
+                      <>
+                        <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      'Xác nhận & Thanh toán'
+                    )}
                   </Button>
                 </Card>
 

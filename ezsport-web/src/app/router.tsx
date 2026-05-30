@@ -20,8 +20,6 @@ const VenueListPage         = lazy(() => import('../pages/player/venues/VenueLis
 const VenueDetailPage       = lazy(() => import('../pages/player/venues/VenueDetailPage'));
 const CheckoutPageWrapper   = lazy(() => import('../pages/player/CheckoutPageWrapper'));
 const BookingSuccessWrapper = lazy(() => import('../pages/player/BookingSuccessWrapper'));
-const BookingPage           = lazy(() => import('../pages/player/booking/BookingPage'));
-const BookingConfirmPage    = lazy(() => import('../pages/player/booking/BookingConfirmPage'));
 const BookingSuccessPage    = lazy(() => import('../pages/player/booking/BookingSuccessPage'));
 const MyBookingsPage        = lazy(() => import('../pages/player/booking/MyBookingsPage'));
 const BookingDetailPage     = lazy(() => import('../pages/player/booking/BookingDetailPage'));
@@ -77,8 +75,6 @@ const router = createBrowserRouter([
         { path: ROUTES.PROFILE,         element: s(ProfilePageWrapper) },
         { path: ROUTES.PLAYMATES,       element: s(PlaymatesWrapper) },
         // New booking flow
-        { path: ROUTES.BOOKING,              element: s(BookingPage) },
-        { path: ROUTES.BOOKING_CONFIRM,      element: s(BookingConfirmPage) },
         { path: ROUTES.BOOKING_SUCCESS_NEW,  element: s(BookingSuccessPage) },
         { path: ROUTES.MY_BOOKINGS,          element: s(MyBookingsPage) },
         { path: ROUTES.BOOKING_DETAIL,       element: s(BookingDetailPage) },

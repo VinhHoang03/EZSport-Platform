@@ -345,11 +345,14 @@ export class CourtService {
       if (!court) throw new Error('Không tìm thấy sân');
 
       const venue = (court as any).venue || {};
+      const priceText = court.pricePerHour
+        ? `${Number(court.pricePerHour).toLocaleString('vi-VN')} VNĐ / giờ`
+        : (venue.price || 'Liên hệ');
       const prompt = `Viết mô tả ngắn bằng tiếng Việt cho sân:
 - Tên: ${court.name}
 - Loại sân: ${((court as any).sportTypes || []).join(', ')}
 - Địa điểm: ${venue.location || 'Đà Nẵng'}
-- Giá: ${venue.price || 'Liên hệ'}
+- Giá: ${priceText}
 
 Yêu cầu: 2-3 câu, tự nhiên, không bịa thông tin ngoài dữ liệu trên.`;
 
@@ -375,7 +378,10 @@ Yêu cầu: 2-3 câu, tự nhiên, không bịa thông tin ngoài dữ liệu tr
       const courtsInfo = courts
         .map((court: any) => {
           const venue = court.venue || {};
-          return `- ${court.name}: ${(court.sportTypes || []).join(', ')}, ${venue.price || 'Liên hệ'}, tại ${venue.location || 'Đà Nẵng'}`;
+          const priceText = court.pricePerHour
+            ? `${Number(court.pricePerHour).toLocaleString('vi-VN')} VNĐ / giờ`
+            : (venue.price || 'Liên hệ');
+          return `- ${court.name}: ${(court.sportTypes || []).join(', ')}, ${priceText}, tại ${venue.location || 'Đà Nẵng'}`;
         })
         .join('\n');
 

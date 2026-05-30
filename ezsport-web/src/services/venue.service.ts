@@ -27,7 +27,7 @@ export interface Venue {
 
   // Pricing
   price: string;          // display string
-  pricePerHour: number;   // numeric
+  pricePerHour?: number;  // numeric (kept for compatibility; venue pricing is display-only)
 
   // Hours
   openTime: string;       // '06:00'

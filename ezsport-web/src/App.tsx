@@ -19,6 +19,7 @@ import { OwnerPage } from './pages/owner/OwnerPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { PlaymatesPage } from './components/player/PlaymatesPage';
 import { AIChatbot } from './components/shared/AIChatbot';
+import { useBookingStore } from './store/bookingStore';
 // Haversine formula to calculate distance between two coordinates in KM
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371;
@@ -79,6 +80,7 @@ const isApiError = (value: unknown): value is ApiError => {
 
 const App: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
+  const { initDraft, setDraft } = useBookingStore();
 
   // Detect reset-password route from URL path — now handled by router
   const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'venue-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
@@ -450,7 +452,26 @@ const App: React.FC = () => {
       <VenueDetail 
         venueId={selectedVenueId || 1} 
         onBackClick={() => setCurrentPage('venues')} 
-        onConfirmBooking={() => setCurrentPage('checkout')}
+        onConfirmBooking={(bookingDetails) => {
+          const slot = bookingDetails?.slot;
+          const courtId = (bookingDetails as any)?.courtId ?? String(selectedVenueId);
+          const courtName = (bookingDetails as any)?.courtName ?? '';
+          const courtAddress = (bookingDetails as any)?.courtAddress ?? '';
+          const courtImage = (bookingDetails as any)?.courtImage;
+          const sport = (bookingDetails as any)?.sport ?? '';
+          const basePrice = (bookingDetails as any)?.basePrice ?? 0;
+
+          initDraft(courtId, courtName, courtAddress, courtImage);
+          setDraft({
+            sport,
+            slot: slot ?? null,
+            basePrice,
+            serviceFee: 15000,
+            discount: 30000,
+            pointsUsed: 50000,
+          });
+          setCurrentPage('checkout');
+        }}
         onPageChange={(page) => setCurrentPage(page)}
         onLogoClick={handleLogoClick}
       />

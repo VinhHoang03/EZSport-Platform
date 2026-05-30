@@ -8,6 +8,8 @@ class BookingController {
    */
   async createBooking(req: Request, res: Response) {
     try {
+      console.log('[booking.createBooking] incoming body:', JSON.stringify(req.body));
+      console.log('[booking.createBooking] auth user/id:', (req as any).user?.id || (req as any).id);
       const validation = createBookingSchema.safeParse(req.body);
       if (!validation.success) {
         const firstError = validation.error.issues[0];
@@ -17,7 +19,11 @@ class BookingController {
         });
       }
 
-      const userId = (req as any).userId; // from auth middleware
+      const userId = (req as any).user?.id || (req as any).id; // from auth middleware (req.user or req.id)
+      if (!userId) {
+        console.warn('[booking.createBooking] missing userId (unauthenticated)');
+        return res.status(401).json({ message: 'Người dùng chưa xác thực' });
+      }
       const booking = await bookingService.createBooking(userId, validation.data);
 
       return res.status(201).json({
@@ -25,8 +31,10 @@ class BookingController {
         data: booking,
       });
     } catch (err: any) {
-      return res.status(400).json({
-        message: err.message || "Lỗi tạo đặt sân",
+      console.error('[booking.createBooking] error:', err && err.stack ? err.stack : err);
+      return res.status(500).json({
+        message: err?.message || "Lỗi tạo đặt sân",
+        error: err?.stack || null,
       });
     }
   }
@@ -36,7 +44,8 @@ class BookingController {
    */
   async getUserBookings(req: Request, res: Response) {
     try {
-      const userId = (req as any).userId;
+      const userId = (req as any).user?.id || (req as any).id;
+      if (!userId) return res.status(401).json({ message: 'Người dùng chưa xác thực' });
       const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
 
       const filters: any = {
@@ -98,8 +107,8 @@ class BookingController {
   async updateBooking(req: Request, res: Response) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const userId = (req as any).userId;
-
+      const userId = (req as any).user?.id || (req as any).id;
+      if (!userId) return res.status(401).json({ message: 'Người dùng chưa xác thực' });
       const validation = updateBookingSchema.safeParse(req.body);
       if (!validation.success) {
         const firstError = validation.error.issues[0];
@@ -128,7 +137,7 @@ class BookingController {
   async cancelBooking(req: Request, res: Response) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-      const userId = (req as any).userId;
+      const userId = (req as any).user?.id || (req as any).id;
 
       const booking = await bookingService.cancelBooking(id, userId);
 

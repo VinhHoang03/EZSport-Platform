@@ -36,7 +36,7 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
   const [description, setDescription] = useState('');
   const [sportTypes, setSportTypes] = useState<string[]>(['badminton']);
   const [courtType, setCourtType] = useState<'indoor' | 'outdoor'>('indoor');
-  const [pricePerHour, setPricePerHour] = useState('120000');
+  const [pricePerHour, setPricePerHour] = useState('');
   const [status, setStatus] = useState<'available' | 'maintenance' | 'inactive'>('available');
   const [isActive, setIsActive] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -47,7 +47,7 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
       setDescription('');
       setSportTypes(['badminton']);
       setCourtType('indoor');
-      setPricePerHour('120000');
+      setPricePerHour('');
       setStatus('available');
       setIsActive(true);
       setImageFile(null);
@@ -75,7 +75,7 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
         payload.append('sportTypes', JSON.stringify(sportTypes));
         payload.append('courtType', courtType);
         payload.append('emoji', SPORT_EMOJI[sportTypes[0]] || '🏟️');
-        payload.append('pricePerHour', pricePerHour);
+        payload.append('pricePerHour', pricePerHour || '0');
         payload.append('status', status);
         payload.append('isActive', String(isActive));
         payload.append('images', imageFile);
@@ -89,7 +89,7 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
           sportTypes,
           courtType,
           emoji: SPORT_EMOJI[sportTypes[0]] || '🏟️',
-          pricePerHour,
+          pricePerHour: pricePerHour ? Number(pricePerHour) : 0,
           status,
           isActive
         };
@@ -223,7 +223,7 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
                 style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '14px', color: TX, background: W }}
                 value={pricePerHour}
                 onChange={e => setPricePerHour(e.target.value)}
-                placeholder="120000"
+                placeholder="VD: 120000"
               />
             </div>
           )}

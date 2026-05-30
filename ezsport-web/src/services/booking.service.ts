@@ -1,7 +1,8 @@
 import api from '../api/api';
 
 export interface CreateBookingPayload {
-  venueId: string;
+  courtId: string;
+  venueId?: string;
   bookingDate: Date;
   startTime: string;
   endTime: string;
@@ -101,16 +102,16 @@ export const bookingService = {
    * Get available time slots for a court
    */
   getAvailableSlots: async (
-    venueId: string,
+    courtId: string,
     date: string | Date,
     duration?: number
-  ): Promise<Array<{ time: string; available: boolean }>> => {
+  ): Promise<Array<{ time: string; available: boolean; price?: number }>> => {
     const params = new URLSearchParams();
     const dateStr = date instanceof Date ? date.toISOString() : new Date(date).toISOString();
     params.append('date', dateStr);
     if (duration) params.append('duration', duration.toString());
 
-    const { data } = await api.get(`/bookings/slots/${venueId}?${params.toString()}`);
+    const { data } = await api.get(`/bookings/slots/${courtId}?${params.toString()}`);
     return data.data;
   },
 

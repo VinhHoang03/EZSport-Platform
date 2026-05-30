@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Row, Col, Card, Dropdown, Button } from 'react-bootstrap';
 import { W, TX, TX2, SL } from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
-import { courtService, type Venue } from '../../services/venue.service';
+import { venueService, courtService, type Venue, type Court } from '../../services/venue.service';
 import { OwnerVenuesTab } from './venues/OwnerVenuesTab';
 import { CreateCourtModal } from './venues/CreateCourtModal';
 import { OwnerOverviewTab } from './dashboard/OwnerDashboard';
@@ -10,6 +10,7 @@ import { BookingCalendar } from './bookings/BookingCalendar';
 import { BookingDetail } from './bookings/BookingDetail';
 import { OwnerRevenue } from './analytics/OwnerRevenue';
 import { OwnerMessage } from './chats/OwnerMessage';
+import api from '../../api/api';
 
 interface OwnerDashboardProps {
   onGoHome: () => void;
@@ -41,6 +42,75 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
   // Interactive bookings state
   // Xóa mock data - sẽ fetch booking thật từ API
   const [bookingsList, setBookingsList] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+
+  // Fetch real bookings for all courts owned by this owner
+  const fetchOwnerBookings = useCallback(async () => {
+    setLoadingBookings(true);
+    try {
+      // 1. Get all venues of this owner
+      const venues = await venueService.getVenues({ active: 'all' });
+      if (!venues.length) return;
+
+      // 2. Get all courts for each venue
+      const allCourts: Court[] = [];
+      for (const venue of venues) {
+        const courts = await courtService.getCourts({ venue: venue._id, active: 'all' });
+        allCourts.push(...courts);
+      }
+
+      // 3. Fetch bookings for each court
+      const allBookings: Booking[] = [];
+      for (const court of allCourts) {
+        try {
+          const res = await api.get(`/bookings/court/${court._id}/bookings?limit=100`);
+          const courtBookings: any[] = res.data.data || [];
+          courtBookings.forEach((b: any) => {
+            // Calculate top/height for calendar grid (starts at 08:00)
+            const [startH, startM] = (b.startTime || '08:00').split(':').map(Number);
+            const [endH, endM] = (b.endTime || '09:00').split(':').map(Number);
+            const top = Math.max(0, (startH - 8) * 60 + startM);
+            const height = Math.max(30, (endH - startH) * 60 + (endM - startM));
+
+            allBookings.push({
+              id: b._id,
+              name: b.bookerName || 'Khách',
+              phone: b.bookerPhone || '',
+              email: b.bookerEmail || '',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(b.bookerName || 'K')}&background=1a6b3c&color=fff`,
+              court: court.name,
+              date: b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('vi-VN') : '',
+              timeSlot: `${b.startTime} - ${b.endTime}`,
+              duration: `${b.duration}h`,
+              paymentMethod: b.paymentMethod || 'card',
+              amount: `${(b.totalPrice || 0).toLocaleString('vi-VN')}đ`,
+              status: b.status === 'CONFIRMED' || b.status === 'COMPLETED' ? 'confirmed'
+                : b.status === 'CANCELLED' ? 'cancelled'
+                : 'pending_confirm',
+              notes: b.notes || '',
+              top,
+              height,
+              column: 0,
+              courtId: court._id,
+            } as any);
+          });
+        } catch {
+          // skip court if fetch fails
+        }
+      }
+      setBookingsList(allBookings);
+    } catch (err) {
+      console.error('Failed to fetch owner bookings:', err);
+    } finally {
+      setLoadingBookings(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeMenu === 'bookings') {
+      fetchOwnerBookings();
+    }
+  }, [activeMenu, fetchOwnerBookings]);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
@@ -144,7 +214,7 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
     { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
     { id: 'bookings', icon: 'calendar_month', label: 'Lịch đặt sân' },
     { id: 'revenue', icon: 'payments', label: 'Doanh thu' },
-    { id: 'venue_info', icon: 'info', label: 'Quản lí sân' },
+    { id: 'venue_info', icon: 'info', label: 'Quản lí địa điểm' },
     { id: 'hours_prices', icon: 'schedule', label: 'Giờ & Giá' },
     // { id: 'tournaments', icon: 'emoji_events', label: 'Giải đấu' },
     { id: 'messages', icon: 'chat', label: 'Tin nhắn' },
@@ -240,7 +310,7 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
         <div style={{ height: '72px', background: W, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px' }}>
           <div className="d-flex align-items-center gap-3">
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: TX, margin: 0 }}>
-              {activeMenu === 'overview' ? 'Tổng quan' : activeMenu === 'bookings' ? 'Lịch đặt sân' : activeMenu === 'revenue' ? 'Doanh thu' : activeMenu === 'venue_info' ? 'Thông tin sân' : activeMenu === 'hours_prices' ? 'Giờ & Giá' : activeMenu === 'messages' ? 'Hộp thư & Chat' : 'Quản lý'}
+              {activeMenu === 'overview' ? 'Tổng quan' : activeMenu === 'bookings' ? 'Lịch đặt sân' : activeMenu === 'revenue' ? 'Doanh thu' : activeMenu === 'venue_info' ? 'Thông tin địa điểm' : activeMenu === 'hours_prices' ? 'Giờ & Giá' : activeMenu === 'messages' ? 'Hộp thư & Chat' : 'Quản lý'}
             </h2>
             {activeMenu === 'bookings' && (
               <div className="d-none d-md-flex align-items-center bg-light border rounded-pill px-3 py-1 gap-2" style={{ fontSize: '13px' }}>
@@ -385,6 +455,7 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
               <BookingCalendar
                 bookingsList={bookingsList}
                 onSelectBooking={setSelectedBooking}
+                loading={loadingBookings}
               />
             )}
                 
