@@ -55,179 +55,154 @@ const VenueCard: React.FC<VenueCardProps> = ({
 
   // ── Render 1: Horizontal Premium Layout (For Discovery Page) ──
   if (layout === 'horizontal') {
-    const getSlots = () => {
-      if (index === 2) {
-        return { slots: ['20:00', '21:00'], extra: 'Hết chỗ hôm nay' };
-      }
-      if (index === 3) {
-        return { slots: ['15:00', '16:00', '17:00'], extra: '+8 slots' };
-      }
-      if (index === 4) {
-        return { slots: ['18:00', '19:00'], extra: '+2 slots' };
-      }
-      return { slots: ['17:00', '18:00', '19:30'], extra: '+4 slots' };
-    };
-
-    const { slots, extra } = getSlots();
-
     return (
-      <Card 
-        onClick={() => onDirectionsClick?.(lat, lng)}
+      <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="mb-3 border-0 shadow-sm overflow-hidden"
-        style={{ 
-          cursor: 'pointer',
-          borderRadius: '24px',
+        className="mb-3"
+        style={{
+          borderRadius: '20px',
           background: '#ffffff',
-          border: active ? '2px solid #1a6b3c' : '1px solid rgba(0,0,0,0.04)',
-          boxShadow: hovered ? '0 12px 28px rgba(0,0,0,0.08)' : '0 4px 12px rgba(0,0,0,0.03)',
-          transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
+          border: `1.5px solid ${hovered ? '#1a6b3c33' : 'rgba(0,0,0,0.06)'}`,
+          boxShadow: hovered ? '0 16px 40px rgba(26,107,60,0.12)' : '0 2px 12px rgba(0,0,0,0.04)',
+          transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
           transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-          fontFamily: "'Inter', sans-serif"
+          overflow: 'hidden',
+          fontFamily: "'Inter', sans-serif",
+          cursor: 'pointer',
         }}
+        onClick={() => onDetailClick?.(id)}
       >
-        <div className="d-flex p-3 gap-3 flex-column flex-sm-row align-items-stretch">
-          
-          {/* Left Side: Large Image with Badge */}
-          <div 
-            className="position-relative overflow-hidden flex-shrink-0"
-            style={{ 
-              width: '180px', 
-              height: '130px', 
-              borderRadius: '16px',
-              background: '#f1f5f9'
-            }}
-          >
-            <img 
-              src={resolveVenueImage(image, sportType)} 
+        <div style={{ display: 'flex', gap: 0 }}>
+
+          {/* Left: Image */}
+          <div style={{ position: 'relative', width: '220px', minWidth: '220px', height: '165px', flexShrink: 0, overflow: 'hidden' }}>
+            <img
+              src={resolveVenueImage(image, sportType)}
               alt={name}
-              className="w-100 h-100 object-fit-cover"
               style={{
-                objectFit: 'cover',
-                transform: hovered ? 'scale(1.05)' : 'scale(1)',
-                transition: 'transform 0.4s ease'
+                width: '100%', height: '100%', objectFit: 'cover',
+                transform: hovered ? 'scale(1.06)' : 'scale(1)',
+                transition: 'transform 0.5s ease'
               }}
             />
-            {/* Index Marker pill */}
-            <div 
-              className="position-absolute top-0 start-0 m-2 px-2 py-1 text-white rounded-pill fw-bold"
-              style={{ 
-                background: '#15803d', 
-                fontSize: '10px', 
-                letterSpacing: '0.5px' 
-              }}
-            >
-              Mã {index}
+            {/* Gradient overlay */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(0,0,0,0.35) 0%, transparent 60%)' }} />
+            {/* Sport badge */}
+            <div style={{
+              position: 'absolute', top: 10, left: 10,
+              background: '#1a6b3c', color: '#fff',
+              borderRadius: 999, padding: '3px 10px',
+              fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase'
+            }}>
+              {tags[0]}
+            </div>
+            {/* Trending badge */}
+            {trending && (
+              <div style={{
+                position: 'absolute', top: 10, right: 10,
+                background: '#f97316', color: '#fff',
+                borderRadius: 999, padding: '3px 8px',
+                fontSize: 9, fontWeight: 800, letterSpacing: 0.5
+              }}>
+                🔥 HOT
+              </div>
+            )}
+            {/* Index pill */}
+            <div style={{
+              position: 'absolute', bottom: 10, left: 10,
+              background: 'rgba(255,255,255,0.2)',
+              backdropFilter: 'blur(8px)',
+              borderRadius: 999, padding: '2px 8px',
+              fontSize: 10, fontWeight: 700, color: '#fff', border: '1px solid rgba(255,255,255,0.3)'
+            }}>
+              #{index}
             </div>
           </div>
 
-          {/* Right Side: Court Info and Booking Button */}
-          <div className="d-flex flex-column flex-grow-1 justify-content-between gap-2">
-            
-            {/* Top Line: Tags and Price */}
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <div className="d-flex gap-1.5 flex-wrap">
-                {tags.map((tag) => (
-                  <Badge 
-                    key={tag}
-                    className="px-2 py-1 text-uppercase fw-bold border-0"
-                    style={{ 
-                      fontSize: '9px', 
-                      letterSpacing: '0.5px',
-                      background: tag === 'BADMINTON' ? '#e0f2fe' : '#dcfce7',
-                      color: tag === 'BADMINTON' ? '#0369a1' : '#15803d'
-                    }}
-                  >
-                    {tag}
-                  </Badge>
-                ))}
+          {/* Right: Info */}
+          <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
+
+            {/* Top row: name + price */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <h6 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.4px', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {name}
+                </h6>
+                {/* Rating + location */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                  <span style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1 }}>★</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{rating || '0'}</span>
+                  <span style={{ fontSize: 11, color: '#94a3b8' }}>(120 đánh giá)</span>
+                  <span style={{ color: '#e2e8f0' }}>•</span>
+                  <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>{distance}</span>
+                </div>
               </div>
-              
-              <div style={{ fontSize: '15px', color: '#15803d', fontWeight: '800', letterSpacing: '-0.3px' }}>
-                {formattedPrice}<span className="text-muted fw-normal" style={{ fontSize: '11px' }}>/giờ</span>
+              {/* Price */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Từ</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#15803d', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                  {formattedPrice}
+                </div>
+                <div style={{ fontSize: 10, color: '#94a3b8' }}>/giờ</div>
               </div>
             </div>
 
-            {/* Second Line: Court Name */}
-            <h6 className="fw-bold text-dark m-0" style={{ fontSize: '16px', fontWeight: '800', lineHeight: '1.2' }}>
-              {name}
-            </h6>
-
-            {/* Third Line: Rating and Address */}
-            <div className="d-flex flex-column gap-1">
-              <div className="d-flex align-items-center gap-1 text-secondary" style={{ fontSize: '12px' }}>
-                <span className="material-symbols-outlined text-warning" style={{ fontVariationSettings: "'FILL' 1", fontSize: '16px', color: '#f59e0b' }}>star</span>
-                <span className="fw-bold text-dark">{rating}</span>
-                <span>(120 đánh giá)</span>
-              </div>
-              
-              <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '12.5px' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '15px', color: '#94a3b8' }}>location_on</span>
-                <span className="text-truncate" style={{ maxWidth: '200px' }}>{location}</span>
-                <span className="text-success fw-bold">({distance})</span>
-              </div>
+            {/* Address */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#94a3b8' }}>location_on</span>
+              <span style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location}</span>
             </div>
 
-            {/* Fourth Line: Time Slots and Circular Booking Button */}
-            <div className="d-flex justify-content-between align-items-center mt-1">
-              <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                {slots.map((s) => (
-                  <div 
-                    key={s}
-                    onClick={(e) => { e.stopPropagation(); onBookingClick?.(id); }}
-                    className="px-2.5 py-1.5 rounded-3 text-success fw-semibold hover-scale"
-                    style={{ 
-                      background: '#f1f5f9', 
-                      fontSize: '11.5px',
-                      color: '#15803d',
-                      border: '1px solid #cbd5e1',
-                      cursor: 'pointer'
-                    }}
-                    title={`Đặt ngay lịch ${s} (Khách quen)`}
-                  >
-                    {s}
-                  </div>
-                ))}
-                {extra && (
-                  <span 
-                    style={{ 
-                      fontSize: '11px', 
-                      color: extra.includes('Hết') ? '#ef4444' : '#64748b',
-                      fontWeight: extra.includes('Hết') ? '700' : '500',
-                      marginLeft: '4px'
-                    }}
-                  >
-                    {extra}
-                  </span>
-                )}
+            {/* Divider */}
+            <div style={{ height: 1, background: '#f1f5f9', margin: '10px 0' }} />
+
+            {/* Bottom row: status + CTAs */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              {/* Status pill */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                background: active ? '#f0fdf4' : '#fff1f2',
+                border: `1px solid ${active ? '#bbf7d0' : '#fecdd3'}`,
+                borderRadius: 999, padding: '4px 10px',
+                fontSize: 11, fontWeight: 700,
+                color: active ? '#15803d' : '#e11d48',
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? '#22c55e' : '#f43f5e', display: 'inline-block' }} />
+                {active ? 'Còn chỗ' : 'Hết chỗ'}
               </div>
 
-              {/* Pill Green Button "Xem chi tiết" */}
-              <div 
-                onClick={(e) => { e.stopPropagation(); onDetailClick?.(id); }}
-                className="rounded-pill d-flex align-items-center justify-content-center border-0 flex-shrink-0 px-4 py-2"
-                style={{
-                  background: active ? '#1a6b3c' : '#f0faf4',
-                  color: active ? '#ffffff' : '#1a6b3c',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transform: hovered ? 'scale(1.02)' : 'scale(1)',
-                  transition: 'all 0.25s ease',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <span>Xem chi tiết</span>
-                <span className="material-symbols-outlined" style={{ fontSize: '18px', marginLeft: '4px', fontWeight: '600' }}>arrow_right_alt</span>
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDetailClick?.(id); }}
+                  style={{
+                    background: 'transparent', border: '1.5px solid #1a6b3c', borderRadius: 999,
+                    padding: '7px 16px', fontSize: 12, fontWeight: 700, color: '#1a6b3c',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Xem chi tiết
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onBookingClick?.(id); }}
+                  style={{
+                    background: '#1a6b3c', border: 'none', borderRadius: 999,
+                    padding: '7px 18px', fontSize: 12, fontWeight: 800, color: '#fff',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                    boxShadow: '0 4px 14px rgba(26,107,60,0.3)',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  ⚡ Đặt ngay
+                </button>
               </div>
-
             </div>
 
           </div>
-
         </div>
-      </Card>
+      </div>
     );
   }
 

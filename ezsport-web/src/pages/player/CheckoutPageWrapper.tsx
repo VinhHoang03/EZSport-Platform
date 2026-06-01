@@ -8,7 +8,7 @@ const CheckoutPageWrapper: React.FC = () => {
   const navigate = useNavigate();
   return (
     <CheckoutPage
-      courtId={Number(id) || 1}
+      venueId={id ?? ''}
       onBackClick={() => navigate(`/venues/${id}`)}
       onSuccessClick={() => navigate(ROUTES.BOOKING_SUCCESS)}
       onLogoClick={() => navigate(ROUTES.LANDING)}

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import Conversation from "../models/conversation.model";
 import { User } from "../models/user.model";
 
@@ -203,7 +204,7 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     // Thêm tin nhắn mới
     const newMessage = {
-      sender: userId,
+      sender: new mongoose.Types.ObjectId(userId) as any,
       senderRole: userRole as "player" | "owner",
       text: text.trim(),
       timestamp: new Date(),
@@ -216,7 +217,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     conversation.lastMessage = {
       text: text.trim(),
       timestamp: new Date(),
-      sender: userId,
+      sender: new mongoose.Types.ObjectId(userId) as any,
     };
 
     // Tăng unread count cho người nhận

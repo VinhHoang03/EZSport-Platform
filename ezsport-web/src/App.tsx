@@ -19,6 +19,8 @@ import { OwnerPage } from './pages/owner/OwnerPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { PlaymatesPage } from './components/player/PlaymatesPage';
 import { AIChatbot } from './components/shared/AIChatbot';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from './constants';
 import { useBookingStore } from './store/bookingStore';
 // Haversine formula to calculate distance between two coordinates in KM
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -81,6 +83,7 @@ const isApiError = (value: unknown): value is ApiError => {
 const App: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const { initDraft, setDraft } = useBookingStore();
+  const navigate = useNavigate();
 
   // Detect reset-password route from URL path — now handled by router
   const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'venue-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
@@ -105,13 +108,13 @@ const App: React.FC = () => {
   // Smart logo click: if logged in, go to correct home for role. If not, go to landing.
   const handleLogoClick = () => {
     if (!isAuthenticated) {
-      setCurrentPage('landing');
+      navigate(ROUTES.LANDING);
     } else if (user?.role === 'admin') {
-      setCurrentPage('admin-dashboard');
+      navigate(ROUTES.ADMIN_DASHBOARD);
     } else if (user?.role === 'owner') {
-      setCurrentPage('owner-dashboard');
+      navigate(ROUTES.OWNER_PAGE);
     } else {
-      setCurrentPage('app');
+      navigate(ROUTES.MAP);
     }
   };
   const [sport, setSport] = useState('Pickleball');
@@ -223,12 +226,12 @@ const App: React.FC = () => {
   }));
 
   // States for Left Filter Sidebar
-  const [selectedSports, setSelectedSports] = useState<string[]>(['Pickleball']); // default checked Pickleball like the mockup
-  const [maxDistance, setMaxDistance] = useState<number>(8); // default max distance 8km
+  const [selectedSports, setSelectedSports] = useState<string[]>([]); // default to display all sports
+  const [maxDistance, setMaxDistance] = useState<number>(15); // default max distance 15km
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [minRating, setMinRating] = useState<number>(4); // default 4 stars
+  const [minRating, setMinRating] = useState<number>(0); // default to show all ratings
 
   // Apply all vertical filters dynamically
   const filteredVenues = processedVenues.filter(venue => {
@@ -237,9 +240,9 @@ const App: React.FC = () => {
       const lowerSport = (venue.sportType || '').toLowerCase();
       const match = selectedSports.some(sportVal => {
         const lowerVal = sportVal.toLowerCase();
-        return lowerSport.includes(lowerVal) || 
-               (lowerVal === 'cầu lông' && lowerSport.includes('badminton')) ||
-               (lowerVal === 'bóng đá' && lowerSport.includes('football'));
+        return lowerSport.includes(lowerVal) ||
+          (lowerVal === 'cầu lông' && lowerSport.includes('badminton')) ||
+          (lowerVal === 'bóng đá' && lowerSport.includes('football'));
       });
       if (!match) return false;
     }
@@ -265,13 +268,13 @@ const App: React.FC = () => {
 
   if (currentPage === 'landing') {
     return (
-      <LandingPage 
-        onExplore={() => setCurrentPage('venues')} 
+      <LandingPage
+        onExplore={() => setCurrentPage('venues')}
         onLogin={() => {
           setAuthInitialMode('login');
           setAuthInitialAccountType('player');
           setCurrentPage('auth');
-        }} 
+        }}
         onRegisterVenue={() => {
           setAuthInitialMode('register');
           setAuthInitialAccountType('owner');
@@ -284,8 +287,8 @@ const App: React.FC = () => {
 
   if (currentPage === 'auth') {
     return (
-      <AuthPage 
-        onBackToLanding={() => setCurrentPage('landing')} 
+      <AuthPage
+        onBackToLanding={() => setCurrentPage('landing')}
         onSuccess={(role?: string) => {
           if (role === 'admin') {
             setCurrentPage('admin-dashboard');
@@ -306,30 +309,31 @@ const App: React.FC = () => {
   if (currentPage === 'venues') {
     return (
       <div className="vh-100 vw-100 d-flex flex-column overflow-hidden bg-white" style={{ fontFamily: "'Inter', sans-serif" }}>
-        
+
         {/* Shared Top Navigation Header */}
-        <Navigation 
-          onLogoClick={handleLogoClick} 
-          onLoginClick={() => {
-            setAuthInitialMode('login');
-            setAuthInitialAccountType('player');
-            setCurrentPage('auth');
+        <Navigation
+          onLogoClick={handleLogoClick}
+          onLoginClick={() => navigate(ROUTES.LOGIN)}
+          onRegisterOwnerClick={() => navigate(ROUTES.REGISTER)}
+          onPageChange={(page) => {
+            const map: Record<string, string> = {
+              venues: ROUTES.VENUES,
+              app: ROUTES.MAP,
+              playmates: ROUTES.PLAYMATES,
+              profile: ROUTES.PROFILE,
+              landing: ROUTES.LANDING,
+            };
+            if (map[page]) navigate(map[page]);
           }}
-          onRegisterOwnerClick={() => {
-            setAuthInitialMode('register');
-            setAuthInitialAccountType('owner');
-            setCurrentPage('auth');
-          }}
-          onPageChange={(page) => setCurrentPage(page)}
           currentPage={currentPage}
         />
 
         {/* 3-Column Split Discovery Layout (Underneath Header) */}
         <div className="w-100 d-flex overflow-hidden flex-grow-1" style={{ height: 'calc(100vh - 93px)' }}>
-          
+
           {/* Column 1: Left Filter Sidebar */}
-          <div 
-            className="h-100 flex-shrink-0 d-flex flex-column border-end bg-white" 
+          <div
+            className="h-100 flex-shrink-0 d-flex flex-column border-end bg-white"
             style={{ width: '280px', borderColor: '#e2e8f0' }}
           >
             {/* Scrollable Filters List */}
@@ -347,7 +351,7 @@ const App: React.FC = () => {
                 onAmenitiesChange={setSelectedAmenities}
                 minRating={minRating}
                 onRatingChange={setMinRating}
-                onApplyFilters={() => {}}
+                onApplyFilters={() => { }}
                 onResetFilters={() => {
                   setSelectedSports([]);
                   setMaxDistance(15);
@@ -362,11 +366,11 @@ const App: React.FC = () => {
 
           {/* Right Content Pane: Results List + Map Component */}
           <div className="flex-grow-1 h-100 d-flex flex-column overflow-hidden">
-            
+
             {/* Bottom Split Results List and Map Panel */}
             <div className="flex-grow-1 w-100 overflow-hidden">
               <Row className="h-100 g-0">
-                
+
                 {/* Cột giữa: Results List */}
                 <VenueList
                   venues={filteredVenues}
@@ -377,12 +381,10 @@ const App: React.FC = () => {
                     handleDirections(lat, lng, venue?.name);
                   }}
                   onDetailClick={(id) => {
-                    setSelectedVenueId(id);
-                    setCurrentPage('venue-detail');
+                    navigate(`/venues/${id}`);
                   }}
                   onBookingClick={(id) => {
-                    setSelectedVenueId(id);
-                    setCurrentPage('checkout');
+                    navigate(`/venues/${id}/checkout`);
                   }}
                 />
 
@@ -407,8 +409,8 @@ const App: React.FC = () => {
 
                   {/* Search this area button */}
                   <div className="position-absolute start-50 translate-middle-x" style={{ bottom: '24px', zIndex: 1000 }}>
-                    <Button 
-                      variant="white" 
+                    <Button
+                      variant="white"
                       className="rounded-pill shadow-lg fw-bold px-4 py-3 d-flex align-items-center gap-2 border"
                       style={{
                         background: '#ffffff',
@@ -429,7 +431,7 @@ const App: React.FC = () => {
           </div>
 
         </div>
-        
+
         <AIChatbot
           onDirectionsClick={handleDirections}
           onDetailClick={(id) => {
@@ -449,9 +451,9 @@ const App: React.FC = () => {
 
   if (currentPage === 'venue-detail') {
     return (
-      <VenueDetail 
-        venueId={selectedVenueId || 1} 
-        onBackClick={() => setCurrentPage('venues')} 
+      <VenueDetail
+        venueId={selectedVenueId || 1}
+        onBackClick={() => setCurrentPage('venues')}
         onConfirmBooking={(bookingDetails) => {
           const slot = bookingDetails?.slot;
           const courtId = (bookingDetails as any)?.courtId ?? String(selectedVenueId);
@@ -480,9 +482,9 @@ const App: React.FC = () => {
 
   if (currentPage === 'checkout') {
     return (
-      <CheckoutPage 
-        venueId={selectedVenueId || 1} 
-        onBackClick={() => setCurrentPage('venue-detail')} 
+      <CheckoutPage
+        venueId={selectedVenueId || 1}
+        onBackClick={() => setCurrentPage('venue-detail')}
         onSuccessClick={() => setCurrentPage('booking-success')}
         onPageChange={(page) => setCurrentPage(page)}
         onLogoClick={handleLogoClick}
@@ -492,7 +494,7 @@ const App: React.FC = () => {
 
   if (currentPage === 'booking-success') {
     return (
-      <BookingSuccessPage 
+      <BookingSuccessPage
         onGoHome={() => setCurrentPage('venues')}
         onViewMyBookings={() => setCurrentPage('profile')}
       />
@@ -501,7 +503,7 @@ const App: React.FC = () => {
 
   if (currentPage === 'profile') {
     return (
-      <ProfilePage 
+      <ProfilePage
         onGoHome={() => setCurrentPage('venues')}
         onFindVenues={() => setCurrentPage('venues')}
         onPageChange={(page) => setCurrentPage(page)}
@@ -512,7 +514,7 @@ const App: React.FC = () => {
 
   if (currentPage === 'playmates') {
     return (
-      <PlaymatesPage 
+      <PlaymatesPage
         onPageChange={(page) => setCurrentPage(page)}
         onLogoClick={handleLogoClick}
       />
@@ -521,7 +523,7 @@ const App: React.FC = () => {
 
   if (currentPage === 'owner-dashboard') {
     return (
-      <OwnerPage 
+      <OwnerPage
         onGoHome={() => setCurrentPage('landing')}
       />
     );
@@ -529,7 +531,7 @@ const App: React.FC = () => {
 
   if (currentPage === 'admin-dashboard') {
     return (
-      <AdminDashboard 
+      <AdminDashboard
         onGoHome={() => setCurrentPage('landing')}
       />
     );
@@ -538,19 +540,20 @@ const App: React.FC = () => {
   // ── Render 2: Original 2-Column Map Dashboard (App Home Page) ──
   return (
     <div className="vh-100 d-flex flex-column bg-white">
-      <Navigation 
-        onLogoClick={handleLogoClick} 
-        onLoginClick={() => {
-          setAuthInitialMode('login');
-          setAuthInitialAccountType('player');
-          setCurrentPage('auth');
+      <Navigation
+        onLogoClick={handleLogoClick}
+        onLoginClick={() => navigate(ROUTES.LOGIN)}
+        onRegisterOwnerClick={() => navigate(ROUTES.REGISTER)}
+        onPageChange={(page) => {
+          const map: Record<string, string> = {
+            venues: ROUTES.VENUES,
+            app: ROUTES.MAP,
+            playmates: ROUTES.PLAYMATES,
+            profile: ROUTES.PROFILE,
+            landing: ROUTES.LANDING,
+          };
+          if (map[page]) navigate(map[page]);
         }}
-        onRegisterOwnerClick={() => {
-          setAuthInitialMode('register');
-          setAuthInitialAccountType('owner');
-          setCurrentPage('auth');
-        }}
-        onPageChange={(page) => setCurrentPage(page)}
         currentPage={currentPage}
       />
 
@@ -561,26 +564,24 @@ const App: React.FC = () => {
               venues={processedVenues}
               layout="vertical"
               currentLocationName={location}
-              onFilterClick={() => setCurrentPage('venues')} // Click "Bộ lọc" goes to Venues discovery page!
+              onFilterClick={() => navigate(ROUTES.VENUES)} // Click "Bộ lọc" goes to Venues discovery page!
               onDirectionsClick={(lat, lng) => {
                 const venue = processedVenues.find(v => v.lat === lat && v.lng === lng);
                 handleDirections(lat, lng, venue?.name);
               }}
               onDetailClick={(id) => {
-                setSelectedVenueId(id);
-                setCurrentPage('venue-detail');
+                navigate(`/venues/${id}`);
               }}
               onBookingClick={(id) => {
-                setSelectedVenueId(id);
-                setCurrentPage('checkout');
+                navigate(`/venues/${id}/checkout`);
               }}
             />
           )}
 
-          <Col 
-            md={isNavigating ? 12 : 8} 
-            className="h-100 position-relative bg-light" 
-            style={{ transition: 'all 0.3s ease' }} 
+          <Col
+            md={isNavigating ? 12 : 8}
+            className="h-100 position-relative bg-light"
+            style={{ transition: 'all 0.3s ease' }}
             id="map-col"
           >
             <div className="position-absolute h-100 w-100">
@@ -602,16 +603,16 @@ const App: React.FC = () => {
 
             {/* Search this area button — hide while navigating */}
             {!isNavigating && (
-              <div 
-                className="position-absolute start-50 translate-middle-x" 
-                style={{ 
-                  bottom: '90px', 
+              <div
+                className="position-absolute start-50 translate-middle-x"
+                style={{
+                  bottom: '90px',
                   zIndex: 1000,
                   transition: 'bottom 0.3s ease'
                 }}
               >
-                <Button 
-                  variant="white" 
+                <Button
+                  variant="white"
                   className="rounded-pill shadow-lg fw-bold px-4 py-3 d-flex align-items-center gap-2 border"
                   style={{
                     background: '#ffffff',

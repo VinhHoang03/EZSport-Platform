@@ -43,9 +43,13 @@ export const bookingService = {
   /**
    * Create a new booking
    */
-  createBooking: async (payload: CreateBookingPayload): Promise<Booking> => {
+  createBooking: async (payload: CreateBookingPayload): Promise<any> => {
     const { data } = await api.post('/bookings', payload);
-    return data.data;
+    const booking = data.data;
+    if (data.payUrl) {
+      booking.payUrl = data.payUrl;
+    }
+    return booking;
   },
 
   /**

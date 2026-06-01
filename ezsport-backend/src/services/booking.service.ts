@@ -321,6 +321,22 @@ class BookingService {
 
     return updated;
   }
+
+  /**
+   * Update booking status from payment gateway callback
+   */
+  async updatePaymentStatus(bookingId: string, status: BookingStatus): Promise<IBooking | null> {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new Error("Đặt sân không tồn tại");
+
+    const updated = await Booking.findByIdAndUpdate(
+      bookingId,
+      { status },
+      { new: true }
+    ).populate("userId courtId");
+
+    return updated;
+  }
 }
 
 export default new BookingService();

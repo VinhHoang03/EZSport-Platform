@@ -78,6 +78,7 @@ const router = createBrowserRouter([
         { path: ROUTES.MESSAGES,        element: s(PlayerMessage) },
         // New booking flow
         { path: ROUTES.BOOKING_SUCCESS_NEW,  element: s(BookingSuccessPage) },
+        { path: '/booking/success',          element: s(BookingSuccessPage) },
         { path: ROUTES.MY_BOOKINGS,          element: s(MyBookingsPage) },
         { path: ROUTES.BOOKING_DETAIL,       element: s(BookingDetailPage) },
       ],

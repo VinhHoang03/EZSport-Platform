@@ -141,15 +141,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onGoHome, onFindVenues
 
   return (
     <div style={{ backgroundColor: SL, minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', sans-serif" }}>
-      {/* Top Navbar */}
-      <Navigation
-        onAddCourtClick={() => {}}
-        onLogoClick={onLogoClick || onGoHome}
-        onLoginClick={() => {}}
-        currentPage="profile"
-        onPageChange={onPageChange || (() => {})}
-      />
-
       <Container fluid className="flex-grow-1 p-0" style={{ paddingTop: '72px' }}>
         <Row className="g-0 h-100">
 

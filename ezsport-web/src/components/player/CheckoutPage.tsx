@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, InputGroup, Badge, Alert, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import Navigation from '../shared/Navigation';
 import { useBookingStore } from '../../store/bookingStore';
 import { bookingService } from '../../services/booking.service';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +13,7 @@ interface CheckoutPageProps {
   onLogoClick?: () => void;
 }
 
-export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, onBackClick, onSuccessClick, onPageChange, onLogoClick }) => {
+export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, onBackClick, onSuccessClick }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { draft } = useBookingStore();
@@ -33,7 +32,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
   const [cardName, setCardName] = useState<string>('NGUYEN VAN AN');
 
   // Booker info states - get from user or draft
-  const [bookerName, setBookerName] = useState<string>(draft?.bookerName || user?.name || 'Nguyễn Văn An');
+  const [bookerName, setBookerName] = useState<string>(draft?.bookerName || user?.fullName || 'Nguyễn Văn An');
   const [bookerPhone, setBookerPhone] = useState<string>(draft?.bookerPhone || user?.phone || '090 123 4567');
   const [bookerEmail, setBookerEmail] = useState<string>(draft?.bookerEmail || user?.email || 'an.nguyen@email.com');
 
@@ -114,8 +113,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
       useBookingStore.getState().setDraft({ totalPrice: total });
       useBookingStore.getState().setConfirmedBookingId(createdBooking._id);
 
-      navigate(`/booking/success/${createdBooking._id}`);
-      onSuccessClick();
+      if (paymentMethod === 'momo' && createdBooking.payUrl) {
+        console.log('Redirecting to MoMo payment page:', createdBooking.payUrl);
+        window.location.href = createdBooking.payUrl;
+      } else {
+        navigate(`/booking/success/${createdBooking._id}`);
+        onSuccessClick();
+      }
     } catch (err: any) {
       console.error('Booking creation failed:', err);
       setError(err?.response?.data?.message || err?.message || 'Tạo đơn đặt sân thất bại');
@@ -126,13 +130,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
 
   return (
     <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Navigation Header */}
-      <Navigation
-        currentPage="venues"
-        onLogoClick={onLogoClick || onBackClick}
-        onPageChange={onPageChange || onBackClick}
-      />
-
       {/* Main Content Area */}
       <div className="overflow-auto flex-grow-1 py-4">
         <Container>

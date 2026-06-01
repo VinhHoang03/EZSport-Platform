@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Button, Badge, Card, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import Navigation from '../shared/Navigation';
 import Footer from '../shared/Footer';
 import SlotPicker from './SlotPicker';
 import { courtService, venueService, type Court, type Venue } from '../../services/venue.service';
@@ -29,7 +28,7 @@ interface VenueDetailProps {
   venueLoading?: boolean;
 }
 
-export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, onConfirmBooking, onPageChange, onLogoClick, venueData: externalVenueData, venueLoading: externalVenueLoading }) => {
+export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, onConfirmBooking, venueData: externalVenueData, venueLoading: externalVenueLoading }) => {
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [internalVenueData, setInternalVenueData] = useState<Venue | null>(null);
@@ -135,7 +134,6 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   if (loading) {
     return (
       <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
-        <Navigation currentPage="venues" onLogoClick={onLogoClick || onBackClick} onPageChange={onPageChange || onBackClick} />
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <Spinner variant="success" />
         </div>
@@ -207,13 +205,6 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
 
   return (
     <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Navigation */}
-      <Navigation
-        currentPage="venues"
-        onLogoClick={onLogoClick || onBackClick}
-        onPageChange={onPageChange || onBackClick}
-      />
-
       {/* Main Content Area */}
       <div className="overflow-auto flex-grow-1 py-4">
         <Container>

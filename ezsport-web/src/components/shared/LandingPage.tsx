@@ -1,5 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../constants';
 
 import FadingVideo from './FadingVideo';
 import BlurText from './BlurText';
@@ -22,12 +24,13 @@ const resolveCourtImage = (imgUrl: string, sportType?: string) => {
 
 // ─── MAIN ───────────────────────────────────────────────────────────────────
 export const LandingPage: React.FC<{
-  onExplore: () => void;
+  onExplore?: () => void;
   onLogin?: () => void;
   onRegisterVenue?: () => void;
   courts?: any[];
   venues?: any[];
-}> = ({ onExplore, onLogin, onRegisterVenue, courts = [], venues = [] }) => {
+}> = ({ courts = [], venues = [] }) => {
+  const navigate = useNavigate();
   const displayCourts = venues.length > 0 ? venues : courts;
   const f = "'Inter', 'Barlow', sans-serif";
 
@@ -81,27 +84,27 @@ export const LandingPage: React.FC<{
         backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
         borderBottom: '1px solid rgba(0,0,0,0.07)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => navigate(ROUTES.LANDING)}>
           <img src="/logo3.png" alt="EZSport Logo" style={{ height: 60, width: 'auto', objectFit: 'contain', transform: 'scale(3.5)', transformOrigin: 'left center', marginLeft: '5px' }} />
         </div>
         <div style={{ display: 'flex', gap: 40 }}>
           {[
-            { en: 'Bookings', vi: 'Đặt sân' },
-            { en: 'Marketplace', vi: 'Cửa hàng' },
-            { en: 'Venues', vi: 'Địa điểm' },
-            { en: 'Activities', vi: 'Hoạt động' }
+            { en: 'Bookings', vi: 'Đặt sân', onClick: () => navigate(ROUTES.MAP) },
+            { en: 'Marketplace', vi: 'Cửa hàng', onClick: () => alert('Tính năng Cửa hàng sắp ra mắt!') },
+            { en: 'Venues', vi: 'Địa điểm', onClick: () => navigate(ROUTES.MAP) },
+            { en: 'Activities', vi: 'Hoạt động', onClick: () => navigate(ROUTES.PLAYMATES) }
           ].map(l => (
-            <a key={l.en} href="#" style={{ fontSize: 17, fontWeight: 700, color: TX2, textDecoration: 'none' }}>{l.vi}</a>
+            <a key={l.en} href="#" onClick={(e) => { e.preventDefault(); l.onClick(); }} style={{ fontSize: 17, fontWeight: 700, color: TX2, textDecoration: 'none' }}>{l.vi}</a>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <button onClick={onLogin} style={{
+          <button onClick={() => navigate(ROUTES.LOGIN)} style={{
             background: 'transparent', color: G, border: `1.5px solid ${G}`, borderRadius: 999,
             padding: '12px 28px', fontSize: 16, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.2
           }}>
             Đăng nhập
           </button>
-          <button onClick={onExplore} style={{
+          <button onClick={() => navigate(ROUTES.MAP)} style={{
             ...glass(true), background: G, color: W, border: '1px solid rgba(255,255,255,0.3)',
             borderRadius: 999, padding: '10px 26px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 8, letterSpacing: 0.2,
@@ -143,11 +146,11 @@ export const LandingPage: React.FC<{
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0, duration: 0.6 }}
             style={{ display: 'flex', gap: 16, marginBottom: 64 }}>
-            <button onClick={onExplore} style={{ background: G, color: W, border: 'none', borderRadius: 999, padding: '16px 36px', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, boxShadow: `0 12px 36px ${G}60` }}>
+            <button onClick={() => navigate(ROUTES.MAP)} style={{ background: G, color: W, border: 'none', borderRadius: 999, padding: '16px 36px', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, boxShadow: `0 12px 36px ${G}60` }}>
               Đặt sân ngay <Arrow />
             </button>
             <button
-              onClick={onRegisterVenue}
+              onClick={() => navigate(ROUTES.REGISTER)}
               style={{ ...glass(true), color: W, border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: 999, padding: '16px 32px', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}
             >
               Đăng ký chủ sân
@@ -181,7 +184,7 @@ export const LandingPage: React.FC<{
               <div style={{ fontSize: 12, fontWeight: 800, color: OG, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>⚽ Địa điểm nổi bật</div>
               <h2 style={{ margin: 0, fontSize: 48, fontWeight: 900, letterSpacing: -2, color: TX }}>Sân thể thao cao cấp gần bạn</h2>
             </div>
-            <button onClick={onExplore} style={{ background: 'none', border: `2px solid ${G}`, color: G, borderRadius: 999, padding: '11px 26px', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <button onClick={() => navigate(ROUTES.MAP)} style={{ background: 'none', border: `2px solid ${G}`, color: G, borderRadius: 999, padding: '11px 26px', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
               Xem tất cả <Arrow />
             </button>
           </motion.div>
@@ -197,16 +200,17 @@ export const LandingPage: React.FC<{
                   area={court.location}
                   sport={(court.sportType || 'SPORTS').toUpperCase()}
                   img={resolveCourtImage(court.image, court.sportType)}
+                  onClick={() => navigate(`/venues/${court._id}`)}
                 />
               ))
             ) : (
               <>
                 <VenueCard delay={0} name="Tổ hợp Sân Skyline" price="350K/h" rating="4.9" area="Hải Châu, Đà Nẵng" sport="TENNIS"
-                  img="/images/pickleball.png" />
+                  img="/images/pickleball.png" onClick={() => navigate(ROUTES.MAP)} />
                 <VenueCard delay={0.12} name="Tổ hợp Sân Padel Pulse" price="280K/h" rating="4.7" area="Thanh Khê, Đà Nẵng" sport="PADEL"
-                  img="/images/badminton.png" />
+                  img="/images/badminton.png" onClick={() => navigate(ROUTES.MAP)} />
                 <VenueCard delay={0.24} name="Trung tâm Thể thao Elite" price="450K/h" rating="5.0" area="Ngũ Hành Sơn" sport="ĐA NĂNG"
-                  img="/images/football.png" />
+                  img="/images/football.png" onClick={() => navigate(ROUTES.MAP)} />
               </>
             )}
           </div>
@@ -216,13 +220,13 @@ export const LandingPage: React.FC<{
       {/* ── PROMO BANNER CAROUSEL ── */}
       <section style={{ padding: '30px 64px 80px', background: W }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }} 
-            whileInView={{ opacity: 1, y: 0 }} 
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            style={{ 
-              borderRadius: 32, 
-              background: ads[currentSlide].bg, 
+            style={{
+              borderRadius: 32,
+              background: ads[currentSlide].bg,
               padding: '60px 80px',
               position: 'relative',
               overflow: 'hidden',
@@ -236,27 +240,27 @@ export const LandingPage: React.FC<{
               PROMO
             </div>
 
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
               gap: 48,
-              position: 'relative', 
-              zIndex: 2 
+              position: 'relative',
+              zIndex: 2
             }}>
               {/* Left Side Info */}
               <div style={{ flex: '1 1 580px' }}>
-                <div style={{ 
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
-                  gap: 8, 
-                  background: 'rgba(255,255,255,0.15)', 
-                  backdropFilter: 'blur(8px)', 
-                  border: '1px solid rgba(255,255,255,0.25)', 
-                  borderRadius: 999, 
-                  padding: '6px 16px', 
-                  marginBottom: 24 
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: 'rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  borderRadius: 999,
+                  padding: '6px 16px',
+                  marginBottom: 24
                 }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '16px', color: W }}>{ads[currentSlide].icon}</span>
                   <span style={{ fontSize: 11, fontWeight: 800, color: W, letterSpacing: 1.5, textTransform: 'uppercase' }}>{ads[currentSlide].badge}</span>
@@ -265,20 +269,20 @@ export const LandingPage: React.FC<{
                 <h2 style={{ fontSize: 44, fontWeight: 900, color: W, letterSpacing: -2, margin: '0 0 16px', lineHeight: 1.15 }}>
                   {ads[currentSlide].title}
                 </h2>
-                
+
                 <p style={{ fontSize: 17, lineHeight: 1.7, color: 'rgba(255,255,255,0.85)', margin: '0 0 32px', maxWidth: 620 }}>
                   {ads[currentSlide].desc}
                 </p>
 
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button onClick={onExplore} style={{ 
-                    background: W, 
-                    color: '#0f3d22', 
-                    border: 'none', 
-                    borderRadius: 999, 
-                    padding: '14px 36px', 
-                    fontSize: 15, 
-                    fontWeight: 800, 
+                  <button onClick={() => navigate(ROUTES.MAP)} style={{
+                    background: W,
+                    color: '#0f3d22',
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '14px 36px',
+                    fontSize: 15,
+                    fontWeight: 800,
                     cursor: 'pointer',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
                     transition: 'transform 0.2s',
@@ -286,18 +290,18 @@ export const LandingPage: React.FC<{
                     {ads[currentSlide].btnText}
                   </button>
 
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1.5px dashed rgba(255,255,255,0.4)', 
-                    borderRadius: 14, 
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'rgba(0,0,0,0.2)',
+                    border: '1.5px dashed rgba(255,255,255,0.4)',
+                    borderRadius: 14,
                     padding: '10px 20px',
                     gap: 12
                   }}>
                     <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>MÃ GIẢM:</span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: W, letterSpacing: 1 }}>{ads[currentSlide].code}</span>
-                    <button 
+                    <button
                       onClick={() => {
                         navigator.clipboard.writeText(ads[currentSlide].code);
                         alert(`🎉 Đã sao chép mã ưu đãi thành công: ${ads[currentSlide].code}`);
@@ -320,13 +324,13 @@ export const LandingPage: React.FC<{
               </div>
 
               {/* Right Side Icon Container */}
-              <div style={{ 
+              <div style={{
                 flex: '1 1 250px',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center'
               }}>
-                <div style={{ 
+                <div style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -346,23 +350,23 @@ export const LandingPage: React.FC<{
             </div>
 
             {/* Slider Dots indicators */}
-            <div style={{ 
-              position: 'absolute', 
-              bottom: 24, 
+            <div style={{
+              position: 'absolute',
+              bottom: 24,
               left: '50%',
               transform: 'translateX(-50%)',
-              display: 'flex', 
+              display: 'flex',
               gap: 8,
               zIndex: 3
             }}>
               {ads.map((_, idx) => (
-                <span 
+                <span
                   key={idx}
                   onClick={() => setCurrentSlide(idx)}
-                  style={{ 
-                    width: idx === currentSlide ? 28 : 8, 
-                    height: 8, 
-                    borderRadius: 99, 
+                  style={{
+                    width: idx === currentSlide ? 28 : 8,
+                    height: 8,
+                    borderRadius: 99,
                     background: idx === currentSlide ? W : 'rgba(255,255,255,0.3)',
                     cursor: 'pointer',
                     transition: 'all 0.3s'
@@ -415,10 +419,10 @@ export const LandingPage: React.FC<{
               Tham gia cùng hơn 5,200+ người chơi đang trải nghiệm đặt sân thông minh cùng EZSport.
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
-              <button onClick={onExplore} style={{ background: W, color: GD, border: 'none', borderRadius: 999, padding: '16px 40px', fontSize: 16, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => navigate(ROUTES.MAP)} style={{ background: W, color: GD, border: 'none', borderRadius: 999, padding: '16px 40px', fontSize: 16, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                 Khám phá sân ngay <Arrow />
               </button>
-              <button onClick={onRegisterVenue} style={{ ...glass(true), background: 'transparent', color: W, borderRadius: 999, padding: '16px 36px', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}>
+              <button onClick={() => navigate(ROUTES.REGISTER)} style={{ ...glass(true), background: 'transparent', color: W, borderRadius: 999, padding: '16px 36px', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}>
                 Đăng ký chủ sân
               </button>
             </div>

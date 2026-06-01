@@ -4,7 +4,10 @@ import { verifyToken } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 
-// All booking routes require authentication
+// Public webhook route for MoMo IPN payments
+router.post("/momo-ipn", bookingController.handleMomoIPN.bind(bookingController));
+
+// All booking routes below require authentication
 router.use(verifyToken);
 
 // User booking routes

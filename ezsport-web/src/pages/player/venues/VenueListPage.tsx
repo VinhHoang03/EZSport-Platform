@@ -1,10 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row } from 'react-bootstrap';
 import CourtList from '../../../components/player/VenueList';
 import LeftFilterSidebar from '../../../components/player/LeftFilterSidebar';
 import MapComponent from '../../../components/shared/MapComponent';
 import api from '../../../api/api';
+
+// Haversine formula — same as App.tsx
+const calcDistance = (lat1: number, lon1: number, lat2: number, lon2: number): string => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) ** 2;
+  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1) + ' km';
+};
 
 interface Court {
   id: string;
@@ -28,13 +40,31 @@ const VenuesPage: React.FC = () => {
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // User GPS location
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Routing state
+  const [routingDestination, setRoutingDestination] = useState<{ lat: number; lng: number } | null>(null);
+  const [routeSummary, setRouteSummary] = useState<{ distance: number; time: number } | null>(null);
+
   // Filter states
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [maxDistance, setMaxDistance] = useState<number>(15);
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [minRating, setMinRating] = useState<number>(3);
+  const [minRating, setMinRating] = useState<number>(0);
+
+  // Auto-request GPS on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => console.warn('[VenuesPage] Geolocation error:', err),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const fetchCourts = async () => {
@@ -44,7 +74,7 @@ const VenuesPage: React.FC = () => {
           ...court,
           id: court._id,
           emoji: court.emoji || '🏟️',
-          distance: '0.0 km',
+          distance: '-- km',
           trending: false,
           active: court.isActive ?? true,
         }));
@@ -58,8 +88,38 @@ const VenuesPage: React.FC = () => {
     fetchCourts();
   }, []);
 
-  // Apply filters
-  const filteredCourts = courts.filter(court => {
+  // Recalculate distances whenever user location or courts change
+  const courtsWithDistance = courts.map(court => ({
+    ...court,
+    distance: userLocation
+      ? calcDistance(userLocation.lat, userLocation.lng, court.lat, court.lng)
+      : court.distance,
+  }));
+
+  // Directions handler — sets routing destination and auto-requests GPS if not yet available
+  const handleDirections = useCallback((lat: number, lng: number) => {
+    setRoutingDestination({ lat, lng });
+    setRouteSummary(null);
+    if (!userLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => console.warn('[VenuesPage] Geolocation error:', err),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+  }, [userLocation]);
+
+  const handleClearRoute = useCallback(() => {
+    setRoutingDestination(null);
+    setRouteSummary(null);
+  }, []);
+
+  const handleRouteInfo = useCallback((distance: number, time: number) => {
+    setRouteSummary({ distance, time });
+  }, []);
+
+  // Apply filters on courts WITH real distances
+  const filteredCourts = courtsWithDistance.filter(court => {
     if (selectedSports.length > 0) {
       const lowerSport = (court.sportType || '').toLowerCase();
       const match = selectedSports.some(s => {
@@ -69,6 +129,11 @@ const VenuesPage: React.FC = () => {
           (ls === 'bóng đá' && lowerSport.includes('soccer'));
       });
       if (!match) return false;
+    }
+    // Filter by distance (only when we have user GPS)
+    if (userLocation && court.lat && court.lng) {
+      const dist = parseFloat(calcDistance(userLocation.lat, userLocation.lng, court.lat, court.lng));
+      if (dist > maxDistance) return false;
     }
     const priceNum = parseInt((court.price || '').replace(/[^0-9]/g, ''), 10) || 0;
     if (priceMin && priceNum < parseInt(priceMin, 10)) return false;
@@ -110,7 +175,7 @@ const VenuesPage: React.FC = () => {
               setPriceMin('');
               setPriceMax('');
               setSelectedAmenities([]);
-              setMinRating(3);
+              setMinRating(0);
             }}
           />
         </div>
@@ -119,26 +184,28 @@ const VenuesPage: React.FC = () => {
       {/* Court List + Map */}
       <div className="flex-grow-1 h-100 overflow-hidden">
         <Row className="h-100 g-0">
+          {/* VenueList renders its own Col md={7} directly */}
           <CourtList
             venues={filteredCourts}
             layout="horizontal"
-            currentLocationName="Đà Nẵng, Việt Nam"
+            currentLocationName={userLocation ? 'Vị trí của bạn' : 'Đà Nẵng, Việt Nam'}
             onDetailClick={(id) => navigate(`/venues/${id}`)}
-            onBookingClick={(id) => navigate(`/booking/${id}`)}
-            onDirectionsClick={() => {}}
+            onBookingClick={(id) => navigate(`/venues/${id}/checkout`)}
+            onDirectionsClick={handleDirections}
           />
+          {/* Map column */}
           <div className="col-md-5 h-100 position-relative bg-light">
             <div className="position-absolute h-100 w-100">
               <MapComponent
-                courts={filteredCourts}
-                onLocationFound={() => {}}
-                userLocation={null}
-                routingDestination={null}
-                routeSummary={null}
-                onClearRoute={() => {}}
-                onDirectionsClick={() => {}}
-                onRouteInfo={() => {}}
-                isNavigating={false}
+                venues={filteredCourts}
+                onLocationFound={(lat, lng) => setUserLocation({ lat, lng })}
+                userLocation={userLocation}
+                routingDestination={routingDestination}
+                routeSummary={routeSummary}
+                onClearRoute={handleClearRoute}
+                onDirectionsClick={handleDirections}
+                onRouteInfo={handleRouteInfo}
+                isNavigating={!!routingDestination}
               />
             </div>
           </div>
@@ -149,3 +216,4 @@ const VenuesPage: React.FC = () => {
 };
 
 export default VenuesPage;
+
