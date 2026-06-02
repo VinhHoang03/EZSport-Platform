@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Button, Badge, Card, Spinner } from 'react-bootstrap';
-import Navigation from '../shared/Navigation';
+import { useNavigate } from 'react-router-dom';
 import Footer from '../shared/Footer';
 import SlotPicker from './SlotPicker';
 import { courtService, venueService, type Court, type Venue } from '../../services/venue.service';
+import { conversationService } from '../../services/conversation.service';
+import { ROUTES } from '../../constants';
 
 type BookingDetails = {
   venueId: number | string;
@@ -26,7 +28,8 @@ interface VenueDetailProps {
   venueLoading?: boolean;
 }
 
-export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, onConfirmBooking, onPageChange, onLogoClick, venueData: externalVenueData, venueLoading: externalVenueLoading }) => {
+export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, onConfirmBooking, venueData: externalVenueData, venueLoading: externalVenueLoading }) => {
+  const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [internalVenueData, setInternalVenueData] = useState<Venue | null>(null);
   const [internalLoading, setInternalLoading] = useState<boolean>(!externalVenueData && !!venueId);
@@ -34,6 +37,7 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   const [courts, setCourts] = useState<Court[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState<string>('');
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [creatingChat, setCreatingChat] = useState(false);
   const venueData = externalVenueData ?? internalVenueData;
   const loading = externalVenueLoading ?? internalLoading;
 
@@ -130,7 +134,6 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   if (loading) {
     return (
       <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
-        <Navigation currentPage="venues" onLogoClick={onLogoClick || onBackClick} onPageChange={onPageChange || onBackClick} />
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <Spinner variant="success" />
         </div>
@@ -158,15 +161,50 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
     setSelectedSlot(slot);
   };
 
+  const handleChatWithOwner = async () => {
+    console.log('🔍 handleChatWithOwner called');
+    console.log('📦 venueData:', venueData);
+    console.log('👤 owner:', venueData?.owner);
+    
+    if (!venueData?.owner) {
+      alert('Không tìm thấy thông tin chủ sân');
+      return;
+    }
+
+    try {
+      setCreatingChat(true);
+      console.log('⏳ Creating chat...');
+      
+      // Get owner ID (handle both string and object)
+      const ownerId = typeof venueData.owner === 'string' 
+        ? venueData.owner 
+        : venueData.owner._id;
+      
+      console.log('🆔 Owner ID:', ownerId);
+      console.log('🏟️ Venue ID:', venueData._id);
+      
+      // Tạo hoặc lấy conversation
+      const conversation = await conversationService.createOrGetConversation({
+        otherUserId: ownerId,
+        venueId: String(venueData._id),
+      });
+
+      console.log('✅ Conversation created:', conversation);
+      console.log('🚀 Navigating to:', ROUTES.MESSAGES);
+
+      // Chuyển đến trang chat
+      navigate(ROUTES.MESSAGES);
+      
+    } catch (error) {
+      console.error('❌ Error creating conversation:', error);
+      alert('Không thể tạo hội thoại. Vui lòng thử lại.');
+    } finally {
+      setCreatingChat(false);
+    }
+  };
+
   return (
     <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Navigation */}
-      <Navigation
-        currentPage="venues"
-        onLogoClick={onLogoClick || onBackClick}
-        onPageChange={onPageChange || onBackClick}
-      />
-
       {/* Main Content Area */}
       <div className="overflow-auto flex-grow-1 py-4">
         <Container>
@@ -631,6 +669,37 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                       disabled={!selectedSlot}
                     >
                       Xác nhận đặt sân
+                    </Button>
+
+                    {/* Chat with Owner Button */}
+                    <Button
+                      onClick={handleChatWithOwner}
+                      disabled={creatingChat}
+                      variant="outline-success"
+                      className="w-100 py-3 rounded-pill fw-bold hover-scale mb-3"
+                      style={{
+                        fontSize: '14px',
+                        borderWidth: '2px',
+                        borderColor: '#1a6b3c',
+                        color: '#1a6b3c',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        cursor: creatingChat ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {creatingChat ? (
+                        <>
+                          <Spinner animation="border" size="sm" />
+                          <span>Đang tạo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chat</span>
+                          <span>Nhắn tin với chủ sân</span>
+                        </>
+                      )}
                     </Button>
 
                     {/* Footer Trust badging */}

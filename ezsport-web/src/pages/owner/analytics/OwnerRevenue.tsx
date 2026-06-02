@@ -1,8 +1,61 @@
-import React from 'react';
-import { Row, Col, Card, Button } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Row, Col, Card, Button, Spinner } from 'react-bootstrap';
 import { W, TX, TX2 } from '../../../utils/theme';
+import { analyticsService, type RevenueChartData, type TopCourt } from '../../../services/analytics.service';
 
 export const OwnerRevenue: React.FC = () => {
+  const [revenueChart, setRevenueChart] = useState<RevenueChartData[]>([]);
+  const [topCourts, setTopCourts] = useState<TopCourt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [days, setDays] = useState(7);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [chartData, courtsData] = await Promise.all([
+          analyticsService.getRevenueChart(days),
+          analyticsService.getTopCourts(5),
+        ]);
+        setRevenueChart(chartData);
+        setTopCourts(courtsData);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error fetching revenue data:', err);
+        setError(err.message || 'Không thể tải dữ liệu doanh thu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [days]);
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
+        <Spinner animation="border" variant="success" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="alert alert-warning" role="alert">
+        ⚠️ {error}
+      </div>
+    );
+  }
+
+  const totalRevenue = revenueChart.reduce((sum, item) => sum + item.revenue, 0);
+  const totalBookings = revenueChart.reduce((sum, item) => sum + item.bookings, 0);
+  const avgRevenuePerBooking = totalBookings > 0 ? totalRevenue / totalBookings : 0;
+
+  const formatVND = (amount: number) => {
+    return amount.toLocaleString('vi-VN') + 'đ';
+  };
+
   return (
     <>
       {/* KPI Cards */}
@@ -11,11 +64,17 @@ export const OwnerRevenue: React.FC = () => {
           <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
             <Card.Body className="p-4">
               <div className="d-flex justify-content-between align-items-start mb-3">
-                <div style={{ fontSize: '13px', color: TX2, fontWeight: 700 }}>Tổng doanh thu (Tổng)</div>
-                <span style={{ display: 'inline-block', background: '#dcfce7', color: '#15803d', fontWeight: 700, padding: '4px 8px', borderRadius: '8px', fontSize: '12px' }}>+12%</span>
+                <div style={{ fontSize: '13px', color: TX2, fontWeight: 700 }}>Tổng doanh thu ({days} ngày)</div>
+                <span style={{ display: 'inline-block', background: '#dcfce7', color: '#15803d', fontWeight: 700, padding: '4px 8px', borderRadius: '8px', fontSize: '12px' }}>
+                  {totalBookings} đơn
+                </span>
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#15803d', letterSpacing: '-0.5px', marginBottom: '4px' }}>18,500,000đ</div>
-              <div style={{ fontSize: '12px', color: TX2 }}>+2.1m so với tháng trước</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: '#15803d', letterSpacing: '-0.5px', marginBottom: '4px' }}>
+                {formatVND(totalRevenue)}
+              </div>
+              <div style={{ fontSize: '12px', color: TX2 }}>
+                Trung bình: {formatVND(Math.round(avgRevenuePerBooking))}/đơn
+              </div>
             </Card.Body>
           </Card>
         </Col>
@@ -23,13 +82,17 @@ export const OwnerRevenue: React.FC = () => {
           <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
             <Card.Body className="p-4">
               <div className="d-flex justify-content-between align-items-start mb-3">
-                <div style={{ fontSize: '13px', color: TX2, fontWeight: 700 }}>Doanh thu đặt sân</div>
+                <div style={{ fontSize: '13px', color: TX2, fontWeight: 700 }}>Tổng lượt đặt sân</div>
                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>calendar_month</span>
                 </div>
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: TX, letterSpacing: '-0.5px', marginBottom: '4px' }}>15,200,000đ</div>
-              <div style={{ fontSize: '12px', color: TX2 }}>350 lượt đặt sân thành công</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: TX, letterSpacing: '-0.5px', marginBottom: '4px' }}>
+                {totalBookings}
+              </div>
+              <div style={{ fontSize: '12px', color: TX2 }}>
+                Trung bình: {(totalBookings / days).toFixed(1)} đơn/ngày
+              </div>
             </Card.Body>
           </Card>
         </Col>
@@ -37,13 +100,17 @@ export const OwnerRevenue: React.FC = () => {
           <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
             <Card.Body className="p-4">
               <div className="d-flex justify-content-between align-items-start mb-3">
-                <div style={{ fontSize: '13px', color: TX2, fontWeight: 700 }}>Dịch vụ kèm theo</div>
+                <div style={{ fontSize: '13px', color: TX2, fontWeight: 700 }}>Sân hoạt động tốt nhất</div>
                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#fff7ed', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>shopping_cart</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>emoji_events</span>
                 </div>
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#f97316', letterSpacing: '-0.5px', marginBottom: '4px' }}>3,300,000đ</div>
-              <div style={{ fontSize: '12px', color: TX2 }}>Thuê vợt, nước uống, bóng</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#f97316', letterSpacing: '-0.5px', marginBottom: '4px' }}>
+                {topCourts.length > 0 ? topCourts[0].courtName : 'N/A'}
+              </div>
+              <div style={{ fontSize: '12px', color: TX2 }}>
+                {topCourts.length > 0 ? `${formatVND(topCourts[0].revenue)} - ${topCourts[0].bookings} đơn` : 'Chưa có dữ liệu'}
+              </div>
             </Card.Body>
           </Card>
         </Col>
@@ -59,37 +126,37 @@ export const OwnerRevenue: React.FC = () => {
                 <div className="d-flex gap-3" style={{ fontSize: '12px', fontWeight: 600 }}>
                   <div className="d-flex align-items-center gap-1">
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0f3d22' }} />
-                    <span style={{ color: TX2 }}>Đặt sân</span>
-                  </div>
-                  <div className="d-flex align-items-center gap-1">
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fed7aa' }} />
-                    <span style={{ color: TX2 }}>Dịch vụ</span>
+                    <span style={{ color: TX2 }}>Doanh thu</span>
                   </div>
                 </div>
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', minHeight: '200px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '160px', position: 'relative', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
-                  <div style={{ position: 'absolute', left: 0, right: 0, top: '25%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
-                  <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
-                  <div style={{ position: 'absolute', left: 0, right: 0, top: '75%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
-                  {[
-                    { label: 'T2', booking: 43, service: 10 },
-                    { label: 'T3', booking: 53, service: 12 },
-                    { label: 'T4', booking: 60, service: 15 },
-                    { label: 'T5', booking: 48, service: 10 },
-                    { label: 'T6', booking: 68, service: 17 },
-                    { label: 'T7', booking: 78, service: 22 },
-                    { label: 'CN', booking: 72, service: 20 },
-                  ].map((bar, idx) => (
-                    <div key={idx} className="d-flex flex-column align-items-center" style={{ width: '40px', cursor: 'pointer', zIndex: 2 }}>
-                      <div style={{ width: '20px', height: '140px', display: 'flex', flexDirection: 'column-reverse', borderRadius: '6px', overflow: 'hidden', background: '#f1f5f9' }}>
-                        <div style={{ width: '100%', height: `${bar.booking}%`, background: '#0f3d22' }} />
-                        <div style={{ width: '100%', height: `${bar.service}%`, background: '#fed7aa' }} />
-                      </div>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: TX2, marginTop: '8px' }}>{bar.label}</span>
-                    </div>
-                  ))}
-                </div>
+                {revenueChart.length > 0 ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '160px', position: 'relative', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: '25%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: '75%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                    {revenueChart.map((item, idx) => {
+                      const maxRevenue = Math.max(...revenueChart.map(d => d.revenue));
+                      const heightPercent = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
+                      return (
+                        <div key={idx} className="d-flex flex-column align-items-center" style={{ width: '40px', cursor: 'pointer', zIndex: 2 }}>
+                          <div style={{ width: '20px', height: '140px', display: 'flex', flexDirection: 'column-reverse', borderRadius: '6px', overflow: 'hidden', background: '#f1f5f9' }}>
+                            <div 
+                              style={{ width: '100%', height: `${heightPercent}%`, background: '#0f3d22' }}
+                              title={`${item.label}: ${formatVND(item.revenue)} (${item.bookings} đơn)`}
+                            />
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: TX2, marginTop: '8px' }}>{item.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="d-flex align-items-center justify-content-center h-100">
+                    <span style={{ color: TX2, fontSize: '14px' }}>Chưa có dữ liệu doanh thu</span>
+                  </div>
+                )}
               </div>
             </Card.Body>
           </Card>
@@ -99,35 +166,60 @@ export const OwnerRevenue: React.FC = () => {
           <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', height: '100%' }}>
             <Card.Body className="p-4 d-flex flex-column align-items-center">
               <div className="w-100 mb-3 text-start">
-                <h5 style={{ fontSize: '15px', fontWeight: 800, color: TX, margin: 0 }}>Doanh thu theo sân</h5>
+                <h5 style={{ fontSize: '15px', fontWeight: 800, color: TX, margin: 0 }}>Top sân theo doanh thu</h5>
               </div>
-              <div style={{ position: 'relative', width: '140px', height: '140px', margin: '20px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="100%" height="100%" viewBox="0 0 40 40">
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="4.5" />
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#0f3d22" strokeWidth="4.5" strokeDasharray="50 50" strokeDashoffset="25" />
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#3b82f6" strokeWidth="4.5" strokeDasharray="30 70" strokeDashoffset="75" />
-                  <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#f97316" strokeWidth="4.5" strokeDasharray="20 80" strokeDashoffset="5" />
-                </svg>
-                <div style={{ position: 'absolute', textAlign: 'center' }}>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: TX }}>100%</div>
-                  <div style={{ fontSize: '10px', color: TX2, fontWeight: 700 }}>Tổng cộng</div>
-                </div>
-              </div>
-              <div className="w-100" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                {[
-                  { name: 'Sân A1', pct: '50%', color: '#0f3d22' },
-                  { name: 'Sân A2', pct: '30%', color: '#3b82f6' },
-                  { name: 'Sân B1', pct: '20%', color: '#f97316' },
-                ].map((court, idx) => (
-                  <div key={idx} className="d-flex justify-content-between align-items-center" style={{ fontSize: '13px', fontWeight: 600 }}>
-                    <div className="d-flex align-items-center gap-2">
-                      <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: court.color }} />
-                      <span style={{ color: TX }}>{court.name}</span>
+              {topCourts.length > 0 ? (
+                <>
+                  <div style={{ position: 'relative', width: '140px', height: '140px', margin: '20px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="100%" height="100%" viewBox="0 0 40 40">
+                      <circle cx="20" cy="20" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="4.5" />
+                      {topCourts.map((court, idx) => {
+                        const totalRev = topCourts.reduce((sum, c) => sum + c.revenue, 0);
+                        const pct = totalRev > 0 ? (court.revenue / totalRev) * 100 : 0;
+                        const colors = ['#0f3d22', '#3b82f6', '#f97316', '#eab308', '#8b5cf6'];
+                        const prevPct = topCourts.slice(0, idx).reduce((sum, c) => sum + (totalRev > 0 ? (c.revenue / totalRev) * 100 : 0), 0);
+                        return (
+                          <circle 
+                            key={idx}
+                            cx="20" 
+                            cy="20" 
+                            r="15.915" 
+                            fill="transparent" 
+                            stroke={colors[idx % colors.length]} 
+                            strokeWidth="4.5" 
+                            strokeDasharray={`${pct} ${100 - pct}`} 
+                            strokeDashoffset={25 - prevPct}
+                          />
+                        );
+                      })}
+                    </svg>
+                    <div style={{ position: 'absolute', textAlign: 'center' }}>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: TX }}>100%</div>
+                      <div style={{ fontSize: '10px', color: TX2, fontWeight: 700 }}>Tổng cộng</div>
                     </div>
-                    <span style={{ color: TX2, fontWeight: 700 }}>{court.pct}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="w-100" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                    {topCourts.map((court, idx) => {
+                      const colors = ['#0f3d22', '#3b82f6', '#f97316', '#eab308', '#8b5cf6'];
+                      const totalRev = topCourts.reduce((sum, c) => sum + c.revenue, 0);
+                      const pct = totalRev > 0 ? ((court.revenue / totalRev) * 100).toFixed(0) : '0';
+                      return (
+                        <div key={idx} className="d-flex justify-content-between align-items-center" style={{ fontSize: '13px', fontWeight: 600 }}>
+                          <div className="d-flex align-items-center gap-2">
+                            <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: colors[idx % colors.length] }} />
+                            <span style={{ color: TX }}>{court.courtName}</span>
+                          </div>
+                          <span style={{ color: TX2, fontWeight: 700 }}>{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="d-flex align-items-center justify-content-center h-100">
+                  <span style={{ color: TX2, fontSize: '14px' }}>Chưa có dữ liệu</span>
+                </div>
+              )}
             </Card.Body>
           </Card>
         </Col>

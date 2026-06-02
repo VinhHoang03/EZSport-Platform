@@ -12,6 +12,14 @@ export interface Venue {
   name: string;
   description?: string;
 
+  // Owner
+  owner?: string | {
+    _id: string;
+    fullName: string;
+    email: string;
+    avatar?: string;
+  };
+
   // Media
   image: string;
   images?: string[];

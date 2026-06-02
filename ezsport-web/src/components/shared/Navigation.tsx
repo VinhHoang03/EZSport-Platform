@@ -1,6 +1,8 @@
 import React from 'react';
 import { Container, Nav, Navbar, Button, Dropdown } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../constants';
 
 interface NavigationProps {
   onAddCourtClick?: () => void;
@@ -11,10 +13,24 @@ interface NavigationProps {
   onRegisterOwnerClick?: () => void;
 }
  
+const CustomToggle = React.forwardRef<HTMLDivElement, any>(({ children, onClick }, ref) => (
+  <div
+    ref={ref}
+    onClick={(e) => {
+      e.preventDefault();
+      onClick(e);
+    }}
+    style={{ cursor: 'pointer' }}
+  >
+    {children}
+  </div>
+));
+
 const Navigation: React.FC<NavigationProps> = ({ 
   onAddCourtClick, onLogoClick, onLoginClick, onPageChange, currentPage, onRegisterOwnerClick 
 }) => {
   const { user, logout, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
  
   return (
     <>
@@ -129,47 +145,112 @@ const Navigation: React.FC<NavigationProps> = ({
               </>
             )}
           </Nav>
- 
-          <div className="d-flex align-items-center gap-3">
-            <Button variant="link" className="text-muted p-2 rounded-circle hover-bg-light d-flex align-items-center border-0 shadow-none">
-              <span className="material-symbols-outlined fs-5" style={{ color: '#64748b' }}>notifications</span>
-            </Button>
-            <Button variant="link" className="text-muted p-2 rounded-circle hover-bg-light d-flex align-items-center border-0 shadow-none">
-              <span className="material-symbols-outlined fs-5" style={{ color: '#64748b' }}>favorite</span>
-            </Button>
- 
+  
+          <div className="d-flex align-items-center gap-2">
+
+            {/* Grouped icon pill — only show when logged in */}
+            {isAuthenticated && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#f1f5f9', borderRadius: '999px', padding: '4px 6px' }}>
+                {[
+                  { icon: 'notifications', title: 'Thông báo' },
+                  { icon: 'favorite', title: 'Yêu thích' },
+                ].map(btn => (
+                  <button
+                    key={btn.icon}
+                    title={btn.title}
+                    style={{ border: 'none', background: 'transparent', borderRadius: '999px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#e2e8f0')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#475569' }}>{btn.icon}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Divider */}
+            {isAuthenticated && <div style={{ width: '1px', height: '28px', background: '#e2e8f0', margin: '0 2px' }} />}
+
             {isAuthenticated ? (
               <Dropdown align="end">
-                <Dropdown.Toggle as="div" className="cursor-pointer">
-                  <div className="rounded-circle overflow-hidden border border-2 border-success border-opacity-25" style={{ width: '40px', height: '40px' }}>
-                    <img 
-                      alt="User" 
-                      className="w-100 h-100 object-fit-cover" 
-                      src={user?.avatar || "https://ui-avatars.com/api/?name=" + user?.fullName}
-                    />
+                <Dropdown.Toggle as={CustomToggle}>
+                  {/* Pill trigger */}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px 4px 4px', borderRadius: '999px', border: '1.5px solid #e2e8f0', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: 'border-color 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = '#16a34a')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = '#e2e8f0')}
+                  >
+                    {/* Avatar + online dot */}
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <img
+                        alt={user?.fullName || 'User'}
+                        src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'U')}&background=16a34a&color=fff&size=80&bold=true`}
+                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+                      />
+                      <span style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', borderRadius: '50%', background: '#22c55e', border: '1.5px solid #fff' }} />
+                    </div>
+                    {/* Short name */}
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user?.fullName?.split(' ').slice(-1)[0] || 'Tài khoản'}
+                    </span>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#94a3b8' }}>expand_more</span>
                   </div>
                 </Dropdown.Toggle>
-                <Dropdown.Menu className="shadow-lg border-0 rounded-4 mt-3 p-2" style={{ minWidth: '180px' }}>
-                  <Dropdown.Header className="fw-bold text-dark pb-2" style={{ fontSize: '14px' }}>{user?.fullName}</Dropdown.Header>
-                  <Dropdown.Item onClick={(e) => { e.preventDefault(); onPageChange?.('profile'); }} className="rounded-3 py-2 small">Hồ sơ cá nhân</Dropdown.Item>
-                  <Dropdown.Item href="#settings" className="rounded-3 py-2 small">Cài đặt</Dropdown.Item>
-                  <Dropdown.Divider className="my-2 opacity-50" />
-                  <Dropdown.Item 
-                    onClick={() => {
-                      logout();
-                      onPageChange?.('landing');
-                    }} 
-                    className="rounded-3 py-2 small text-danger fw-semibold"
-                  >
-                    Đăng xuất
-                  </Dropdown.Item>
+
+                <Dropdown.Menu className="shadow-lg border-0 mt-2 p-0" style={{ minWidth: '230px', borderRadius: '16px', overflow: 'hidden' }}>
+                  {/* Gradient header */}
+                  <div style={{ padding: '16px', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', borderBottom: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <img
+                        alt={user?.fullName || 'User'}
+                        src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'U')}&background=16a34a&color=fff&size=80&bold=true`}
+                        style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #86efac' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a', lineHeight: 1.3 }}>{user?.fullName}</div>
+                        <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
+                          {user?.email || user?.phone || 'EZSport member'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Menu items */}
+                  <div style={{ padding: '8px' }}>
+                    {[
+                      { icon: 'person', label: 'Hồ sơ cá nhân', action: () => navigate(ROUTES.PROFILE) },
+                      { icon: 'event_note', label: 'Lịch sử đặt sân', action: () => navigate(ROUTES.MY_BOOKINGS) },
+                      { icon: 'chat', label: 'Tin nhắn', action: () => navigate(ROUTES.MESSAGES) },
+                    ].map(item => (
+                      <Dropdown.Item
+                        key={item.label}
+                        onClick={item.action}
+                        className="rounded-3"
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', fontSize: '13px', fontWeight: 500, color: '#0f172a' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#16a34a' }}>{item.icon}</span>
+                        {item.label}
+                      </Dropdown.Item>
+                    ))}
+
+                    <div style={{ height: '1px', background: '#f1f5f9', margin: '6px 4px' }} />
+
+                    <Dropdown.Item
+                      onClick={() => { logout(); onPageChange?.('landing'); }}
+                      className="rounded-3"
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', fontSize: '13px', fontWeight: 600, color: '#ef4444' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span>
+                      Đăng xuất
+                    </Dropdown.Item>
+                  </div>
                 </Dropdown.Menu>
               </Dropdown>
             ) : (
-              <Button 
-                variant="success" 
-                className="rounded-pill px-4 py-2 fw-bold shadow-sm border-0"
-                style={{ background: '#1a6b3c', color: 'white', fontSize: '14px' }}
+              <Button
+                variant="success"
+                className="rounded-pill fw-bold border-0"
+                style={{ background: '#1a6b3c', color: 'white', fontSize: '14px', padding: '8px 22px', boxShadow: '0 2px 8px rgba(26,107,60,0.25)' }}
                 onClick={onLoginClick}
               >
                 Đăng nhập

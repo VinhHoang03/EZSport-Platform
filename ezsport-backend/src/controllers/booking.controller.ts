@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bookingService from "../services/booking.service";
 import { createBookingSchema, updateBookingSchema } from "../validators/booking.validator";
+import momoService from "../services/momo.service";
 
 class BookingController {
   /**
@@ -25,6 +26,36 @@ class BookingController {
         return res.status(401).json({ message: 'Người dùng chưa xác thực' });
       }
       const booking = await bookingService.createBooking(userId, validation.data);
+
+      if (booking.paymentMethod === "momo") {
+        try {
+          const momoRes = await momoService.createPayment(
+            booking._id.toString(),
+            booking.totalPrice,
+            `Thanh toan dat san ${booking.sport} tai EZSport`
+          );
+          if (momoRes.resultCode === 0) {
+            return res.status(201).json({
+              message: "Đặt sân thành công, vui lòng thanh toán qua MoMo",
+              data: booking,
+              payUrl: momoRes.payUrl,
+            });
+          } else {
+            console.error("[booking.createBooking] MoMo error:", momoRes);
+            return res.status(400).json({
+              message: "Không thể tạo liên kết thanh toán MoMo: " + momoRes.message,
+              data: booking,
+            });
+          }
+        } catch (momoErr: any) {
+          console.error("[booking.createBooking] MoMo exception:", momoErr);
+          return res.status(500).json({
+            message: "Lỗi kết nối cổng thanh toán MoMo",
+            data: booking,
+            error: momoErr.message,
+          });
+        }
+      }
 
       return res.status(201).json({
         message: "Đặt sân thành công",
@@ -276,6 +307,55 @@ class BookingController {
       return res.status(400).json({
         message: err.message || "Lỗi hoàn thành đặt sân",
       });
+    }
+  }
+
+  /**
+   * MoMo IPN Callback (POST /bookings/momo-ipn)
+   */
+  async handleMomoIPN(req: Request, res: Response) {
+    try {
+      console.log("[BookingController.handleMomoIPN] Callback payload:", JSON.stringify(req.body));
+      const {
+        partnerCode,
+        orderId,
+        requestId,
+        amount,
+        orderInfo,
+        orderType,
+        transId,
+        resultCode,
+        message,
+        payType,
+        responseTime,
+        extraData,
+        signature,
+      } = req.body;
+
+      const accessKey = process.env.MOMO_ACCESS_KEY || "F8BBA842ECF85";
+
+      // Re-sign to verify authenticity
+      const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&message=${message}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
+
+      const isValid = momoService.verifySignature(signature, rawSignature);
+      if (!isValid) {
+        console.warn("[BookingController.handleMomoIPN] Signature verification failed!");
+        return res.status(400).json({ message: "Signature verification failed" });
+      }
+
+      const bookingId = orderId;
+      if (resultCode === 0) {
+        console.log(`[BookingController.handleMomoIPN] Payment SUCCESS for booking ${bookingId}`);
+        await bookingService.updatePaymentStatus(bookingId, "CONFIRMED");
+      } else {
+        console.warn(`[BookingController.handleMomoIPN] Payment FAILED/CANCELLED for booking ${bookingId}, code: ${resultCode}`);
+        await bookingService.updatePaymentStatus(bookingId, "CANCELLED");
+      }
+
+      return res.status(204).send();
+    } catch (err: any) {
+      console.error("[BookingController.handleMomoIPN] Error handling IPN callback:", err);
+      return res.status(500).json({ message: err?.message || "Internal Server Error" });
     }
   }
 }

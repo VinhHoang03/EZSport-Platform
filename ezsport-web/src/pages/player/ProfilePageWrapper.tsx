@@ -8,7 +8,7 @@ const ProfilePageWrapper: React.FC = () => {
   return (
     <ProfilePage
       onGoHome={() => navigate(ROUTES.MAP)}
-      onFindVenues={() => navigate(ROUTES.VENUES)}
+      onFindVenues={() => navigate(ROUTES.MAP)}
       onLogoClick={() => navigate(ROUTES.LANDING)}
     />
   );

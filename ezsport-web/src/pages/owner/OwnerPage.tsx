@@ -163,53 +163,6 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
     }
   };
 
-  // --- States for Chat/Messages system ---
-  const [selectedRoomId, setSelectedRoomId] = useState('room-1');
-  const [typedMessage, setTypedMessage] = useState('');
-  const [chatRooms, setChatRooms] = useState([
-    {
-      id: 'room-1',
-      name: 'Nguyễn Văn A',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60',
-      lastMsg: 'Anh chuẩn bị sân giúp em nhé',
-      time: '10 phút trước',
-      unread: 2,
-      online: true,
-      messages: [
-        { sender: 'player', text: 'Chào anh, hôm nay em có đặt sân lúc 9h', time: '08:30 AM' },
-        { sender: 'owner', text: 'Chào Nam! Anh nhận được lịch đặt rồi nhé. Sân đã được chuẩn bị sẵn sàng.', time: '08:35 AM' },
-        { sender: 'player', text: 'Dạ vâng, lát nhóm em qua. Anh chuẩn bị sân giúp em nhé.', time: '08:45 AM' }
-      ]
-    },
-    {
-      id: 'room-2',
-      name: 'Lê Thị C',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&auto=format&fit=crop&q=60',
-      lastMsg: 'Dạ em đã thanh toán chuyển khoản rồi ạ',
-      time: '1 giờ trước',
-      unread: 0,
-      online: false,
-      messages: [
-        { sender: 'owner', text: 'Chào chị Thư, lịch đặt sân A2 của chị lúc 11h chưa được thanh toán ạ.', time: '09:15 AM' },
-        { sender: 'player', text: 'Dạ em đã thanh toán chuyển khoản rồi ạ', time: '10:00 AM' },
-        { sender: 'owner', text: 'Anh đã nhận được 300k chuyển khoản của em rồi nha. Hẹn gặp nhóm em lúc 11h.', time: '10:05 AM' }
-      ]
-    },
-    {
-      id: 'room-3',
-      name: 'Trần Nam B',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=60',
-      lastMsg: 'Sân mình có vợt cho thuê không anh?',
-      time: '3 giờ trước',
-      unread: 0,
-      online: true,
-      messages: [
-        { sender: 'player', text: 'Sân mình có vợt cho thuê không anh?', time: '03:15 PM' },
-        { sender: 'owner', text: 'Chào Tuấn, bên anh có cho thuê vợt Pickleball 20k/vợt nha em.', time: '03:20 PM' }
-      ]
-    }
-  ]);
-
   const menuItems = [
     { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
     { id: 'bookings', icon: 'calendar_month', label: 'Lịch đặt sân' },
@@ -898,24 +851,7 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
 
             {/* ─── TAB 7: MESSAGES / TIN NHẮN ─── */}
             {activeMenu === 'messages' && (
-              <OwnerMessage
-                chatRooms={chatRooms}
-                selectedRoomId={selectedRoomId}
-                typedMessage={typedMessage}
-                onSelectRoom={setSelectedRoomId}
-                onClearUnread={id => setChatRooms(prev => prev.map(r => r.id === id ? { ...r, unread: 0 } : r))}
-                onTypedMessageChange={setTypedMessage}
-                onSendMessage={text => {
-                  const now = new Date();
-                  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  setChatRooms(prev => prev.map(room =>
-                    room.id === selectedRoomId
-                      ? { ...room, lastMsg: text, time: 'Vừa xong', messages: [...room.messages, { sender: 'owner', text, time: timeStr }] }
-                      : room
-                  ));
-                  setTypedMessage('');
-                }}
-              />
+              <OwnerMessage />
             )}
 
           </div>

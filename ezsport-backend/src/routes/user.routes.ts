@@ -1,16 +1,11 @@
-/*
 import express from "express";
-import { authMiddleware } from "../middlewares/auth.middleware";
-import { getProfile } from "../controllers/user.controller";
-import { updateProfile } from "../controllers/user.controller";
+import { verifyToken } from "../middlewares/auth.middleware";
+import { getMe, updateProfile } from "../controllers/user.controller";
+import upload from "../middlewares/upload.middleware";
 
 const router = express.Router();
 
-router.get("/me", authMiddleware, getProfile);
-router.put("/profile", authMiddleware, updateProfile);
+router.get("/me", verifyToken as any, getMe as any);
+router.put("/me", verifyToken as any, upload.single("avatar"), updateProfile as any);
 
-export default router;
-*/
-import express from "express";
-const router = express.Router();
 export default router;

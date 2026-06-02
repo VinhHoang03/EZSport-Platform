@@ -23,7 +23,7 @@ const PlayerLayout: React.FC = () => {
           if (map[page]) navigate(map[page]);
         }}
       />
-      <main className="flex-grow-1">
+      <main className="flex-grow-1 overflow-hidden" style={{ height: 'calc(100vh - 90px)' }}>
         <Outlet />
       </main>
     </div>

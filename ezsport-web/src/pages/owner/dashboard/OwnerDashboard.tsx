@@ -1,12 +1,78 @@
-import React from 'react';
-import { Row, Col, Card } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Row, Col, Card, Spinner } from 'react-bootstrap';
 import { G, W, TX, TX2 } from '../../../utils/theme';
+import { analyticsService, type OwnerStats, type RevenueChartData } from '../../../services/analytics.service';
 
 interface OwnerOverviewTabProps {
   onNavigate: (menu: string) => void;
 }
 
 export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }) => {
+  const [stats, setStats] = useState<OwnerStats | null>(null);
+  const [revenueChart, setRevenueChart] = useState<RevenueChartData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [statsData, chartData] = await Promise.all([
+          analyticsService.getOwnerStats(),
+          analyticsService.getRevenueChart(7),
+        ]);
+        setStats(statsData);
+        setRevenueChart(chartData);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error fetching analytics:', err);
+        setError(err.message || 'Không thể tải dữ liệu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
+        <Spinner animation="border" variant="success" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="alert alert-warning" role="alert">
+        ⚠️ {error}
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="alert alert-info" role="alert">
+        Không có dữ liệu thống kê
+      </div>
+    );
+  }
+
+  const formatVND = (amount: number) => {
+    if (amount >= 1000000) {
+      return `${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `${(amount / 1000).toFixed(0)}K`;
+    }
+    return amount.toLocaleString('vi-VN');
+  };
+
+  const formatChange = (change: number) => {
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(1)}%`;
+  };
+
   return (
     <>
       {/* KPI Cards Row */}
@@ -18,10 +84,12 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
                 <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#f0fdf4', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>calendar_month</span>
                 </div>
-                <span style={{ display: 'inline-block', background: '#dcfce7', color: '#15803d', fontWeight: 700, padding: '4px 10px', borderRadius: '20px', fontSize: '11px' }}>+15% so với tuần trước</span>
+                <span style={{ display: 'inline-block', background: stats.bookingsChange >= 0 ? '#dcfce7' : '#fee2e2', color: stats.bookingsChange >= 0 ? '#15803d' : '#dc2626', fontWeight: 700, padding: '4px 10px', borderRadius: '20px', fontSize: '11px' }}>
+                  {formatChange(stats.bookingsChange)} so với tháng trước
+                </span>
               </div>
-              <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '4px' }}>Lượt đặt sân hôm nay</div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: TX }}>12</div>
+              <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '4px' }}>Tổng lượt đặt sân</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: TX }}>{stats.totalBookings}</div>
             </Card.Body>
           </Card>
         </Col>
@@ -33,12 +101,14 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
                 <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>payments</span>
                 </div>
-                <div style={{ fontSize: '12px', color: '#22c55e', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>trending_up</span> +8%
+                <div style={{ fontSize: '12px', color: stats.revenueChange >= 0 ? '#22c55e' : '#dc2626', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                    {stats.revenueChange >= 0 ? 'trending_up' : 'trending_down'}
+                  </span> {formatChange(stats.revenueChange)}
                 </div>
               </div>
-              <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '4px' }}>Doanh thu hôm nay</div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: TX }}>4,500K</div>
+              <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '4px' }}>Tổng doanh thu</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: TX }}>{formatVND(stats.totalRevenue)}</div>
             </Card.Body>
           </Card>
         </Col>
@@ -46,17 +116,17 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
         <Col md={3}>
           <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
             <Card.Body className="p-4">
-              <div className="d-flex align-items-center gap-3 mb-3">
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: '4px solid #22c55e', borderRightColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: TX }}>
-                  75%
-                </div>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: TX }}>Rất tốt</div>
-                  <div style={{ fontSize: '12px', color: TX2 }}>Tỉ lệ lấp đầy</div>
+              <div className="d-flex justify-content-between align-items-start mb-3">
+                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>sports_tennis</span>
                 </div>
               </div>
-              <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ width: '75%', height: '100%', background: '#22c55e', borderRadius: '3px' }} />
+              <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '4px' }}>Tổng số sân</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: TX }}>
+                {stats.totalCourts}
+                <span style={{ fontSize: '16px', color: TX2, fontWeight: 600, marginLeft: '8px' }}>
+                  ({stats.activeCourts} hoạt động)
+                </span>
               </div>
             </Card.Body>
           </Card>
@@ -67,13 +137,11 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
             <Card.Body className="p-4">
               <div className="d-flex justify-content-between align-items-start mb-3">
                 <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#fef08a', color: '#a16207', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>star</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>pending</span>
                 </div>
               </div>
-              <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '4px' }}>Đánh giá (500 đánh giá)</div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: TX, display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                4.8 <span style={{ fontSize: '16px', color: TX2, fontWeight: 600 }}>/ 5.0</span>
-              </div>
+              <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '4px' }}>Đặt sân chờ duyệt</div>
+              <div style={{ fontSize: '32px', fontWeight: 800, color: TX }}>{stats.pendingBookings}</div>
             </Card.Body>
           </Card>
         </Col>
@@ -86,26 +154,39 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
             <Card.Body className="p-4 d-flex flex-column">
               <div className="d-flex justify-content-between align-items-center mb-4">
                 <h5 style={{ fontSize: '16px', fontWeight: 700, color: TX, margin: 0 }}>Doanh thu 7 ngày qua</h5>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: TX2 }}>Tổng: 22.45 Triệu</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: TX2 }}>
+                  Tổng: {formatVND(revenueChart.reduce((sum, item) => sum + item.revenue, 0))}
+                </div>
               </div>
               <div style={{ flex: 1, position: 'relative', minHeight: '200px' }}>
-                <svg viewBox="0 0 800 200" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
-                  <defs>
-                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#22c55e" stopOpacity="0.4" />
-                      <stop offset="100%" stopColor="#22c55e" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M0,150 C100,150 150,140 200,130 C300,110 350,50 450,50 C550,50 600,160 650,140 C700,120 750,20 800,20 L800,200 L0,200 Z" fill="url(#chartGradient)" />
-                  <path d="M0,150 C100,150 150,140 200,130 C300,110 350,50 450,50 C550,50 600,160 650,140 C700,120 750,20 800,20" fill="none" stroke="#22c55e" strokeWidth="4" />
-                  <circle cx="200" cy="130" r="5" fill="#fff" stroke="#22c55e" strokeWidth="2" />
-                  <circle cx="450" cy="50" r="5" fill="#fff" stroke="#22c55e" strokeWidth="2" />
-                  <circle cx="650" cy="140" r="5" fill="#fff" stroke="#22c55e" strokeWidth="2" />
-                  <circle cx="800" cy="20" r="5" fill="#fff" stroke="#22c55e" strokeWidth="2" />
-                </svg>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', padding: '0 10px', color: TX2, fontSize: '11px', fontWeight: 600 }}>
-                  <span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>
-                </div>
+                {revenueChart.length > 0 ? (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '200px', position: 'relative', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: '25%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: '75%', borderTop: '1px dashed #f1f5f9', pointerEvents: 'none' }} />
+                      {revenueChart.map((item, idx) => {
+                        const maxRevenue = Math.max(...revenueChart.map(d => d.revenue));
+                        const heightPercent = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
+                        return (
+                          <div key={idx} className="d-flex flex-column align-items-center" style={{ width: '40px', cursor: 'pointer', zIndex: 2 }}>
+                            <div style={{ width: '20px', height: '180px', display: 'flex', flexDirection: 'column-reverse', borderRadius: '6px', overflow: 'hidden', background: '#f1f5f9' }}>
+                              <div 
+                                style={{ width: '100%', height: `${heightPercent}%`, background: '#22c55e', borderRadius: '3px' }}
+                                title={`${item.label}: ${item.revenue.toLocaleString('vi-VN')}đ`}
+                              />
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: TX2, marginTop: '8px' }}>{item.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="d-flex align-items-center justify-content-center h-100">
+                    <span style={{ color: TX2, fontSize: '14px' }}>Chưa có dữ liệu doanh thu</span>
+                  </div>
+                )}
               </div>
             </Card.Body>
           </Card>
@@ -114,27 +195,23 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
         <Col lg={4}>
           <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', height: '100%' }}>
             <Card.Body className="p-4 d-flex flex-column">
-              <h5 style={{ fontSize: '16px', fontWeight: 700, color: TX, marginBottom: '20px' }}>Đặt sân hôm nay</h5>
+              <h5 style={{ fontSize: '16px', fontWeight: 700, color: TX, marginBottom: '20px' }}>Thống kê nhanh</h5>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
-                {[
-                  { name: 'Nguyễn Văn A', court: 'Sân A1', time: '18:00 - 19:00', status: 'Đã TT', color: '#15803d', bg: '#dcfce7' },
-                  { name: 'Trần Thị B', court: 'Sân B2', time: '19:00 - 20:30', status: 'Chưa TT', color: '#a16207', bg: '#fef08a' },
-                  { name: 'Hoàng Nam', court: 'Sân A1', time: '20:00 - 21:00', status: 'Đã TT', color: '#15803d', bg: '#dcfce7' },
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px', paddingBottom: '16px', borderBottom: i < 2 ? '1px solid #f1f5f9' : 'none' }}>
-                    <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: G, border: '1px solid #e2e8f0' }}>
-                      {item.time}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: TX }}>{item.name}</div>
-                      <div style={{ fontSize: '12px', color: TX2 }}>{item.court}</div>
-                    </div>
-                    <span style={{ display: 'inline-block', background: item.bg, color: item.color, border: 'none', padding: '6px 10px', borderRadius: '6px', fontWeight: 600, fontSize: '12px' }}>
-                      {item.status}
-                    </span>
-                  </div>
-                ))}
+                <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '8px' }}>Tổng địa điểm</div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: TX }}>{stats.totalVenues}</div>
+                </div>
+
+                <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '8px' }}>Sân hoạt động</div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#22c55e' }}>{stats.activeCourts}/{stats.totalCourts}</div>
+                </div>
+
+                <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '13px', color: TX2, fontWeight: 600, marginBottom: '8px' }}>Chờ xác nhận</div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b' }}>{stats.pendingBookings}</div>
+                </div>
               </div>
 
               <div
@@ -148,9 +225,9 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
         </Col>
       </Row>
 
-      {/* Bottom Row: Heatmap & Reviews */}
+      {/* Bottom Row: Heatmap & Quick Stats */}
       <Row className="g-4">
-        <Col lg={7}>
+        <Col lg={12}>
           <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', height: '100%' }}>
             <Card.Body className="p-4">
               <h5 style={{ fontSize: '16px', fontWeight: 700, color: TX, marginBottom: '24px' }}>Mật độ lấp đầy (7 ngày)</h5>
@@ -194,39 +271,6 @@ export const OwnerOverviewTab: React.FC<OwnerOverviewTabProps> = ({ onNavigate }
                 <div style={{ width: '12px', height: '12px', background: '#16a34a', borderRadius: '2px' }} />
                 <div style={{ width: '12px', height: '12px', background: '#14532d', borderRadius: '2px' }} />
                 <span>Kín</span>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col lg={5}>
-          <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', height: '100%' }}>
-            <Card.Body className="p-4 d-flex flex-column">
-              <h5 style={{ fontSize: '16px', fontWeight: 700, color: TX, marginBottom: '20px' }}>Đánh giá gần đây</h5>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {[
-                  { name: 'Lê Minh', avatar: '12', rating: 5, text: '"Sân đẹp, mát về đêm. Nhân viên phục vụ rất nhiệt tình..."' },
-                  { name: 'Quốc Bảo', avatar: '33', rating: 4, text: '"Ánh sáng ban đêm hơi yếu một chút nhưng nhìn chung ok."' },
-                  { name: 'Thanh Trúc', avatar: '44', rating: 5, text: '"Giá cả hợp lý, khu vực vệ sinh sạch sẽ. Sẽ quay lại."' },
-                ].map((review, idx) => (
-                  <div key={idx} style={{ padding: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', background: W }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <img src={`https://i.pravatar.cc/150?img=${review.avatar}`} alt="User" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: TX }}>{review.name}</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '2px', color: '#eab308' }}>
-                        {[...Array(5)].map((_, i) => (
-                          <span key={i} className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: i < review.rating ? "'FILL' 1" : "'FILL' 0" }}>star</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '13px', color: TX2, fontStyle: 'italic', lineHeight: 1.5 }}>
-                      {review.text}
-                    </div>
-                  </div>
-                ))}
               </div>
             </Card.Body>
           </Card>

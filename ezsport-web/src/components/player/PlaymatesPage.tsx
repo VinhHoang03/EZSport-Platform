@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Form, Modal, ProgressBar, Toast, ToastContainer } from 'react-bootstrap';
-import Navigation from '../shared/Navigation';
 import Footer from '../shared/Footer';
 
 interface PlaymatesPageProps {
@@ -24,7 +23,7 @@ interface MatchRequest {
   hasJoined: boolean;
 }
 
-export const PlaymatesPage: React.FC<PlaymatesPageProps> = ({ onPageChange, onLogoClick }) => {
+export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
   // State for matchmaking requests
   const [requests, setRequests] = useState<MatchRequest[]>([
     {
@@ -181,13 +180,6 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = ({ onPageChange, onLo
 
   return (
     <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Top Navbar */}
-      <Navigation
-        currentPage="playmates"
-        onLogoClick={onLogoClick}
-        onPageChange={onPageChange}
-      />
-
       {/* Main Container */}
       <div className="flex-grow-1 overflow-auto py-4">
         {/* Banner Section */}

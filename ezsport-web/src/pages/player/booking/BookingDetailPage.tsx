@@ -90,7 +90,7 @@ const BookingDetailPage: React.FC = () => {
       <Card className="border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
         <Card.Body className="p-4">
           <h6 className="fw-bold mb-3">Thông tin sân</h6>
-          <InfoRow label="Sân" value={booking.courtId} />
+          <InfoRow label="Sân" value={(booking.courtId as any)?.name || 'Sân EZSport'} />
           <InfoRow label="Môn" value={booking.sport} />
           <InfoRow label="Ngày" value={date} />
           <InfoRow label="Giờ" value={`${booking.startTime} – ${booking.endTime} (${booking.duration}h)`} />

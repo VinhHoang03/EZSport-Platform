@@ -11,6 +11,9 @@ export interface IVenue extends Document {
   name: string;
   description?: string;
 
+  // Owner
+  owner: mongoose.Types.ObjectId;
+
   // Media
   image: string;          // main cover image
   images?: string[];      // gallery (up to 4 extra)
@@ -73,6 +76,9 @@ const VenueSchema: Schema = new Schema<IVenue>(
   {
     name:         { type: String, required: true, trim: true },
     description:  { type: String, default: '' },
+
+    // Owner
+    owner:        { type: Schema.Types.ObjectId, ref: 'User', required: true },
 
     // Media
     image:        { type: String, default: 'https://placehold.co/800x450?text=EZSport+Venue' },
