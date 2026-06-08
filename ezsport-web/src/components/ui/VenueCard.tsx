@@ -135,7 +135,9 @@ const VenueCard: React.FC<VenueCardProps> = ({
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{rating || '0'}</span>
                   <span style={{ fontSize: 11, color: '#94a3b8' }}>(120 đánh giá)</span>
                   <span style={{ color: '#e2e8f0' }}>•</span>
-                  <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>{distance}</span>
+                  {distance && parseFloat(distance) > 0 && (
+                    <span title="Khoảng cách đường thẳng" style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>{distance} ↗</span>
+                  )}
                 </div>
               </div>
               {/* Price */}
@@ -297,8 +299,12 @@ const VenueCard: React.FC<VenueCardProps> = ({
         <Card.Text className="text-muted small mb-4 d-flex align-items-center gap-1" style={{ fontSize: '12.5px' }}>
           <span className="material-symbols-outlined fs-6" style={{ color: '#94a3b8' }}>location_on</span>
           <span style={{ color: '#64748b' }}>{location}</span>
-          <span style={{ color: '#94a3b8' }}>•</span>
-          <span className="text-success fw-bold" style={{ color: '#1a6b3c' }}>Cách {distance}</span>
+          {distance && parseFloat(distance) > 0 && (
+            <>
+              <span style={{ color: '#94a3b8' }}>•</span>
+              <span className="text-success fw-bold" title="Khoảng cách đường thẳng" style={{ color: '#1a6b3c' }}>Cách {distance} ↗</span>
+            </>
+          )}
         </Card.Text>
 
         <hr className="my-3" style={{ opacity: 0.08 }} />
