@@ -391,7 +391,7 @@ const App: React.FC = () => {
                     navigate(`/venues/${id}`);
                   }}
                   onBookingClick={(id) => {
-                    navigate(`/venues/${id}/checkout`);
+                    navigate(`/venues/${id}`);
                   }}
                 />
 
@@ -580,7 +580,7 @@ const App: React.FC = () => {
                 navigate(`/venues/${id}`);
               }}
               onBookingClick={(id) => {
-                navigate(`/venues/${id}/checkout`);
+                navigate(`/venues/${id}`);
               }}
             />
           )}

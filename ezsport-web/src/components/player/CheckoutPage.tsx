@@ -231,7 +231,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     className="text-success fw-bold p-0 shadow-none border-0"
                     style={{ color: '#1a6b3c !important', textDecoration: 'none', fontSize: '14px' }}
                   >
-                    Chỉnh sửa
+                    Chỉnh 
                   </Button>
                 </div>
 

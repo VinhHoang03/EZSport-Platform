@@ -5,6 +5,7 @@ import Footer from '../shared/Footer';
 import SlotPicker from './SlotPicker';
 import { courtService, venueService, type Court, type Venue } from '../../services/venue.service';
 import { conversationService } from '../../services/conversation.service';
+import { reviewService, type Review, type ReviewsResponse } from '../../services/review.service';
 import { ROUTES } from '../../constants';
 
 type BookingDetails = {
@@ -38,6 +39,15 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   const [selectedCourtId, setSelectedCourtId] = useState<string>('');
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [creatingChat, setCreatingChat] = useState(false);
+
+  // Review states
+  const [reviewsData, setReviewsData] = useState<ReviewsResponse | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [canReview, setCanReview] = useState<{ canReview: boolean; reason?: string } | null>(null);
   const venueData = externalVenueData ?? internalVenueData;
   const loading = externalVenueLoading ?? internalLoading;
 
@@ -109,6 +119,41 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
 
   const selectedCourt = courts.find((court) => court._id === selectedCourtId) ?? courts[0] ?? null;
 
+  // Fetch reviews when venueId is resolved
+  useEffect(() => {
+    if (!venueId) return;
+    // Prefer the real venue _id if available
+    const resolvedId = venueData?._id ? String(venueData._id) : String(venueId);
+    setReviewsLoading(true);
+    reviewService.getVenueReviews(resolvedId)
+      .then(setReviewsData)
+      .catch(() => setReviewsData(null))
+      .finally(() => setReviewsLoading(false));
+
+    // Check if logged-in user can write a review
+    const token = localStorage.getItem('token');
+    if (token) {
+      reviewService.checkCanReview(resolvedId).then(setCanReview);
+    }
+  }, [venueId, venueData?._id]);
+
+  const handleSubmitReview = async () => {
+    const resolvedId = venueData?._id ? String(venueData._id) : String(venueId);
+    if (!reviewComment.trim()) return;
+    setSubmittingReview(true);
+    try {
+      await reviewService.createReview(resolvedId, { rating: reviewRating, comment: reviewComment });
+      const fresh = await reviewService.getVenueReviews(resolvedId);
+      setReviewsData(fresh);
+      setShowReviewForm(false);
+      setReviewComment('');
+      setReviewRating(5);
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? 'Không thể gửi đánh giá');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
   // Use pricePerHour directly from model (numeric), fallback parse from price string
   const pricePerHour = selectedCourt?.pricePerHour
     ?? venueData?.pricePerHour
@@ -475,111 +520,140 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
               <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
                 <div className="d-flex justify-content-between align-items-center mb-4">
                   <h5 className="fw-bold text-dark m-0" style={{ fontWeight: 700 }}>Đánh giá của khách hàng</h5>
-                  <Button
-                    variant="link"
-                    className="text-success fw-bold p-0 shadow-none border-0"
-                    style={{ color: '#1a6b3c !important', textDecoration: 'none', fontSize: '14.5px' }}
-                    onClick={() => alert('Tính năng Viết đánh giá sẽ khả dụng sau khi đặt sân!')}
-                  >
-                    Viết đánh giá
-                  </Button>
+                  {canReview?.canReview ? (
+                    <Button
+                      variant="link"
+                      className="text-success fw-bold p-0 shadow-none border-0"
+                      style={{ color: '#1a6b3c !important', textDecoration: 'none', fontSize: '14.5px' }}
+                      onClick={() => setShowReviewForm(v => !v)}
+                    >
+                      {showReviewForm ? 'Hủy' : 'Viết đánh giá'}
+                    </Button>
+                  ) : canReview && !canReview.canReview ? (
+                    <span className="text-muted small" style={{ fontSize: '12.5px' }}>
+                      {canReview.reason === 'already_reviewed'
+                        ? '✓ Bạn đã đánh giá'
+                        : canReview.reason === 'no_completed_booking'
+                        ? '🔒 Cần đặt sân trước'
+                        : null}
+                    </span>
+                  ) : null}
                 </div>
 
-                {/* Rating display card */}
-                <Row className="g-4 align-items-center mb-4">
-                  <Col md={4} className="text-center border-end py-2">
-                    <h1 className="fw-extrabold text-dark m-0" style={{ fontSize: '56px', fontWeight: 900 }}>
-                      {venue.rating}
-                    </h1>
-                    <div className="d-flex justify-content-center gap-1 my-2">
-                      {[1, 2, 3, 4, 5].map(star => (
-                        <span key={star} className="material-symbols-outlined text-warning" style={{ fontVariationSettings: "'FILL' 1", fontSize: '22px' }}>
-                          star
-                        </span>
+                {/* Review form */}
+                {showReviewForm && (
+                  <div className="mb-4 p-3 border rounded-4" style={{ background: '#f8fafc' }}>
+                    <p className="fw-semibold mb-2" style={{ fontSize: '13px' }}>Chọn số sao</p>
+                    <div className="d-flex gap-1 mb-3">
+                      {[1,2,3,4,5].map(s => (
+                        <span
+                          key={s}
+                          onClick={() => setReviewRating(s)}
+                          className="material-symbols-outlined"
+                          style={{
+                            cursor: 'pointer',
+                            fontSize: '28px',
+                            color: s <= reviewRating ? '#facc15' : '#cbd5e1',
+                            fontVariationSettings: s <= reviewRating ? "'FILL' 1" : "'FILL' 0",
+                          }}
+                        >star</span>
                       ))}
                     </div>
-                    <span className="text-muted small">Dựa trên 1.259 đánh giá</span>
-                  </Col>
-
-                  <Col md={8}>
-                    <div className="d-flex flex-column gap-2 px-3">
-                      {[
-                        { stars: 5, pct: 92, count: 916 },
-                        { stars: 4, pct: 6, count: 62 },
-                        { stars: 3, pct: 2, count: 21 },
-                        { stars: 2, pct: 0, count: 0 },
-                        { stars: 1, pct: 0, count: 0 }
-                      ].map(row => (
-                        <div className="d-flex align-items-center gap-2" style={{ fontSize: '13px' }} key={row.stars}>
-                          <span className="fw-bold text-secondary" style={{ width: '12px' }}>{row.stars}</span>
-                          <div className="flex-grow-1 bg-light rounded-pill overflow-hidden" style={{ height: '6px' }}>
-                            <div
-                              className="h-100 bg-success rounded-pill"
-                              style={{ width: `${row.pct}%`, background: '#16a34a' }}
-                            />
-                          </div>
-                          <span className="text-muted" style={{ width: '30px', textAlign: 'right' }}>{row.count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </Col>
-                </Row>
-
-                {/* Reviews List */}
-                <hr className="my-4 opacity-50" />
-                <div className="d-flex flex-column gap-4">
-                  {/* Review 1 */}
-                  <div className="d-flex flex-column p-3 bg-light rounded-4">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div className="d-flex align-items-center gap-2">
-                        <img
-                          src="https://ui-avatars.com/api/?name=Minh+Hoang&background=1a6b3c&color=fff"
-                          alt="Minh Hoang"
-                          className="rounded-circle"
-                          style={{ width: '40px', height: '40px' }}
-                        />
-                        <div>
-                          <span className="fw-bold text-dark d-block" style={{ fontSize: '14px' }}>Minh Hoàng</span>
-                          <span className="text-muted small">14 Th11, 2024</span>
-                        </div>
-                      </div>
-                      <div className="d-flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <span key={star} className="material-symbols-outlined text-warning" style={{ fontVariationSettings: "'FILL' 1", fontSize: '16px' }}>star</span>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-dark mb-0" style={{ fontSize: '13.5px', lineHeight: '1.5' }}>
-                      "Sân pickleball tốt nhất tại Ngũ Hành Sơn. Ánh sáng tuyệt vời và mặt sàn rất êm ái cho đầu gối. Rất khuyên dùng quán cà phê ở đây!"
-                    </p>
+                    <textarea
+                      className="form-control mb-3"
+                      rows={3}
+                      placeholder="Chia sẻ trải nghiệm của bạn..."
+                      value={reviewComment}
+                      onChange={e => setReviewComment(e.target.value)}
+                      style={{ borderRadius: '12px', fontSize: '14px' }}
+                    />
+                    <Button
+                      onClick={handleSubmitReview}
+                      disabled={submittingReview || !reviewComment.trim()}
+                      className="rounded-pill px-4 py-2 border-0 fw-bold"
+                      style={{ background: '#1a6b3c', color: '#fff', fontSize: '13px' }}
+                    >
+                      {submittingReview ? <Spinner size="sm" animation="border" /> : 'Gửi đánh giá'}
+                    </Button>
                   </div>
+                )}
 
-                  {/* Review 2 */}
-                  <div className="d-flex flex-column p-3 bg-light rounded-4">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div className="d-flex align-items-center gap-2">
-                        <img
-                          src="https://ui-avatars.com/api/?name=Linh+Nguyen&background=1a6b3c&color=fff"
-                          alt="Linh Nguyen"
-                          className="rounded-circle"
-                          style={{ width: '40px', height: '40px' }}
-                        />
-                        <div>
-                          <span className="fw-bold text-dark d-block" style={{ fontSize: '14px' }}>Linh Nguyễn</span>
-                          <span className="text-muted small">28 Th10, 2024</span>
+                {/* Rating summary */}
+                {reviewsLoading ? (
+                  <div className="text-center py-3"><Spinner variant="success" /></div>
+                ) : (
+                  <>
+                    <Row className="g-4 align-items-center mb-4">
+                      <Col md={4} className="text-center border-end py-2">
+                        <h1 className="fw-extrabold text-dark m-0" style={{ fontSize: '56px', fontWeight: 900 }}>
+                          {venue.rating || '–'}
+                        </h1>
+                        <div className="d-flex justify-content-center gap-1 my-2">
+                          {[1,2,3,4,5].map(star => (
+                            <span key={star} className="material-symbols-outlined text-warning" style={{ fontVariationSettings: "'FILL' 1", fontSize: '22px' }}>star</span>
+                          ))}
                         </div>
-                      </div>
-                      <div className="d-flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <span key={star} className="material-symbols-outlined text-warning" style={{ fontVariationSettings: "'FILL' 1", fontSize: '16px' }}>star</span>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-dark mb-0" style={{ fontSize: '13.5px', lineHeight: '1.5' }}>
-                      "Nơi hoàn hảo cho nhóm cầu lông hàng tuần của chúng tôi. Phòng thay đồ sạch sẽ hơn hầu hết các khách sạn 5 sao. Đặt sân qua ứng dụng siêu nhanh."
-                    </p>
-                  </div>
-                </div>
+                        <span className="text-muted small">Dựa trên {reviewsData?.total ?? venue.reviewsCount} đánh giá</span>
+                      </Col>
+                      <Col md={8}>
+                        <div className="d-flex flex-column gap-2 px-3">
+                          {[5,4,3,2,1].map(star => {
+                            const count = reviewsData?.breakdown?.[star] ?? 0;
+                            const total = reviewsData?.total ?? 1;
+                            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                            return (
+                              <div className="d-flex align-items-center gap-2" style={{ fontSize: '13px' }} key={star}>
+                                <span className="fw-bold text-secondary" style={{ width: '12px' }}>{star}</span>
+                                <div className="flex-grow-1 bg-light rounded-pill overflow-hidden" style={{ height: '6px' }}>
+                                  <div className="h-100 rounded-pill" style={{ width: `${pct}%`, background: '#16a34a' }} />
+                                </div>
+                                <span className="text-muted" style={{ width: '30px', textAlign: 'right' }}>{count}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </Col>
+                    </Row>
+
+                    {/* Reviews list */}
+                    {reviewsData && reviewsData.data.length > 0 && (
+                      <>
+                        <hr className="my-4 opacity-50" />
+                        <div className="d-flex flex-column gap-4">
+                          {reviewsData.data.map((review: Review) => {
+                            const name = review.userId?.fullName ?? 'Người dùng';
+                            const avatar = review.userId?.avatar
+                              ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1a6b3c&color=fff`;
+                            const date = new Date(review.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' });
+                            return (
+                              <div key={review._id} className="d-flex flex-column p-3 bg-light rounded-4">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <img src={avatar} alt={name} className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover' }} />
+                                    <div>
+                                      <span className="fw-bold text-dark d-block" style={{ fontSize: '14px' }}>{name}</span>
+                                      <span className="text-muted small">{date}</span>
+                                    </div>
+                                  </div>
+                                  <div className="d-flex">
+                                    {[1,2,3,4,5].map(s => (
+                                      <span key={s} className="material-symbols-outlined" style={{ fontVariationSettings: s <= review.rating ? "'FILL' 1" : "'FILL' 0", color: '#facc15', fontSize: '16px' }}>star</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <p className="text-dark mb-0" style={{ fontSize: '13.5px', lineHeight: '1.5' }}>"{review.comment}"</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {reviewsData && reviewsData.data.length === 0 && (
+                      <p className="text-muted text-center py-3" style={{ fontSize: '14px' }}>Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+                    )}
+                  </>
+                )}
               </Card>
 
               {/* Isometric Map Representation Card */}

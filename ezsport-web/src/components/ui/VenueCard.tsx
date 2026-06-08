@@ -197,7 +197,7 @@ const VenueCard: React.FC<VenueCardProps> = ({
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  ⚡ Đặt ngay
+                   Đặt ngay
                 </button>
               </div>
             </div>
