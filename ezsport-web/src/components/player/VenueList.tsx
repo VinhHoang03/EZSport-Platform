@@ -15,7 +15,7 @@ interface Venue {
   active: boolean;
   lat: number;
   lng: number;
-  sportType?: string;
+  sportTypes?: string[];
 }
 
 interface VenueListProps {
@@ -40,15 +40,37 @@ const VenueList: React.FC<VenueListProps> = ({
   const [sortBy, setSortBy] = useState('Gần tôi nhất');
   const [viewMode, setViewMode] = useState<'list' | 'split'>('split');
   const [activePage, setActivePage] = useState(1);
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
+
+  const toggleSport = (key: string) => {
+    if (key === 'all') { setSelectedSports([]); return; }
+    setSelectedSports(prev =>
+      prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key]
+    );
+  };
 
   // ── Render 1: Original Vertical Simple List (For Home Map Page) ──
   if (layout === 'vertical') {
+    const filtered = selectedSports.length === 0
+      ? venues
+      : venues.filter(v =>
+          (v.sportTypes ?? []).some(s =>
+            selectedSports.some(sel => s.toLowerCase().includes(sel))
+          )
+        );
+
     return (
       <Col md={4} className="h-100 d-flex flex-column bg-white border-end">
-        <FilterBar count={venues.length} onFilterClick={onFilterClick} />
+        <FilterBar
+          count={filtered.length}
+          onFilterClick={onFilterClick}
+          currentLocationName={currentLocationName}
+          selectedSports={selectedSports}
+          onSportToggle={toggleSport}
+        />
 
         <div className="flex-grow-1 overflow-auto px-4 pb-5 custom-scrollbar">
-          {venues.map((venue) => (
+          {filtered.map((venue) => (
             <VenueCard 
               key={venue.id} 
               {...venue} 

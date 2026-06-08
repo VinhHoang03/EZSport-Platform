@@ -47,7 +47,7 @@ const Navigation: React.FC<NavigationProps> = ({
       >
         <Container fluid className="px-md-4">
           <Navbar.Brand 
-            onClick={onLogoClick} 
+            onClick={(e) => { e.preventDefault(); onLogoClick?.(); }} 
             href="#" 
             className="d-flex align-items-center cursor-pointer" 
             style={{ cursor: 'pointer' }}

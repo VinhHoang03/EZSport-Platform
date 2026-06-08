@@ -19,7 +19,7 @@ import { OwnerPage } from './pages/owner/OwnerPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { PlaymatesPage } from './components/player/PlaymatesPage';
 import { AIChatbot } from './components/shared/AIChatbot';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from './constants';
 import { useBookingStore } from './store/bookingStore';
 // Haversine formula to calculate distance between two coordinates in KM
@@ -47,7 +47,7 @@ interface Venue {
   emoji: string;
   active: boolean;
   trending: boolean;
-  sportType?: string;
+  sportTypes?: string[];
   lat: number;
   lng: number;
 }
@@ -63,7 +63,7 @@ interface BackendVenue {
   emoji?: string;
   isActive?: boolean;
   trending?: boolean;
-  sportType?: string;
+  sportTypes?: string[];
   lat: number;
   lng: number;
 }
@@ -84,6 +84,7 @@ const App: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
   const { initDraft, setDraft } = useBookingStore();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
 
   // Detect reset-password route from URL path — now handled by router
   const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'venue-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
@@ -107,15 +108,7 @@ const App: React.FC = () => {
 
   // Smart logo click: if logged in, go to correct home for role. If not, go to landing.
   const handleLogoClick = () => {
-    if (!isAuthenticated) {
-      navigate(ROUTES.LANDING);
-    } else if (user?.role === 'admin') {
-      navigate(ROUTES.ADMIN_DASHBOARD);
-    } else if (user?.role === 'owner') {
-      navigate(ROUTES.OWNER_PAGE);
-    } else {
-      navigate(ROUTES.MAP);
-    }
+    navigate(ROUTES.LANDING);
   };
   const [sport, setSport] = useState('Pickleball');
   const [location, setLocation] = useState('Da Nang, Vietnam');
@@ -144,7 +137,7 @@ const App: React.FC = () => {
         emoji: venue.emoji ?? '🏓',
         active: venue.isActive ?? true,
         trending: venue.trending ?? false,
-        sportType: venue.sportType,
+        sportTypes: venue.sportTypes ?? [],
         lat: venue.lat,
         lng: venue.lng,
       }));
@@ -194,6 +187,16 @@ const App: React.FC = () => {
     setRouteSummary({ distance, time });
   }, []);
 
+  // Handle directionsTo state passed via navigate() from VenueDetail "Xem trên bản đồ"
+  useEffect(() => {
+    const state = routerLocation.state as { directionsTo?: { lat: number; lng: number; name: string } } | null;
+    if (state?.directionsTo) {
+      const { lat, lng, name } = state.directionsTo;
+      handleDirections(lat, lng, name);
+      window.history.replaceState({}, '');
+    }
+  }, [routerLocation.state, handleDirections]);
+
   const handleCheckIn = async () => {
     if (!routingDestination || !userLocation) return;
 
@@ -237,12 +240,16 @@ const App: React.FC = () => {
   const filteredVenues = processedVenues.filter(venue => {
     // 1. Filter by Sport Type
     if (selectedSports.length > 0) {
-      const lowerSport = (venue.sportType || '').toLowerCase();
+      const venueSports = (venue.sportTypes ?? []).map(s => s.toLowerCase());
       const match = selectedSports.some(sportVal => {
         const lowerVal = sportVal.toLowerCase();
-        return lowerSport.includes(lowerVal) ||
-          (lowerVal === 'cầu lông' && lowerSport.includes('badminton')) ||
-          (lowerVal === 'bóng đá' && lowerSport.includes('football'));
+        return venueSports.some(s =>
+          s.includes(lowerVal) ||
+          (lowerVal === 'cầu lông' && s.includes('badminton')) ||
+          (lowerVal === 'badminton' && s.includes('badminton')) ||
+          (lowerVal === 'bóng đá' && s.includes('football')) ||
+          (lowerVal === 'football' && s.includes('football'))
+        );
       });
       if (!match) return false;
     }
@@ -563,8 +570,8 @@ const App: React.FC = () => {
             <VenueList
               venues={processedVenues}
               layout="vertical"
-              currentLocationName={location}
-              onFilterClick={() => navigate(ROUTES.VENUES)} // Click "Bộ lọc" goes to Venues discovery page!
+              currentLocationName={userLocation ? location : undefined}
+              onFilterClick={() => navigate(ROUTES.VENUES)}
               onDirectionsClick={(lat, lng) => {
                 const venue = processedVenues.find(v => v.lat === lat && v.lng === lng);
                 handleDirections(lat, lng, venue?.name);
