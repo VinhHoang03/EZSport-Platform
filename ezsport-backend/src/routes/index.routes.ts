@@ -9,6 +9,7 @@ import chatHistoryRoutes from "./chatHistory.routes";
 import conversationRoutes from "./conversation.routes";
 import analyticsRoutes from "./analytics.routes";
 import reviewRoutes from "./review.routes";
+import voucherRoutes from "./voucher.routes";
 
 export default function route(app: Application): void {
     app.use("/api/auth", authRoutes);
@@ -22,4 +23,5 @@ export default function route(app: Application): void {
     app.use("/api/conversations", conversationRoutes);
     app.use("/api/analytics", analyticsRoutes);
     app.use("/api/reviews", reviewRoutes);
+    app.use("/api/vouchers", voucherRoutes);
 }

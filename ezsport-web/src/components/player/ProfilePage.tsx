@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { userService, type UserProfile } from '../../services/user.service';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants';
+import { VoucherRedemption } from './VoucherRedemption';
 
 interface ProfilePageProps {
   onGoHome: () => void;
@@ -124,6 +125,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
   const handleLogout = () => {
     logout();
     navigate(ROUTES.LOGIN);
+  };
+
+  const handlePointsUpdate = (newPoints: number) => {
+    if (profile) {
+      setProfile({ ...profile, loyaltyPoints: newPoints });
+    }
   };
 
   const pts = profile?.loyaltyPoints ?? 0;
@@ -339,7 +346,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
 
               {/* Upgrade Banner */}
               {tier.next && (
-                <Card style={{ borderRadius: '16px', background: `linear-gradient(135deg, ${G} 0%, #0f3d22 100%)`, border: 'none', color: W, position: 'relative', overflow: 'hidden' }}>
+                <Card style={{ borderRadius: '16px', background: `linear-gradient(135deg, ${G} 0%, #0f3d22 100%)`, border: 'none', color: W, position: 'relative', overflow: 'hidden', marginBottom: '24px' }}>
                   <Card.Body className="p-4">
                     <div style={{ position: 'absolute', right: '-20px', bottom: '-30px', fontSize: '140px', fontWeight: 900, color: 'rgba(255,255,255,0.05)', lineHeight: 1, userSelect: 'none' }}>
                       {tier.next?.charAt(0)}
@@ -368,6 +375,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
                   </Card.Body>
                 </Card>
               )}
+
+              {/* Voucher Redemption Section */}
+              <Card style={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                <Card.Body className="p-4">
+                  <VoucherRedemption 
+                    userPoints={pts} 
+                    onPointsUpdate={handlePointsUpdate}
+                  />
+                </Card.Body>
+              </Card>
             </div>
           </Col>
         </Row>

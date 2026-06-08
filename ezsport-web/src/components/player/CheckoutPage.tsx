@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button, InputGroup, Badge, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Badge, Alert, Spinner, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useBookingStore } from '../../store/bookingStore';
 import { bookingService } from '../../services/booking.service';
 import { courtService, venueService, type Court, type Venue } from '../../services/venue.service';
+import { voucherService, type Voucher } from '../../services/voucher.service';
 import { useAuth } from '../../context/AuthContext';
 
 interface CheckoutPageProps {
@@ -14,7 +15,7 @@ interface CheckoutPageProps {
   onLogoClick?: () => void;
 }
 
-export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick, onSuccessClick }) => {
+export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { draft } = useBookingStore();
@@ -22,18 +23,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   const [courtData, setCourtData] = useState<Court | null>(null);
   const [isLoadingBookingData, setIsLoadingBookingData] = useState<boolean>(true);
   
-  const [usePoints, setUsePoints] = useState<boolean>(true);
-  const [voucherCode, setVoucherCode] = useState<string>('EZSPORT50');
-  const [appliedVoucher, setAppliedVoucher] = useState<boolean>(true);
-  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'zalopay' | 'card' | 'bank'>('card');
+  const [voucherCode, setVoucherCode] = useState<string>('');
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [myVouchers, setMyVouchers] = useState<any[]>([]);
+  const [showVoucherModal, setShowVoucherModal] = useState<boolean>(false);
+  const [validatingVoucher, setValidatingVoucher] = useState<boolean>(false);
+  const [usePoints, setUsePoints] = useState<boolean>(false);
+  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash'>('momo');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Visa card states
-  const [cardNumber, setCardNumber] = useState<string>('4111 2222 3333 4444');
-  const [expiry, setExpiry] = useState<string>('12/28');
-  const [cvv, setCvv] = useState<string>('***');
-  const [cardName, setCardName] = useState<string>('NGUYEN VAN AN');
+
 
   // Booker info states - get from user or draft
   const [bookerName, setBookerName] = useState<string>(draft?.bookerName || user?.fullName || 'Nguyễn Văn An');
@@ -45,6 +45,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
       setError('Khong tim thay thong tin dat san. Vui long chon lai.');
     }
   }, [draft]);
+
+  useEffect(() => {
+    voucherService.listMine()
+      .then(setMyVouchers)
+      .catch(() => setMyVouchers([]));
+  }, []);
 
   useEffect(() => {
     let isCanceled = false;
@@ -129,9 +135,50 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   // Live order calculations
   const subtotal = booking.basePrice;
   const serviceFee = booking.serviceFee;
-  const discountVal = appliedVoucher ? booking.discount : 0;
-  const pointsVal = usePoints ? booking.pointsDiscount : 0;
-  const total = subtotal + serviceFee - discountVal - pointsVal;
+  const discountVal = appliedVoucher 
+    ? (appliedVoucher.type === 'percent' 
+        ? Math.min(Math.floor(subtotal * appliedVoucher.value / 100), appliedVoucher.maxDiscount || Infinity) 
+        : appliedVoucher.value)
+    : 0;
+  const pointsVal = usePoints ? 50000 : 0; // 500 points = 50,000đ
+  const total = Math.max(0, subtotal + serviceFee - discountVal - pointsVal);
+
+  const handleApplyVoucher = async (code: string) => {
+    if (!code.trim()) {
+      setError('Vui lòng nhập mã giảm giá');
+      return;
+    }
+
+    try {
+      setValidatingVoucher(true);
+      setError(null);
+      
+      const { voucher, discount } = await voucherService.validate(code.toUpperCase(), subtotal);
+      
+      setAppliedVoucher(voucher);
+      setVoucherCode(voucher.code);
+      setShowVoucherModal(false);
+      alert(`✅ Áp dụng mã ${voucher.code} thành công! Giảm ${discount.toLocaleString('vi-VN')}đ`);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Mã giảm giá không hợp lệ');
+      setAppliedVoucher(null);
+    } finally {
+      setValidatingVoucher(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherCode('');
+  };
+
+  const formatDiscount = (voucher: Voucher) => {
+    if (voucher.type === 'fixed') {
+      return `${voucher.value.toLocaleString('vi-VN')}đ`;
+    }
+    const maxText = voucher.maxDiscount ? ` (tối đa ${voucher.maxDiscount.toLocaleString('vi-VN')}đ)` : '';
+    return `${voucher.value}%${maxText}`;
+  };
 
   const handleConfirmPayment = async () => {
     if (!draft || !draft.slot || !courtData?._id) {
@@ -159,6 +206,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         bookerName: bookerName,
         bookerPhone: bookerPhone.replace(/\s/g, ''),
         bookerEmail: bookerEmail,
+        voucherCode: appliedVoucher?.code || undefined,
         notes: '',
       };
 
@@ -173,7 +221,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         window.location.href = createdBooking.payUrl;
       } else {
         navigate(`/booking/success/${createdBooking._id}`);
-        onSuccessClick();
       }
     } catch (err: any) {
       console.error('Booking creation failed:', err);
@@ -322,31 +369,138 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
               <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
                 <h5 className="fw-bold text-dark mb-3" style={{ fontWeight: 800 }}>Ưu đãi & Điểm thưởng</h5>
 
-                {/* Promo Input */}
-                <div className="mb-4">
-                  <span className="text-muted small d-block mb-2">Mã giảm giá</span>
-                  <InputGroup style={{ maxWidth: '400px' }}>
-                    <Form.Control
-                      placeholder="Nhập mã voucher"
-                      value={voucherCode}
-                      onChange={(e) => setVoucherCode(e.target.value)}
-                      className="py-2.5 rounded-start-3 border-secondary shadow-none"
-                      style={{ fontSize: '14px' }}
-                    />
-                    <Button
-                      onClick={() => {
-                        setAppliedVoucher(!appliedVoucher);
-                        if (!appliedVoucher) {
-                          alert('Áp dụng mã giảm giá EZSPORT50 thành công!');
-                        }
+                {/* Applied Voucher Display or Input */}
+                {appliedVoucher ? (
+                  <div className="mb-4">
+                    <span className="text-muted small d-block mb-2">Mã giảm giá đã áp dụng</span>
+                    <div 
+                      className="p-3 rounded-4 d-flex justify-content-between align-items-center"
+                      style={{ 
+                        background: 'linear-gradient(135deg, #16a34a 0%, #0f3d22 100%)', 
+                        color: '#fff' 
                       }}
-                      className="px-4 fw-bold text-white"
-                      style={{ background: '#0f172a', border: '1px solid #0f172a', fontSize: '13px' }}
                     >
-                      {appliedVoucher ? 'Hủy' : 'Áp dụng'}
-                    </Button>
-                  </InputGroup>
-                </div>
+                      <div>
+                        <div style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '1px', marginBottom: '4px' }}>
+                          {appliedVoucher.code}
+                        </div>
+                        <div style={{ fontSize: '13px', opacity: 0.9 }}>
+                          Giảm {formatDiscount(appliedVoucher)}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleRemoveVoucher}
+                        size="sm"
+                        style={{ 
+                          background: 'rgba(255,255,255,0.2)', 
+                          border: 'none', 
+                          color: '#fff',
+                          borderRadius: '8px',
+                          fontWeight: 600,
+                          fontSize: '13px',
+                          padding: '6px 12px'
+                        }}
+                      >
+                        Hủy
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <span className="text-muted small d-block mb-2">Mã giảm giá</span>
+                    
+                    {/* Voucher input */}
+                    <div className="d-flex gap-2 mb-3" style={{ maxWidth: '400px' }}>
+                      <Form.Control
+                        placeholder="Nhập mã voucher"
+                        value={voucherCode}
+                        onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleApplyVoucher(voucherCode);
+                          }
+                        }}
+                        className="py-2 border-secondary shadow-none"
+                        style={{ fontSize: '14px', borderRadius: '12px', textTransform: 'uppercase' }}
+                        disabled={validatingVoucher}
+                      />
+                      <Button
+                        onClick={() => handleApplyVoucher(voucherCode)}
+                        disabled={validatingVoucher || !voucherCode.trim()}
+                        className="px-3 fw-bold text-white flex-shrink-0"
+                        style={{ background: '#0f172a', border: 'none', fontSize: '13px', borderRadius: '12px' }}
+                      >
+                        {validatingVoucher ? <Spinner size="sm" /> : 'Áp dụng'}
+                      </Button>
+                    </div>
+
+                    {/* My vouchers quick select */}
+                    {myVouchers.length > 0 && (
+                      <div>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                            Voucher của tôi ({myVouchers.length})
+                          </span>
+                          <Button
+                            variant="link"
+                            onClick={() => setShowVoucherModal(true)}
+                            className="p-0 text-success fw-bold shadow-none border-0"
+                            style={{ fontSize: '13px', textDecoration: 'none' }}
+                          >
+                            Xem tất cả →
+                          </Button>
+                        </div>
+                        
+                        {/* Show first 2 vouchers */}
+                        <div className="d-flex flex-column gap-2">
+                          {myVouchers.slice(0, 2).map((uv) => {
+                            const voucher = uv.voucherId;
+                            const isExpired = voucher.expiresAt && new Date(voucher.expiresAt) < new Date();
+                            const isUsed = uv.status === 'used';
+                            
+                            if (isExpired || isUsed) return null;
+
+                            return (
+                              <div
+                                key={uv._id}
+                                onClick={() => handleApplyVoucher(voucher.code)}
+                                className="p-3 rounded-3 d-flex justify-content-between align-items-center"
+                                style={{
+                                  border: '1px solid #e2e8f0',
+                                  background: '#f8fafc',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = '#f0fdf4';
+                                  e.currentTarget.style.borderColor = '#16a34a';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = '#f8fafc';
+                                  e.currentTarget.style.borderColor = '#e2e8f0';
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '2px' }}>
+                                    {voucher.code}
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                                    Giảm {formatDiscount(voucher)}
+                                    {voucher.minOrderValue > 0 && ` • Đơn từ ${voucher.minOrderValue.toLocaleString('vi-VN')}đ`}
+                                  </div>
+                                </div>
+                                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#16a34a' }}>
+                                  arrow_forward
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Points Reward Toggle switch */}
                 <div
@@ -389,163 +543,63 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                   {/* Option 1: MoMo */}
                   <div
                     onClick={() => setPaymentMethod('momo')}
-                    className="p-3 d-flex align-items-center justify-content-between cursor-pointer rounded-4"
+                    className="p-3 d-flex align-items-center justify-content-between rounded-4"
                     style={{
                       border: paymentMethod === 'momo' ? '2px solid #1a6b3c' : '1px solid #cbd5e1',
-                      background: '#ffffff',
+                      background: paymentMethod === 'momo' ? '#f0fdf4' : '#ffffff',
                       transition: 'all 0.2s ease',
                       cursor: 'pointer'
                     }}
                   >
-                    <div className="d-flex align-items-center gap-2.5">
+                    <div className="d-flex align-items-center gap-3">
                       <Form.Check
                         type="radio"
                         checked={paymentMethod === 'momo'}
                         onChange={() => setPaymentMethod('momo')}
                         style={{ cursor: 'pointer' }}
                       />
-                      <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', background: '#a50064' }}>
+                      <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', background: '#a50064', flexShrink: 0 }}>
                         <img
                           src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
                           alt="MoMo"
-                          className="w-75 h-75 object-fit-contain"
+                          style={{ width: '75%', height: '75%', objectFit: 'contain' }}
                         />
                       </div>
-                      <span className="fw-bold text-dark" style={{ fontSize: '14.5px' }}>Ví điện tử MoMo</span>
+                      <div>
+                        <span className="fw-bold text-dark d-block" style={{ fontSize: '14.5px' }}>Ví điện tử MoMo</span>
+                        <span className="text-muted" style={{ fontSize: '11px' }}>Thanh toán nhanh qua ví MoMo</span>
+                      </div>
                     </div>
-                    <span className="material-symbols-outlined text-muted" style={{ fontSize: '20px' }}>bolt</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#1a6b3c' }}>bolt</span>
                   </div>
 
-                  {/* Option 2: ZaloPay */}
+                  {/* Option 2: Tiền mặt */}
                   <div
-                    onClick={() => setPaymentMethod('zalopay')}
-                    className="p-3 d-flex align-items-center gap-2.5 cursor-pointer rounded-4"
+                    onClick={() => setPaymentMethod('cash')}
+                    className="p-3 d-flex align-items-center justify-content-between rounded-4"
                     style={{
-                      border: paymentMethod === 'zalopay' ? '2px solid #1a6b3c' : '1px solid #cbd5e1',
-                      background: '#ffffff',
+                      border: paymentMethod === 'cash' ? '2px solid #1a6b3c' : '1px solid #cbd5e1',
+                      background: paymentMethod === 'cash' ? '#f0fdf4' : '#ffffff',
                       transition: 'all 0.2s ease',
                       cursor: 'pointer'
                     }}
                   >
-                    <Form.Check
-                      type="radio"
-                      checked={paymentMethod === 'zalopay'}
-                      onChange={() => setPaymentMethod('zalopay')}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center bg-info" style={{ width: '40px', height: '40px' }}>
-                      <span className="text-white fw-bold" style={{ fontSize: '10px' }}>ZaloPay</span>
-                    </div>
-                    <span className="fw-bold text-dark" style={{ fontSize: '14.5px' }}>ZaloPay</span>
-                  </div>
-
-                  {/* Option 3: Visa Card (Active & Expanded) */}
-                  <div
-                    onClick={() => setPaymentMethod('card')}
-                    className="d-flex flex-column rounded-4 overflow-hidden"
-                    style={{
-                      border: paymentMethod === 'card' ? '2px solid #1a6b3c' : '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      transition: 'all 0.2s ease',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {/* Header line */}
-                    <div className="p-3 d-flex align-items-center gap-2.5 border-bottom bg-light">
+                    <div className="d-flex align-items-center gap-3">
                       <Form.Check
                         type="radio"
-                        checked={paymentMethod === 'card'}
-                        onChange={() => setPaymentMethod('card')}
+                        checked={paymentMethod === 'cash'}
+                        onChange={() => setPaymentMethod('cash')}
                         style={{ cursor: 'pointer' }}
                       />
-                      <span className="material-symbols-outlined text-success" style={{ fontSize: '20px', color: '#1a6b3c' }}>credit_card</span>
-                      <span className="fw-bold text-dark" style={{ fontSize: '14.5px' }}>Thẻ tín dụng (Visa/Mastercard)</span>
-                    </div>
-
-                    {/* Expaned Panel Form */}
-                    {paymentMethod === 'card' && (
-                      <div className="p-3 bg-white" onClick={(e) => e.stopPropagation()}>
-                        <Row className="g-3">
-                          <Col xs={12}>
-                            <Form.Group>
-                              <Form.Label className="text-muted small fw-bold mb-1">SỐ THẺ</Form.Label>
-                              <InputGroup>
-                                <Form.Control
-                                  value={cardNumber}
-                                  onChange={(e) => setCardNumber(e.target.value)}
-                                  placeholder="0000 0000 0000 0000"
-                                  className="py-2 rounded-start-3 shadow-none border-secondary"
-                                  style={{ fontSize: '13.5px' }}
-                                />
-                                <InputGroup.Text className="bg-light border-secondary">
-                                  <span className="fw-bold text-primary small">VISA</span>
-                                </InputGroup.Text>
-                              </InputGroup>
-                            </Form.Group>
-                          </Col>
-
-                          <Col xs={6}>
-                            <Form.Group>
-                              <Form.Label className="text-muted small fw-bold mb-1">HẠN SỬ DỤNG (MM/YY)</Form.Label>
-                              <Form.Control
-                                value={expiry}
-                                onChange={(e) => setExpiry(e.target.value)}
-                                placeholder="MM/YY"
-                                className="py-2 rounded-3 shadow-none border-secondary"
-                                style={{ fontSize: '13.5px' }}
-                              />
-                            </Form.Group>
-                          </Col>
-
-                          <Col xs={6}>
-                            <Form.Group>
-                              <Form.Label className="text-muted small fw-bold mb-1">CVV</Form.Label>
-                              <Form.Control
-                                value={cvv}
-                                onChange={(e) => setCvv(e.target.value)}
-                                placeholder="***"
-                                className="py-2 rounded-3 shadow-none border-secondary"
-                                style={{ fontSize: '13.5px' }}
-                              />
-                            </Form.Group>
-                          </Col>
-
-                          <Col xs={12}>
-                            <Form.Group>
-                              <Form.Label className="text-muted small fw-bold mb-1">TÊN CHỦ THẺ</Form.Label>
-                              <Form.Control
-                                value={cardName}
-                                onChange={(e) => setCardName(e.target.value.toUpperCase())}
-                                placeholder="NGUYEN VAN AN"
-                                className="py-2 rounded-3 shadow-none border-secondary"
-                                style={{ fontSize: '13.5px' }}
-                              />
-                            </Form.Group>
-                          </Col>
-                        </Row>
+                      <div className="rounded-3 d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', background: '#16a34a', flexShrink: 0 }}>
+                        <span className="material-symbols-outlined text-white" style={{ fontSize: '22px' }}>payments</span>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Option 4: Bank Transfer */}
-                  <div
-                    onClick={() => setPaymentMethod('bank')}
-                    className="p-3 d-flex align-items-center gap-2.5 cursor-pointer rounded-4"
-                    style={{
-                      border: paymentMethod === 'bank' ? '2px solid #1a6b3c' : '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      transition: 'all 0.2s ease',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Form.Check
-                      type="radio"
-                      checked={paymentMethod === 'bank'}
-                      onChange={() => setPaymentMethod('bank')}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <span className="material-symbols-outlined text-muted" style={{ fontSize: '20px' }}>account_balance</span>
-                    <span className="fw-bold text-dark" style={{ fontSize: '14.5px' }}>Chuyển khoản ngân hàng</span>
+                      <div>
+                        <span className="fw-bold text-dark d-block" style={{ fontSize: '14.5px' }}>Tiền mặt</span>
+                        <span className="text-muted" style={{ fontSize: '11px' }}>Thanh toán trực tiếp tại sân</span>
+                      </div>
+                    </div>
+                    <span className="material-symbols-outlined text-muted" style={{ fontSize: '20px' }}>storefront</span>
                   </div>
 
                 </div>
@@ -655,6 +709,133 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
         </Container>
       </div>
+
+      {/* Voucher Selection Modal */}
+      <Modal show={showVoucherModal} onHide={() => setShowVoucherModal(false)} size="lg" centered>
+        <Modal.Header closeButton style={{ borderBottom: '1px solid #e2e8f0', padding: '20px 24px' }}>
+          <Modal.Title style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+            Chọn voucher
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '24px', maxHeight: '60vh', overflowY: 'auto' }}>
+          {myVouchers.length === 0 ? (
+            <div className="text-center py-5">
+              <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#cbd5e1' }}>card_giftcard</span>
+              <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>
+                Bạn chưa có voucher nào. <br />
+                Đổi voucher bằng điểm tích lũy trong hồ sơ!
+              </p>
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-3">
+              {myVouchers.map((uv) => {
+                const voucher = uv.voucherId;
+                const isExpired = voucher.expiresAt && new Date(voucher.expiresAt) < new Date();
+                const isUsed = uv.status === 'used';
+                const canUse = !isExpired && !isUsed && voucher.minOrderValue <= subtotal;
+
+                return (
+                  <div
+                    key={uv._id}
+                    onClick={() => canUse && handleApplyVoucher(voucher.code)}
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      opacity: canUse ? 1 : 0.5,
+                      cursor: canUse ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (canUse) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    {/* Header */}
+                    <div style={{ 
+                      background: isExpired || isUsed 
+                        ? '#94a3b8' 
+                        : 'linear-gradient(135deg, #16a34a 0%, #0f3d22 100%)', 
+                      padding: '16px', 
+                      color: '#fff' 
+                    }}>
+                      <div className="d-flex justify-content-between align-items-start mb-2">
+                        <Badge style={{ 
+                          background: 'rgba(255,255,255,0.2)', 
+                          color: '#fff', 
+                          fontSize: '11px', 
+                          fontWeight: 600, 
+                          padding: '4px 10px', 
+                          borderRadius: '6px' 
+                        }}>
+                          {isUsed ? 'Đã dùng' : isExpired ? 'Hết hạn' : 'Khả dụng'}
+                        </Badge>
+                        {voucher.expiresAt && (
+                          <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.9 }}>
+                            HSD: {new Date(voucher.expiresAt).toLocaleDateString('vi-VN')}
+                          </span>
+                        )}
+                      </div>
+                      <h5 style={{ fontSize: '18px', fontWeight: 800, margin: '8px 0', letterSpacing: '1px' }}>
+                        {voucher.code}
+                      </h5>
+                      <div style={{ fontSize: '20px', fontWeight: 900, marginBottom: '4px' }}>
+                        GIẢM {formatDiscount(voucher)}
+                      </div>
+                      {voucher.minOrderValue > 0 && (
+                        <div style={{ fontSize: '12px', opacity: 0.9 }}>
+                          Cho đơn từ {voucher.minOrderValue.toLocaleString('vi-VN')}đ
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ padding: '12px 16px', background: '#f8fafc' }}>
+                      {canUse ? (
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#16a34a' }}>
+                          ✓ Có thể sử dụng cho đơn hàng này
+                        </div>
+                      ) : isUsed ? (
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                          Voucher đã được sử dụng
+                        </div>
+                      ) : isExpired ? (
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                          Voucher đã hết hạn
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#ef4444' }}>
+                          Đơn hàng chưa đủ {voucher.minOrderValue.toLocaleString('vi-VN')}đ
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{ borderTop: '1px solid #e2e8f0', padding: '16px 24px' }}>
+          <Button
+            onClick={() => setShowVoucherModal(false)}
+            style={{ 
+              background: '#0f172a', 
+              border: 'none', 
+              borderRadius: '8px', 
+              fontWeight: 600, 
+              padding: '10px 24px' 
+            }}
+          >
+            Đóng
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

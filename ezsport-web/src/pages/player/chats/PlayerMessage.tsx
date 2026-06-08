@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { conversationService, type Conversation } from '../../../services/conversation.service';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -7,6 +8,8 @@ const TX2 = '#64748b';
 
 export const PlayerMessage: React.FC = () => {
   const { } = useAuth();
+  const location = useLocation();
+  const conversationIdFromState = (location.state as { conversationId?: string } | null)?.conversationId;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [typedMessage, setTypedMessage] = useState('');
@@ -28,6 +31,12 @@ export const PlayerMessage: React.FC = () => {
       setLoading(true);
       const data = await conversationService.getConversations();
       setConversations(data);
+      const targetConversation = conversationIdFromState
+        ? data.find((conversation) => conversation._id === conversationIdFromState)
+        : data[0];
+      if (targetConversation) {
+        await handleSelectConversation(targetConversation);
+      }
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {

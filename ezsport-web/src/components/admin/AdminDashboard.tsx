@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Dropdown } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
+import { voucherService, type Voucher } from '../../services/voucher.service';
+import { CreateVoucherModal, type VoucherFormData } from './CreateVoucherModal';
+import { EditVoucherModal } from './EditVoucherModal';
 
 interface AdminDashboardProps {
   onGoHome: () => void;
@@ -18,11 +21,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
   const [activeMenu, setActiveMenu] = useState('overview'); // 'overview' | 'owners' | 'users' | 'finance' | 'marketing' | 'settings'
   const [commissionRate, setCommissionRate] = useState(10);
-  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'processing' | 'pending'>('all');
 
   // New States for User Directory (Danh bạ Người dùng)
-  const [userSearchTerm, setUserSearchTerm] = useState('');
   const [playerStatusFilter, setPlayerStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
   
   const [players, setPlayers] = useState([
@@ -33,7 +34,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   ]);
 
   // States for Owner Management (Quản lý Chủ sân)
-  const [ownerSearchTerm, setOwnerSearchTerm] = useState('');
   const [ownerStatusFilter, setOwnerStatusFilter] = useState<'all' | 'verified' | 'pending' | 'locked'>('all');
 
   const [owners, setOwners] = useState([
@@ -49,13 +49,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   ]);
 
   // States for Marketing & Promotion Management
-  const [marketingSearchTerm, setMarketingSearchTerm] = useState('');
-  
-  const [vouchers, setVouchers] = useState([
-    { code: 'SUMMER24', type: 'Giảm giá trực tiếp', value: 50000, target: 'Sân bóng đá', used: 20, max: 100, expiry: '30/06/2024', status: 'running' },
-    { code: 'WELCOMENEW', type: 'Phần trăm hóa đơn', value: 10, target: 'Tất cả dịch vụ', used: 150, max: 500, expiry: 'Không thời hạn', status: 'running' },
-    { code: 'EXPIRED10', type: 'Giảm giá trực tiếp', value: 100000, target: 'Sân Tennis', used: 50, max: 50, expiry: '15/01/2024', status: 'expired' }
-  ]);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [showCreateVoucherModal, setShowCreateVoucherModal] = useState(false);
+  const [showEditVoucherModal, setShowEditVoucherModal] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
 
   const [banners, setBanners] = useState([
     { id: 'b1', title: 'Chiến dịch Mùa Hè Rực Lửa', link: 'ezsport.vn/may-day-mobi', views: '12.8k', clicks: '2,560', img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=200&auto=format&fit=crop&q=60' },
@@ -87,6 +84,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   const formatVND = (num: number) => {
     return num.toLocaleString('vi-VN') + 'đ';
   };
+
+  useEffect(() => {
+    voucherService.listAdmin()
+      .then(setVouchers)
+      .catch((err) => alert(err?.response?.data?.message || 'Khong the tai danh sach voucher'));
+  }, []);
 
   // Dynamic Commission Rate updates
   const handleUpdateCommission = () => {
@@ -244,39 +247,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   };
 
   // Marketing & Promotions Operations
-  const handleCreateVoucher = () => {
-    const code = prompt('Nhập mã voucher mới (ví dụ: WINTER25):');
-    const type = prompt('Chọn loại khuyến mãi (1: Giảm giá trực tiếp, 2: Phần trăm hóa đơn):');
-    const valStr = prompt('Nhập mức giảm (VND hoặc %, ví dụ: 50000 hoặc 10):');
-    const target = prompt('Áp dụng cho (ví dụ: Sân bóng đá hoặc Tất cả dịch vụ):');
-    const maxStr = prompt('Nhập số lượng giới hạn:');
-    const expiry = prompt('Nhập thời hạn (ví dụ: 31/12/2026 hoặc Không thời hạn):');
-
-    if (code && valStr && target && maxStr) {
-      const value = parseInt(valStr, 10) || 0;
-      const max = parseInt(maxStr, 10) || 100;
-      const typeLabel = type === '2' ? 'Phần trăm hóa đơn' : 'Giảm giá trực tiếp';
-      
-      const newVoucher = {
-        code: code.toUpperCase(),
-        type: typeLabel,
-        value,
-        target,
-        used: 0,
-        max,
-        expiry: expiry || 'Không thời hạn',
-        status: 'running'
-      };
-      setVouchers(prev => [newVoucher, ...prev]);
-      alert(`🎉 Đã tạo mã voucher ${code.toUpperCase()} thành công!`);
+  const handleCreateVoucher = async (voucherData: VoucherFormData) => {
+    try {
+      const voucher = await voucherService.create(voucherData);
+      setVouchers(prev => [voucher, ...prev]);
+      setShowCreateVoucherModal(false);
+      alert(`Đã tạo voucher ${voucher.code} thành công!`);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Tạo voucher thất bại');
     }
   };
 
-  const handleDeleteVoucher = (code: string) => {
-    const confirm = window.confirm(`⚠️ Bạn có chắc chắn muốn xóa mã voucher ${code}?`);
-    if (confirm) {
-      setVouchers(prev => prev.filter(v => v.code !== code));
-      alert(`🗑️ Đã xóa voucher ${code} thành công!`);
+  const handleEditVoucher = async (voucherId: string, voucherData: Partial<VoucherFormData>) => {
+    try {
+      // Call API to update voucher
+      await voucherService.update(voucherId, voucherData);
+      
+      // Update local state
+      setVouchers(prev => prev.map(v => 
+        v._id === voucherId ? { ...v, ...voucherData } : v
+      ));
+      
+      setShowEditVoucherModal(false);
+      setSelectedVoucher(null);
+      alert('Đã cập nhật voucher thành công!');
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Cập nhật voucher thất bại');
+    }
+  };
+
+  const handleOpenEditModal = (voucher: Voucher) => {
+    setSelectedVoucher(voucher);
+    setShowEditVoucherModal(true);
+  };
+
+  const handleDeleteVoucher = async (id: string, code: string) => {
+    const confirmDelete = window.confirm(`Ban co chac chan muon xoa voucher ${code}?`);
+    if (!confirmDelete) return;
+
+    try {
+      await voucherService.delete(id);
+      setVouchers(prev => prev.filter(v => v._id !== id));
+      alert(`Da xoa voucher ${code}`);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Xoa voucher that bai');
     }
   };
 
@@ -319,41 +333,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
   // Filtered transactions computed dynamically
   const filteredTransactions = transactions.filter(t => {
-    const matchesSearch = t.venue.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          t.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          t.id.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (statusFilter === 'all') return matchesSearch;
-    return matchesSearch && t.status === statusFilter;
+    if (statusFilter === 'all') return true;
+    return t.status === statusFilter;
   });
 
   // Filtered players computed dynamically
   const filteredPlayers = players.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(userSearchTerm.toLowerCase()) || 
-                          p.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-                          p.id.toLowerCase().includes(userSearchTerm.toLowerCase());
-    
-    if (playerStatusFilter === 'all') return matchesSearch;
-    return matchesSearch && p.status === playerStatusFilter;
+    if (playerStatusFilter === 'all') return true;
+    return p.status === playerStatusFilter;
   });
 
   // Filtered owners computed dynamically
   const filteredOwners = owners.filter(o => {
-    const matchesSearch = o.name.toLowerCase().includes(ownerSearchTerm.toLowerCase()) || 
-                          o.email.toLowerCase().includes(ownerSearchTerm.toLowerCase()) ||
-                          o.id.toLowerCase().includes(ownerSearchTerm.toLowerCase()) ||
-                          o.phone.includes(ownerSearchTerm);
-    
-    if (ownerStatusFilter === 'all') return matchesSearch;
-    return matchesSearch && o.status === ownerStatusFilter;
+    if (ownerStatusFilter === 'all') return true;
+    return o.status === ownerStatusFilter;
   });
 
-  // Filtered vouchers computed dynamically
-  const filteredVouchers = vouchers.filter(v => {
-    return v.code.toLowerCase().includes(marketingSearchTerm.toLowerCase()) ||
-           v.type.toLowerCase().includes(marketingSearchTerm.toLowerCase()) ||
-           v.target.toLowerCase().includes(marketingSearchTerm.toLowerCase());
-  });
+  // Show all vouchers (no filtering since we removed search)
+  const filteredVouchers = vouchers;
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: BG, fontFamily: "'Inter', sans-serif" }}>
@@ -444,85 +441,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
       {/* ─── MAIN CONTENT ─── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
-        {/* Top Header */}
-        <div style={{ height: '72px', background: W, borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px' }}>
-          
-          {/* Header Left Search Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', borderRadius: '20px', padding: '6px 16px', gap: '8px', border: `1px solid ${BORDER}` }}>
-            <span className="material-symbols-outlined" style={{ color: TX2, fontSize: '18px' }}>search</span>
-            <input 
-              type="text" 
-              placeholder={
-                activeMenu === 'users' ? "Tìm kiếm người dùng, ID, số điện thoại..." : 
-                activeMenu === 'owners' ? "Tìm kiếm nhanh..." : 
-                activeMenu === 'marketing' ? "Tìm kiếm chiến dịch, voucher..." :
-                "Tìm kiếm giao dịch, voucher..."
-              } 
-              value={
-                activeMenu === 'users' ? userSearchTerm : 
-                activeMenu === 'owners' ? ownerSearchTerm : 
-                activeMenu === 'marketing' ? marketingSearchTerm :
-                searchTerm
-              }
-              onChange={e => {
-                if (activeMenu === 'users') {
-                  setUserSearchTerm(e.target.value);
-                } else if (activeMenu === 'owners') {
-                  setOwnerSearchTerm(e.target.value);
-                } else if (activeMenu === 'marketing') {
-                  setMarketingSearchTerm(e.target.value);
-                } else {
-                  setSearchTerm(e.target.value);
-                }
-              }}
-              style={{ border: 'none', background: 'transparent', outline: 'none', width: '240px', fontSize: '13px', color: TX, fontWeight: 500 }} 
-            />
-          </div>
-
-          {/* Header Right Admin profile info */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: `1px solid ${BORDER}` }}>
-              <span className="material-symbols-outlined" style={{ color: TX2, fontSize: '20px' }}>notifications</span>
-            </div>
-            
-            <Dropdown align="end">
-              <Dropdown.Toggle as="div" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=60" alt="Admin avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${PRIMARY}` }} />
-                <div className="d-none d-md-block text-start">
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: TX, lineHeight: 1.2 }}>Quân Huyền</div>
-                  <div style={{ fontSize: '10px', color: TX2, fontWeight: 600 }}>Super Admin</div>
-                </div>
-              </Dropdown.Toggle>
-              <Dropdown.Menu style={{ borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: `1px solid ${BORDER}`, padding: '6px', minWidth: '200px' }}>
-                <div style={{ padding: '8px 12px', borderBottom: `1px solid ${BORDER}`, marginBottom: '6px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: TX }}>Quân Huyền</div>
-                  <div style={{ fontSize: '11px', color: TX2 }}>huyen.quan@ezsport.vn</div>
-                </div>
-                <Dropdown.Item onClick={() => setActiveMenu('settings')} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>settings</span>
-                  Cài đặt hệ thống
-                </Dropdown.Item>
-                <Dropdown.Item onClick={() => alert('📞 Tổng đài hỗ trợ kỹ thuật Admin hoạt động 24/7!')} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>contact_support</span>
-                  Hỗ trợ kỹ thuật
-                </Dropdown.Item>
-                <Dropdown.Divider />
-                <Dropdown.Item 
-                  onClick={() => {
-                    logout();
-                    onGoHome();
-                  }} 
-                  className="text-danger" 
-                  style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', fontWeight: 600 }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>logout</span>
-                  Đăng xuất
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </div>
-        </div>
-
         {/* Scrollable Dashboard Viewport */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
           
@@ -1422,18 +1340,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                             </Dropdown.Menu>
                           </Dropdown>
 
-                          {/* Quick search input */}
-                          <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', borderRadius: '8px', padding: '4px 12px', gap: '6px', border: `1px solid ${BORDER}` }}>
-                            <span className="material-symbols-outlined" style={{ color: TX2, fontSize: '16px' }}>search</span>
-                            <input 
-                              type="text" 
-                              placeholder="Tìm kiếm chủ sân..." 
-                              value={ownerSearchTerm}
-                              onChange={e => setOwnerSearchTerm(e.target.value)}
-                              style={{ border: 'none', background: 'transparent', outline: 'none', width: '130px', fontSize: '12px', color: TX, fontWeight: 500 }} 
-                            />
-                          </div>
-
                           {/* Add Owner button */}
                           <Button 
                             style={{ 
@@ -1663,7 +1569,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     fontSize: '12px', fontWeight: 700, color: W, boxShadow: '0 2px 6px rgba(15,61,34,0.15)',
                     display: 'flex', alignItems: 'center', gap: '6px'
                   }}
-                  onClick={handleCreateVoucher}
+                  onClick={() => setShowCreateVoucherModal(true)}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
                   Tạo mã mới
@@ -1779,6 +1685,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                       </thead>
                       <tbody>
                         {filteredVouchers.map((v, idx) => {
+                          const expired = !v.active || (!!v.expiresAt && new Date(v.expiresAt).getTime() < Date.now()) || v.usedCount >= v.quantity;
+                          const typeLabel = v.type === 'percent' ? 'Phần trăm hóa đơn' : 'Giảm giá trực tiếp';
+                          const expiryLabel = v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('vi-VN') : 'Không thời hạn';
                           return (
                             <tr key={v.code} style={{ borderBottom: `1px solid ${BORDER}`, background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'all 0.1s' }}>
                               
@@ -1786,11 +1695,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: '#15803d' }}>{v.code}</td>
                               
                               {/* Promotion Type */}
-                              <td style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: TX }}>{v.type}</td>
+                              <td style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: TX }}>{typeLabel}</td>
                               
                               {/* Discount Amount */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: TX }}>
-                                {v.type === 'Phần trăm hóa đơn' ? `${v.value}%` : formatVND(v.value)}
+                                {v.type === 'percent' ? `${v.value}%` : formatVND(v.value)}
                               </td>
                               
                               {/* Applicable for */}
@@ -1799,15 +1708,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                               {/* Qty Progress Bar */}
                               <td style={{ padding: '16px' }}>
                                 <div style={{ width: '100px' }}>
-                                  <div style={{ fontSize: '10px', color: TX2, fontWeight: 700, marginBottom: '4px' }}>{v.used}/{v.max}</div>
+                                  <div style={{ fontSize: '10px', color: TX2, fontWeight: 700, marginBottom: '4px' }}>{v.usedCount}/{v.quantity}</div>
                                   <div style={{ width: '100%', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                    <div style={{ width: `${(v.used / v.max) * 100}%`, height: '100%', background: v.status === 'expired' ? '#94a3b8' : '#22c55e', borderRadius: '3px' }} />
+                                    <div style={{ width: `${(v.usedCount / v.quantity) * 100}%`, height: '100%', background: expired ? '#94a3b8' : '#22c55e', borderRadius: '3px' }} />
                                   </div>
                                 </div>
                               </td>
 
                               {/* Expiry Date */}
-                              <td style={{ padding: '16px', fontSize: '13px', fontWeight: 700, color: TX }}>{v.expiry}</td>
+                              <td style={{ padding: '16px', fontSize: '13px', fontWeight: 700, color: TX }}>{expiryLabel}</td>
                               
                               {/* Status Badge - Unified Pill */}
                               <td style={{ padding: '16px' }}>
@@ -1815,11 +1724,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                   style={{ 
                                     display: 'inline-block',
                                     padding: '6px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700,
-                                    background: v.status === 'running' ? '#e6fcf0' : '#fee2e2',
-                                    color: v.status === 'running' ? '#15803d' : '#ef4444'
+                                    background: expired ? '#fee2e2' : '#e6fcf0',
+                                    color: expired ? '#ef4444' : '#15803d'
                                   }}
                                 >
-                                  {v.status === 'running' ? 'ĐANG CHẠY' : 'HẾT HẠN'}
+                                  {expired ? 'HET HAN' : 'DANG CHAY'}
                                 </span>
                               </td>
 
@@ -1827,21 +1736,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                               <td style={{ padding: '16px' }}>
                                 <div className="d-flex align-items-center gap-2">
                                   <button 
-                                    onClick={() => {
-                                      const newVal = prompt('Nhập mức giảm mới:', v.value.toString());
-                                      if (newVal) {
-                                        const parsed = parseInt(newVal, 10);
-                                        if (!isNaN(parsed)) {
-                                          setVouchers(prev => prev.map(item => item.code === v.code ? { ...item, value: parsed } : item));
-                                        }
-                                      }
-                                    }}
+                                    onClick={() => handleOpenEditModal(v)}
                                     style={{ border: 'none', background: 'transparent', padding: 0, color: TX2, cursor: 'pointer' }}
+                                    title="Chỉnh sửa voucher"
                                   >
                                     <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
                                   </button>
                                   <button 
-                                    onClick={() => handleDeleteVoucher(v.code)}
+                                    onClick={() => handleDeleteVoucher(v._id, v.code)}
                                     style={{ border: 'none', background: 'transparent', padding: 0, color: TX2, cursor: 'pointer' }}
                                   >
                                     <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
@@ -2037,6 +1939,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
       </div>
 
+      {/* Create Voucher Modal */}
+      <CreateVoucherModal
+        show={showCreateVoucherModal}
+        onHide={() => setShowCreateVoucherModal(false)}
+        onSubmit={handleCreateVoucher}
+      />
+
+      {/* Edit Voucher Modal */}
+      <EditVoucherModal
+        show={showEditVoucherModal}
+        onHide={() => {
+          setShowEditVoucherModal(false);
+          setSelectedVoucher(null);
+        }}
+        onSubmit={handleEditVoucher}
+        voucher={selectedVoucher}
+      />
+
     </div>
   );
 };
+
+
+
+
+

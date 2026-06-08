@@ -12,8 +12,9 @@ export interface CreateBookingPayload {
   serviceFee?: number;
   discount?: number;
   pointsUsed?: number;
+  voucherCode?: string;
   totalPrice: number;
-  paymentMethod?: 'card' | 'bank' | 'momo' | 'zalopay';
+  paymentMethod?: 'momo' | 'cash' | 'bank';
   bookerName: string;
   bookerPhone: string;
   bookerEmail?: string;

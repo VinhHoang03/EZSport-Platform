@@ -252,7 +252,7 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
       console.log('🚀 Navigating to:', ROUTES.MESSAGES);
 
       // Chuyển đến trang chat
-      navigate(ROUTES.MESSAGES);
+      navigate(ROUTES.MESSAGES, { state: { conversationId: conversation._id } });
       
     } catch (error) {
       console.error('❌ Error creating conversation:', error);

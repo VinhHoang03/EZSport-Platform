@@ -57,10 +57,28 @@ class BookingController {
         }
       }
 
+      // VNPay: currently a stub — returns booking without redirect until VNPay credentials are configured
+      if (booking.paymentMethod === "vnpay") {
+        console.log("[booking.createBooking] VNPay selected — stub mode (no VNPay credentials configured)");
+        return res.status(201).json({
+          message: "Đặt sân thành công. Vui lòng hoàn tất thanh toán qua VNPay.",
+          data: booking,
+        });
+      }
+
+      // Cash: confirm immediately, payment at venue
+      if (booking.paymentMethod === "cash") {
+        return res.status(201).json({
+          message: "Đặt sân thành công. Vui lòng thanh toán tiền mặt tại sân.",
+          data: booking,
+        });
+      }
+
       return res.status(201).json({
         message: "Đặt sân thành công",
         data: booking,
       });
+
     } catch (err: any) {
       console.error('[booking.createBooking] error:', err && err.stack ? err.stack : err);
       return res.status(500).json({
