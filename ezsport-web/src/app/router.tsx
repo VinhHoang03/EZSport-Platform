@@ -19,7 +19,6 @@ const MapPage               = lazy(() => import('../pages/player/MapPage'));
 const VenueListPage         = lazy(() => import('../pages/player/venues/VenueListPage'));
 const VenueDetailPage       = lazy(() => import('../pages/player/venues/VenueDetailPage'));
 const CheckoutPageWrapper   = lazy(() => import('../pages/player/CheckoutPageWrapper'));
-const BookingSuccessWrapper = lazy(() => import('../pages/player/BookingSuccessWrapper'));
 const BookingSuccessPage    = lazy(() => import('../pages/player/booking/BookingSuccessPage'));
 const MyBookingsPage        = lazy(() => import('../pages/player/booking/MyBookingsPage'));
 const BookingDetailPage     = lazy(() => import('../pages/player/booking/BookingDetailPage'));
@@ -72,7 +71,7 @@ const router = createBrowserRouter([
         { path: ROUTES.VENUES,          element: s(VenueListPage) },
         { path: ROUTES.VENUE_DETAIL,    element: s(VenueDetailPage) },
         { path: ROUTES.CHECKOUT,        element: s(CheckoutPageWrapper) },
-        { path: ROUTES.BOOKING_SUCCESS, element: s(BookingSuccessWrapper) },
+        { path: ROUTES.BOOKING_SUCCESS, element: s(BookingSuccessPage) },
         { path: ROUTES.PROFILE,         element: s(ProfilePageWrapper) },
         { path: ROUTES.PLAYMATES,       element: s(PlaymatesWrapper) },
         { path: ROUTES.MESSAGES,        element: s(PlayerMessage) },

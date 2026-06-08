@@ -1,6 +1,8 @@
 import Booking, { IBooking, BookingStatus } from "../models/booking.model";
 import Court from "../models/court.model";
 import { User } from "../models/user.model";
+import Voucher from "../models/voucher.model";
+import UserVoucher from "../models/userVoucher.model";
 
 class BookingService {
   /**
@@ -37,12 +39,94 @@ class BookingService {
       throw new Error("Sân đã được đặt trong khung giờ này");
     }
 
+    const subtotal = Number(bookingData.basePrice || 0);
+    const serviceFee = Number(bookingData.serviceFee || 0);
+    const orderValue = subtotal + serviceFee;
+    let discount = 0;
+    let pointsUsedForDiscount = Number(bookingData.pointsUsed || 0); // Điểm dùng để giảm giá
+    const voucherCode = bookingData.voucherCode
+      ? String(bookingData.voucherCode).toUpperCase().trim()
+      : undefined;
+    let userVoucher: any = null;
+
+    // Handle voucher discount
+    if (voucherCode) {
+      const voucher = await Voucher.findOne({ code: voucherCode, active: true });
+      if (!voucher) throw new Error("Voucher khong ton tai");
+      if (voucher.expiresAt && voucher.expiresAt.getTime() < Date.now()) {
+        throw new Error("Voucher da het han");
+      }
+      if (voucher.usedCount >= voucher.quantity) {
+        throw new Error("Voucher da het luot su dung");
+      }
+      if (orderValue < voucher.minOrderValue) {
+        throw new Error(`Don hang toi thieu ${voucher.minOrderValue.toLocaleString("vi-VN")}d`);
+      }
+
+      const rawDiscount = voucher.type === "percent"
+        ? Math.floor(orderValue * (voucher.value / 100))
+        : voucher.value;
+      discount = Math.min(rawDiscount, voucher.maxDiscount || rawDiscount, orderValue);
+
+      if (voucher.pointCost > 0) {
+        userVoucher = await UserVoucher.findOne({ userId, voucherId: voucher._id, status: "available" });
+        if (!userVoucher) {
+          throw new Error("Ban can doi voucher nay bang diem truoc khi su dung");
+        }
+      }
+    }
+
+    // Handle loyalty points discount (500 points = 50,000đ)
+    let pointsDiscount = 0;
+    if (pointsUsedForDiscount > 0) {
+      // Check if user has enough points
+      if ((user.loyaltyPoints || 0) < pointsUsedForDiscount) {
+        throw new Error("Ban khong du diem de su dung");
+      }
+      // Convert points to discount (100 points = 10,000đ)
+      pointsDiscount = Math.floor(pointsUsedForDiscount * 100); // 500 points = 50,000đ
+      
+      // Deduct points from user
+      user.loyaltyPoints = (user.loyaltyPoints || 0) - pointsUsedForDiscount;
+      await user.save();
+    }
+
+    const finalTotal = Math.max(orderValue - discount - pointsDiscount, 0);
+
     // Create booking
     const booking = await Booking.create({
       userId,
       ...bookingData,
+      discount,
+      pointsUsed: pointsUsedForDiscount,
+      voucherCode,
+      totalPrice: finalTotal,
       status: "PENDING",
     });
+
+    if (voucherCode) {
+      const voucher = await Voucher.findOneAndUpdate(
+        { code: voucherCode },
+        { $inc: { usedCount: 1 } },
+        { new: true }
+      );
+
+      if (userVoucher) {
+        userVoucher.status = "used";
+        userVoucher.usedBookingId = booking._id;
+        userVoucher.usedAt = new Date();
+        await userVoucher.save();
+      } else if (voucher && voucher.pointCost === 0) {
+        await UserVoucher.create({
+          userId,
+          voucherId: voucher._id,
+          code: voucher.code,
+          status: "used",
+          usedBookingId: booking._id,
+          usedAt: new Date(),
+        }).catch(() => null);
+      }
+    }
 
     return booking.populate("userId courtId");
   }

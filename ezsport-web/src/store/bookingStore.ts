@@ -20,7 +20,7 @@ export interface BookingDraft {
   discount: number;
   pointsUsed: number;
   totalPrice: number;
-  paymentMethod: 'card' | 'bank' | 'momo' | 'zalopay';
+  paymentMethod: 'momo' | 'cash' | 'bank';
   bookerName: string;
   bookerPhone: string;
   bookerEmail: string;
@@ -48,7 +48,7 @@ const defaultDraft = (): BookingDraft => ({
   discount: 0,
   pointsUsed: 0,
   totalPrice: 0,
-  paymentMethod: 'card',
+  paymentMethod: 'momo',
   bookerName: '',
   bookerPhone: '',
   bookerEmail: '',

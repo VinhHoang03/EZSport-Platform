@@ -19,6 +19,7 @@ export interface IBooking extends Document {
   serviceFee?: number;
   discount?: number;
   pointsUsed?: number;
+  voucherCode?: string;
   totalPrice: number;
   status: BookingStatus;
   paymentMethod?: string;
@@ -89,6 +90,11 @@ const bookingSchema = new Schema<IBooking>(
       default: 0,
       min: 0,
     },
+    voucherCode: {
+      type: String,
+      uppercase: true,
+      trim: true,
+    },
     totalPrice: {
       type: Number,
       required: true,
@@ -102,7 +108,7 @@ const bookingSchema = new Schema<IBooking>(
     },
     paymentMethod: {
       type: String,
-      enum: ["card", "bank", "momo", "zalopay"],
+      enum: ["card", "bank", "momo", "zalopay", "cash"],
     },
     bookerName: {
       type: String,
