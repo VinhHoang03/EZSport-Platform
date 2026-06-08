@@ -411,7 +411,21 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                     variant="link"
                     className="text-success fw-bold p-0 shadow-none border-0"
                     style={{ color: '#1a6b3c !important', textDecoration: 'none', fontSize: '14px' }}
-                    onClick={() => alert('Hiển thị chỉ đường trên bản đồ!')}
+                    onClick={() => {
+                      if (venueData?.lat && venueData?.lng) {
+                        navigate(ROUTES.MAP, {
+                          state: {
+                            directionsTo: {
+                              lat: venueData.lat,
+                              lng: venueData.lng,
+                              name: venueData.name,
+                            },
+                          },
+                        });
+                      } else {
+                        window.open(`https://maps.google.com/?q=${encodeURIComponent(venue.location)}`, '_blank');
+                      }
+                    }}
                   >
                     Xem trên bản đồ
                   </Button>
