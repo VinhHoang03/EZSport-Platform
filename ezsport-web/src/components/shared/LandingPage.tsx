@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 import FadingVideo from './FadingVideo';
 import BlurText from './BlurText';
@@ -31,8 +32,15 @@ export const LandingPage: React.FC<{
   venues?: any[];
 }> = ({ courts = [], venues = [] }) => {
   const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
   const displayCourts = venues.length > 0 ? venues : courts;
   const f = "'Inter', 'Barlow', sans-serif";
+
+  // Ref for venues section to enable auto-scroll after login
+  const venuesSectionRef = React.useRef<HTMLElement>(null);
+  
+  // State for user dropdown menu
+  const [showUserMenu, setShowUserMenu] = React.useState(false);
 
   // Auto-playing Promo Ads State
   const [currentSlide, setCurrentSlide] = React.useState(0);
@@ -73,6 +81,35 @@ export const LandingPage: React.FC<{
     return () => clearInterval(timer);
   }, []);
 
+  // Auto-scroll to venues section after login
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('scrollToVenues') === 'true' && venuesSectionRef.current) {
+      // Small delay to ensure page is fully rendered
+      setTimeout(() => {
+        venuesSectionRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+        // Clean up URL parameter
+        window.history.replaceState({}, '', window.location.pathname);
+      }, 300);
+    }
+  }, []);
+
+  // Close user menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showUserMenu && !target.closest('[data-user-menu]')) {
+        setShowUserMenu(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
+
   return (
     <div style={{ fontFamily: f, background: SL, color: TX, overflowX: 'hidden', minHeight: '100vh' }}>
 
@@ -98,20 +135,170 @@ export const LandingPage: React.FC<{
           ))}
         </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <button onClick={() => navigate(ROUTES.LOGIN)} style={{
-            background: 'transparent', color: G, border: `1.5px solid ${G}`, borderRadius: 999,
-            padding: '12px 28px', fontSize: 16, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.2
-          }}>
-            Đăng nhập
-          </button>
-          <button onClick={() => navigate(ROUTES.MAP)} style={{
-            ...glass(true), background: G, color: W, border: '1px solid rgba(255,255,255,0.3)',
-            borderRadius: 999, padding: '10px 26px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 8, letterSpacing: 0.2,
-            boxShadow: `0 4px 20px ${G}50`,
-          }}>
-            Đặt ngay <Arrow />
-          </button>
+          {!isAuthenticated ? (
+            <>
+              <button onClick={() => navigate(ROUTES.LOGIN)} style={{
+                background: 'transparent', color: G, border: `1.5px solid ${G}`, borderRadius: 999,
+                padding: '12px 28px', fontSize: 16, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.2
+              }}>
+                Đăng nhập
+              </button>
+              <button onClick={() => navigate(ROUTES.MAP)} style={{
+                ...glass(true), background: G, color: W, border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 999, padding: '10px 26px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8, letterSpacing: 0.2,
+                boxShadow: `0 4px 20px ${G}50`,
+              }}>
+                Đặt ngay <Arrow />
+              </button>
+            </>
+          ) : (
+            <div style={{ position: 'relative' }} data-user-menu>
+              <div 
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 12, 
+                  cursor: 'pointer',
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  background: 'rgba(26, 107, 60, 0.08)',
+                  border: '1px solid rgba(26, 107, 60, 0.2)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: user?.avatar ? `url(${user.avatar}) center/cover` : 'linear-gradient(135deg, #1a6b3c 0%, #22c55e 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: W,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  border: '2px solid white',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                  {!user?.avatar && (user?.fullName?.[0] || user?.username?.[0] || 'U')}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: TX }}>{user?.fullName || user?.username}</span>
+                  <span style={{ fontSize: 11, color: TX2, fontWeight: 500 }}>
+                    {user?.role === 'owner' ? 'Chủ sân' : user?.role === 'admin' ? 'Quản trị viên' : 'Người chơi'}
+                  </span>
+                </div>
+                <span className="material-symbols-outlined" style={{ fontSize: 20, color: TX2 }}>
+                  {showUserMenu ? 'expand_less' : 'expand_more'}
+                </span>
+              </div>
+              
+              {showUserMenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  background: 'white',
+                  borderRadius: 16,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  minWidth: 220,
+                  overflow: 'hidden',
+                  zIndex: 1000
+                }}>
+                  {user?.role === 'owner' && (
+                    <div 
+                      onClick={() => { setShowUserMenu(false); navigate(ROUTES.OWNER_PAGE); }}
+                      style={{
+                        padding: '14px 20px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: TX,
+                        borderBottom: '1px solid rgba(0,0,0,0.06)',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(26, 107, 60, 0.04)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 20, color: G }}>dashboard</span>
+                      Dashboard
+                    </div>
+                  )}
+                  {user?.role === 'admin' && (
+                    <div 
+                      onClick={() => { setShowUserMenu(false); navigate(ROUTES.ADMIN_DASHBOARD); }}
+                      style={{
+                        padding: '14px 20px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: TX,
+                        borderBottom: '1px solid rgba(0,0,0,0.06)',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(26, 107, 60, 0.04)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 20, color: G }}>admin_panel_settings</span>
+                      Quản trị
+                    </div>
+                  )}
+                  <div 
+                    onClick={() => { setShowUserMenu(false); navigate(ROUTES.MAP); }}
+                    style={{
+                      padding: '14px 20px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: TX,
+                      borderBottom: '1px solid rgba(0,0,0,0.06)',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(26, 107, 60, 0.04)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: G }}>map</span>
+                    Đặt sân
+                  </div>
+                  <div 
+                    onClick={() => { 
+                      setShowUserMenu(false); 
+                      logout(); 
+                      navigate(ROUTES.LANDING);
+                    }}
+                    style={{
+                      padding: '14px 20px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: '#ef4444',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.04)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#ef4444' }}>logout</span>
+                    Đăng xuất
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </nav>
 
@@ -177,7 +364,7 @@ export const LandingPage: React.FC<{
 
 
       {/* ── VENUES ── */}
-      <section style={{ padding: '100px 64px', background: W }}>
+      <section ref={venuesSectionRef} style={{ padding: '100px 64px', background: W }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: 56, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div>

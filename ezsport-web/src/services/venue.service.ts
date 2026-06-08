@@ -60,7 +60,30 @@ export interface Venue {
   updatedAt?: string;
 }
 
-export type Court = Venue;
+export interface Court {
+  _id: string;
+  venue: string;
+  name: string;
+  description?: string;
+  
+  // Media
+  images?: string[];
+  
+  // Sport
+  sportTypes: string[];
+  emoji: string;
+  courtType?: 'indoor' | 'outdoor';
+  
+  // Pricing
+  pricePerHour: number;
+  
+  // Status
+  status: 'available' | 'maintenance' | 'inactive';
+  isActive: boolean;
+  
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export const venueService = {
   getVenues: async (params?: { sport?: string; search?: string; active?: string }): Promise<Venue[]> => {

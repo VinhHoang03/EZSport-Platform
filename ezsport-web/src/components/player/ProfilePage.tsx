@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Badge, Button, Spinner, Modal } from 'react-bootstrap';
 import { G, W, TX, TX2, SL } from '../../utils/theme';
-import Navigation from '../shared/Navigation';
+// import Navigation from '../shared/Navigation'; // Not used
 import { useAuth } from '../../context/AuthContext';
 import { userService, type UserProfile } from '../../services/user.service';
 import { useNavigate } from 'react-router-dom';
@@ -21,7 +21,7 @@ const MEMBER_TIER = (pts: number) => {
   return { label: 'Đồng', color: '#92400e', bg: '#fef9f0', next: 'Bạc', nextPts: 500 };
 };
 
-export const ProfilePage: React.FC<ProfilePageProps> = ({ onGoHome, onFindVenues, onPageChange, onLogoClick }) => {
+export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
   const { user, updateUser, logout } = useAuth();
   const navigate = useNavigate();
 

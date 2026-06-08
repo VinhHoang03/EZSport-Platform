@@ -40,6 +40,7 @@ const DISTRICT_LABELS: Record<string, string> = {
   'cam le': 'Cẩm Lệ',
   'hoa vang': 'Hòa Vang',
   'hoa xuan': 'Hòa Xuân',
+  'an khe': 'An Khê',
 };
 
 const normalizeText = (value: unknown): string =>
@@ -86,6 +87,7 @@ const detectDaNangDistrict = (prompt: string): string | undefined => {
     'cam le': ['cam le'],
     'hoa vang': ['hoa vang'],
     'hoa xuan': ['hoa xuan'],
+    'an khe': ['an khe'],
   };
 
   return Object.entries(aliases).find(([, values]) =>
@@ -112,6 +114,16 @@ const parseTimeToMinutes = (prompt: string): number | undefined => {
   return undefined;
 };
 
+const parseTimeRange = (prompt: string): { start?: number; end?: number } => {
+  const text = normalizeText(prompt);
+  const range = text.match(/\b([01]?\d|2[0-3])\s*(?:h|:)\s*([0-5]\d)?\s*(?:den|toi|-|~)\s*([01]?\d|2[0-3])\s*(?:h|:)?\s*([0-5]\d)?\b/);
+  if (!range) return { start: parseTimeToMinutes(prompt) };
+
+  const start = Number(range[1]) * 60 + Number(range[2] || 0);
+  const end = Number(range[3]) * 60 + Number(range[4] || 0);
+  return { start, end: end > start ? end : undefined };
+};
+
 const formatTime = (timeMinutes?: number): string | undefined => {
   if (timeMinutes == null) return undefined;
   return `${Math.floor(timeMinutes / 60)}h${String(timeMinutes % 60).padStart(2, '0')}`;
@@ -129,6 +141,17 @@ const isOpenAt = (court: any, timeMinutes: number): boolean => {
   const close = clockToMinutes(venue.closeTime);
   if (open == null || close == null) return true;
   return timeMinutes >= open && timeMinutes <= close;
+};
+
+const isOpenForRange = (court: any, startMinutes?: number, endMinutes?: number): boolean => {
+  if (startMinutes == null) return true;
+  if (endMinutes == null) return isOpenAt(court, startMinutes);
+
+  const venue = court.venue || {};
+  const open = clockToMinutes(venue.openTime);
+  const close = clockToMinutes(venue.closeTime);
+  if (open == null || close == null) return true;
+  return startMinutes >= open && endMinutes <= close;
 };
 
 const courtMatchesSport = (court: any, sportType: string): boolean => {
@@ -149,10 +172,29 @@ const courtMatchesLocation = (court: any, location: string): boolean => {
     venue.description,
   ].filter(Boolean).join(' '));
 
+  // If location is not found in any field, return false
+  // BUT if court has no venue populated, we should be more lenient
+  // to avoid filtering out all orphan courts
+  if (!court.venue && haystack.trim().length === 0) {
+    // Court has no venue and no text content - skip location check
+    return true;
+  }
+
   return haystack.includes(location);
 };
 
-const toPlainCourt = (court: any) => court.toObject ? court.toObject() : court;
+const toPlainCourt = (court: any) => {
+  if (!court.toObject) return court;
+  
+  const plainCourt = court.toObject();
+  
+  // Manually preserve venue data if it exists
+  if (court.venue) {
+    plainCourt.venue = court.venue.toObject ? court.venue.toObject() : court.venue;
+  }
+  
+  return plainCourt;
+};
 
 const getCourtVenue = (court: any) => court.venue || {};
 
@@ -222,7 +264,9 @@ export class CourtService {
     const { prompt, userLat, userLng, maxDistance = 10, limit = 5 } = params;
     const requestedSportType = detectSportType(prompt);
     const requestedLocation = detectDaNangDistrict(prompt);
-    const requestedTime = parseTimeToMinutes(prompt);
+    const requestedTimeRange = parseTimeRange(prompt);
+    const requestedTime = requestedTimeRange.start;
+    const requestedEndTime = requestedTimeRange.end;
     const requestedDateText = detectDateText(prompt);
     const intent = detectIntent(prompt);
 
@@ -287,12 +331,42 @@ export class CourtService {
 
       const candidateCourts = allCourts.filter((court: any) => {
         if (requestedSportType && !courtMatchesSport(court, requestedSportType)) return false;
-        if (requestedLocation && !courtMatchesLocation(court, requestedLocation)) return false;
-        if (requestedTime != null && !isOpenAt(court, requestedTime)) return false;
+        // If location is requested, require court to have venue AND match location
+        if (requestedLocation) {
+          if (!court.venue) return false; // No venue = can't match location
+          if (!courtMatchesLocation(court, requestedLocation)) return false;
+        }
+        if (!isOpenForRange(court, requestedTime, requestedEndTime)) return false;
         return true;
       });
 
       if (candidateCourts.length === 0) {
+        // Try again without location filter if originally requested location
+        if (requestedLocation) {
+          const courtsWithoutLocationFilter = allCourts.filter((court: any) => {
+            if (requestedSportType && !courtMatchesSport(court, requestedSportType)) return false;
+            if (!isOpenForRange(court, requestedTime, requestedEndTime)) return false;
+            return true;
+          });
+          
+          if (courtsWithoutLocationFilter.length > 0) {
+            const shouldUseDistance = Boolean(userLat && userLng);
+            const rankedCourts = shouldUseDistance
+              ? applyDistance(courtsWithoutLocationFilter, userLat, userLng, maxDistance)
+              : courtsWithoutLocationFilter.map(toPlainCourt);
+
+            const suggestions = rankedCourts.slice(0, limit);
+            
+            return {
+              suggestions,
+              aiExplanation: `Mình không tìm thấy sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} ở ${DISTRICT_LABELS[requestedLocation] || requestedLocation}, nhưng có ${suggestions.length} sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} khác trong hệ thống. Bạn có thể xem các lựa chọn bên dưới nhé.`,
+              matchedCriteria: {
+                sportType: requestedSportType,
+              },
+            };
+          }
+        }
+        
         return {
           suggestions: [],
           aiExplanation: buildNoMatchMessage(requestedSportType, requestedLocation, requestedTime, requestedDateText),

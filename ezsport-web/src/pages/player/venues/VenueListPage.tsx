@@ -190,7 +190,7 @@ const VenuesPage: React.FC = () => {
             layout="horizontal"
             currentLocationName={userLocation ? 'Vị trí của bạn' : 'Đà Nẵng, Việt Nam'}
             onDetailClick={(id) => navigate(`/venues/${id}`)}
-            onBookingClick={(id) => navigate(`/venues/${id}/checkout`)}
+            onBookingClick={(id) => navigate(`/venues/${id}`)}
             onDirectionsClick={handleDirections}
           />
           {/* Map column */}

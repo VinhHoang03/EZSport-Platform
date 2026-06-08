@@ -127,35 +127,50 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
           <div className="text-center py-3"><Spinner size="sm" variant="success" /></div>
         ) : (
           <div className="d-flex gap-2 flex-wrap">
-            {slots.map((s) => (
-              <button
-                key={s.time}
-                disabled={!s.available}
-                onClick={() => {
-                  setActiveTime(s.time);
-                  onSlotSelect({
-                    date: activeDate,
-                    startTime: s.time,
-                    endTime: calcEndTime(s.time, duration),
-                    duration,
-                    basePrice: (s.price ?? 0) * duration,
-                  });
-                }}
-                style={{
-                  border: activeTime === s.time ? '2px solid #16a34a' : '1.5px solid #e5e7eb',
-                  borderRadius: '10px',
-                  padding: '7px 14px',
-                  background: !s.available ? '#f3f4f6' : activeTime === s.time ? '#f0fdf4' : '#fff',
-                  color: !s.available ? '#9ca3af' : activeTime === s.time ? '#16a34a' : '#374151',
-                  fontWeight: activeTime === s.time ? 700 : 400,
-                  fontSize: '13px',
-                  cursor: s.available ? 'pointer' : 'not-allowed',
-                  textDecoration: !s.available ? 'line-through' : 'none',
-                }}
-              >
-                {s.time}
-              </button>
-            ))}
+            {slots
+              .filter(s => s.available) // ✅ CHỈ HIỂN THỊ SLOTS CÒN TRỐNG
+              .map((s) => (
+                <button
+                  key={s.time}
+                  onClick={() => {
+                    setActiveTime(s.time);
+                    onSlotSelect({
+                      date: activeDate,
+                      startTime: s.time,
+                      endTime: calcEndTime(s.time, duration),
+                      duration,
+                      basePrice: (s.price ?? 0) * duration,
+                    });
+                  }}
+                  style={{
+                    border: activeTime === s.time ? '2px solid #16a34a' : '1.5px solid #e5e7eb',
+                    borderRadius: '10px',
+                    padding: '7px 14px',
+                    background: activeTime === s.time ? '#f0fdf4' : '#fff',
+                    color: activeTime === s.time ? '#16a34a' : '#374151',
+                    fontWeight: activeTime === s.time ? 700 : 400,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {s.time}
+                </button>
+              ))}
+            {slots.filter(s => s.available).length === 0 && (
+              <div style={{ 
+                width: '100%', 
+                textAlign: 'center', 
+                padding: '24px', 
+                color: '#9ca3af',
+                fontSize: '14px',
+                background: '#f9fafb',
+                borderRadius: '12px',
+                border: '1px dashed #e5e7eb'
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>event_busy</span>
+                Không còn slot trống trong ngày này
+              </div>
+            )}
           </div>
         )}
       </div>

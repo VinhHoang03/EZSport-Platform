@@ -8,7 +8,7 @@ export const OwnerRevenue: React.FC = () => {
   const [topCourts, setTopCourts] = useState<TopCourt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [days, setDays] = useState(7);
+  const [days] = useState(7); // setDays not used yet
 
   useEffect(() => {
     const fetchData = async () => {
