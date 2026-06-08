@@ -19,7 +19,13 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Serve static files from uploads folder
+// When running from dist/, __dirname is ezsport-backend/dist
+// So ../uploads will point to ezsport-backend/uploads
+const uploadsPath = path.join(__dirname, '../uploads');
+console.log('📁 Serving uploads from:', uploadsPath);
+app.use('/uploads', express.static(uploadsPath));
 
 // Xử lý lỗi parse JSON (ví dụ: Body đặt JSON nhưng nội dung rỗng/không hợp lệ)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

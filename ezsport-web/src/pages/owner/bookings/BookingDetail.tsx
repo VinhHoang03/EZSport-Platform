@@ -1,6 +1,7 @@
-import React from 'react';
-import { Row, Col, Button } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Row, Col, Button, Spinner } from 'react-bootstrap';
 import { G, W, TX, TX2 } from '../../../utils/theme';
+import { bookingService } from '../../../services/booking.service';
 
 interface Booking {
   id: string;
@@ -29,6 +30,40 @@ interface BookingDetailProps {
 }
 
 export const BookingDetail: React.FC<BookingDetailProps> = ({ booking, onClose, onComplete, onCancel }) => {
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!window.confirm('Xác nhận phê duyệt đặt sân này?')) return;
+    
+    setConfirming(true);
+    try {
+      await bookingService.confirmBooking(booking.id);
+      onComplete(booking.id);
+      alert('✅ Đã phê duyệt đặt sân thành công!');
+    } catch (error: any) {
+      alert('❌ Lỗi phê duyệt: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!window.confirm('Bạn có chắc muốn hủy đặt sân này?')) return;
+    
+    setCancelling(true);
+    try {
+      await bookingService.cancelBooking(booking.id);
+      onCancel(booking.id);
+      alert('✅ Đã hủy đặt sân thành công!');
+      onClose();
+    } catch (error: any) {
+      alert('❌ Lỗi hủy booking: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -117,15 +152,24 @@ export const BookingDetail: React.FC<BookingDetailProps> = ({ booking, onClose, 
             variant="success"
             className="w-100 rounded-pill fw-bold border-0 shadow-sm"
             style={{ background: '#10b981', color: W }}
-            onClick={() => onComplete(booking.id)}
+            onClick={handleConfirm}
+            disabled={confirming || cancelling}
           >
-            Phê duyệt & Hoàn thành
+            {confirming ? (
+              <>
+                <Spinner size="sm" className="me-2" />
+                Đang xử lý...
+              </>
+            ) : (
+              'Phê duyệt & Hoàn thành'
+            )}
           </Button>
         )}
         <Button
           variant="outline-success"
           className="w-100 rounded-pill fw-bold border-success border-opacity-20 text-success d-flex align-items-center justify-content-center gap-2"
           onClick={() => alert(`📞 Đang kết nối cuộc gọi đến số: ${booking.phone}`)}
+          disabled={confirming || cancelling}
         >
           <span className="material-symbols-outlined fs-5">call</span>
           Liên hệ khách
@@ -134,9 +178,10 @@ export const BookingDetail: React.FC<BookingDetailProps> = ({ booking, onClose, 
           variant="link"
           className="w-100 text-danger fw-bold border-0 shadow-none mt-1"
           style={{ fontSize: '13px' }}
-          onClick={() => onCancel(booking.id)}
+          onClick={handleCancel}
+          disabled={confirming || cancelling}
         >
-          Hủy đặt sân
+          {cancelling ? 'Đang hủy...' : 'Hủy đặt sân'}
         </Button>
       </div>
     </div>

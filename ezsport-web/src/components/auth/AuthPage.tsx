@@ -66,7 +66,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               const role = result.user.role;
               if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
               else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
-              else navigate(ROUTES.MAP);
+              else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
             } catch (err: any) {
               setError(err.response?.data?.message || err.message || 'Đăng nhập bằng Google thất bại');
             } finally {
@@ -126,7 +126,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       } else {
         if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
         else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
-        else navigate(ROUTES.MAP);
+        else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Tên đăng nhập hoặc mật khẩu không đúng');

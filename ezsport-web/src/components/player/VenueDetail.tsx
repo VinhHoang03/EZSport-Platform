@@ -42,24 +42,6 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   const loading = externalVenueLoading ?? internalLoading;
 
   useEffect(() => {
-    if (!venueId) {
-      return;
-    }
-
-    courtService
-      .getCourts({ venue: String(venueId), active: 'true' })
-      .then((data) => {
-        setCourts(data);
-        if (data.length) {
-          setSelectedCourtId((prev) => prev || data[0]._id);
-        }
-      })
-      .catch((err) => {
-        console.error('[VenueDetail] Failed to fetch courts:', err);
-      });
-  }, [venueId]);
-
-  useEffect(() => {
     if (externalVenueData || !venueId) {
       return;
     }
@@ -67,26 +49,58 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
     let isCanceled = false;
     setInternalLoading(true);
     setFetchError(null);
+    setInternalVenueData(null);
+    setCourts([]);
+    setSelectedCourtId('');
 
-    venueService
-      .getVenueById(String(venueId))
-      .then((data) => {
-        if (!isCanceled) {
-          setInternalVenueData(data);
+    const fetchVenueAndCourts = async () => {
+      try {
+        let venue = await venueService.getVenueById(String(venueId)).catch(() => null);
+        let preferredCourtId = '';
+
+        if (!venue) {
+          const court = await courtService.getCourtById(String(venueId)).catch(() => null);
+          if (court?.venue) {
+            preferredCourtId = court._id;
+            const courtVenue = court.venue as any;
+            const courtVenueId = typeof courtVenue === 'string' ? courtVenue : courtVenue._id;
+            if (courtVenueId) {
+              venue = await venueService.getVenueById(String(courtVenueId)).catch(() => null);
+            }
+          }
         }
-      })
-      .catch((err) => {
+
+        if (!venue) {
+          throw new Error('Khong tim thay thong tin san');
+        }
+
+        const venueCourts = await courtService
+          .getCourts({ venue: String(venue._id), active: 'true' })
+          .catch(() => []);
+
+        if (!isCanceled) {
+          setInternalVenueData(venue);
+          setCourts(venueCourts);
+          if (preferredCourtId && venueCourts.some((court) => court._id === preferredCourtId)) {
+            setSelectedCourtId(preferredCourtId);
+          } else if (venueCourts.length) {
+            setSelectedCourtId(venueCourts[0]._id);
+          }
+        }
+      } catch (err: any) {
         if (!isCanceled) {
           console.error('[VenueDetail] Failed to fetch venue:', err?.response?.status, err?.message);
-          setFetchError(err?.message || 'Không thể tải thông tin sân');
+          setFetchError(err?.message || 'Khong the tai thong tin san');
           setInternalVenueData(null);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!isCanceled) {
           setInternalLoading(false);
         }
-      });
+      }
+    };
+
+    fetchVenueAndCourts();
 
     return () => {
       isCanceled = true;

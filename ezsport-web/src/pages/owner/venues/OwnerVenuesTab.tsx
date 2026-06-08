@@ -122,7 +122,7 @@ interface OwnerVenuesTabProps {
   onOpenCreateCourt?: (venue: Venue) => void;
 }
 
-export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCourt }) => {
+export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = () => { // onOpenCreateCourt not used
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'form'>('list');
@@ -346,29 +346,103 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = ({ onOpenCreateCour
         </div>
 
         <Section icon="image" title="Ảnh & Media">
-          <div
-            style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '32px', textAlign: 'center', background: '#f8fafc', cursor: 'pointer', marginBottom: '20px', transition: 'all 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = '#0f3d22'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-            onClick={() => document.getElementById('venue-image-input')?.click()}
-          >
-            <span className="material-symbols-outlined text-muted mb-2" style={{ fontSize: '40px' }}>cloud_upload</span>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: TX }}>
-              {form.imageFile ? form.imageFile.name : 'Kéo thả ảnh hoặc nhấp vào đây để tải lên'}
-            </div>
-            <div style={{ fontSize: '12px', color: TX2, marginTop: '4px' }}>JPG, PNG, WEBP · Tối đa 5MB</div>
-          </div>
-          <input
-            id="venue-image-input" type="file" accept="image/*" style={{ display: 'none' }}
-            onChange={e => setForm(f => ({ ...f, imageFile: e.target.files?.[0] || null }))}
-          />
-          {editTarget?.image && !form.imageFile && (
-            <div className="d-flex gap-3 flex-wrap">
-              <div style={{ width: '100px', height: '75px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                <img src={editTarget.image} alt="current" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {/* Image Preview Area */}
+          {(form.imageFile || editTarget?.image) ? (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ position: 'relative', width: '100%', maxWidth: '400px', height: '250px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #e2e8f0', background: '#f8fafc' }}>
+                <img 
+                  src={form.imageFile ? URL.createObjectURL(form.imageFile) : editTarget?.image} 
+                  alt="Venue preview" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  onLoad={() => console.log('✅ Image loaded successfully:', form.imageFile ? 'New file' : editTarget?.image)}
+                  onError={(e) => {
+                    console.error('❌ Image load error');
+                    console.error('Image URL:', form.imageFile ? 'blob URL' : editTarget?.image);
+                    // Fallback to placeholder
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector('.image-error')) {
+                      const errorDiv = document.createElement('div');
+                      errorDiv.className = 'image-error';
+                      errorDiv.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9ca3af;';
+                      errorDiv.innerHTML = '<span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 8px;">broken_image</span><div style="font-size: 13px; font-weight: 600;">Không thể tải ảnh</div><div style="font-size: 11px; margin-top: 4px;">Thử upload ảnh mới</div>';
+                      parent.appendChild(errorDiv);
+                    }
+                  }}
+                />
+                {/* Overlay with action buttons */}
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', opacity: 0, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '0'}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      document.getElementById('venue-image-input')?.click();
+                    }}
+                    style={{ background: '#fff', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, color: TX, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+                    Thay đổi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setForm(f => ({ ...f, imageFile: null }));
+                    }}
+                    style={{ background: '#ef4444', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                    Xóa
+                  </button>
+                </div>
+              </div>
+              <div style={{ fontSize: '12px', color: TX2, marginTop: '8px' }}>
+                {form.imageFile ? `📎 ${form.imageFile.name}` : '✅ Ảnh hiện tại'}
+                {editTarget?.image && !form.imageFile && (
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', wordBreak: 'break-all' }}>
+                    {editTarget.image}
+                  </div>
+                )}
               </div>
             </div>
+          ) : (
+            /* Upload Dropzone */
+            <div
+              style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '32px', textAlign: 'center', background: '#f8fafc', cursor: 'pointer', marginBottom: '20px', transition: 'all 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#0f3d22'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+              onClick={() => document.getElementById('venue-image-input')?.click()}
+            >
+              <span className="material-symbols-outlined text-muted mb-2" style={{ fontSize: '40px' }}>cloud_upload</span>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: TX }}>
+                Kéo thả ảnh hoặc nhấp vào đây để tải lên
+              </div>
+              <div style={{ fontSize: '12px', color: TX2, marginTop: '4px' }}>JPG, PNG, WEBP · Tối đa 5MB</div>
+            </div>
           )}
+          
+          {/* Hidden File Input */}
+          <input
+            id="venue-image-input" 
+            type="file" 
+            accept="image/jpeg,image/png,image/webp,image/jpg" 
+            style={{ display: 'none' }}
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) {
+                // Validate file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                  alert('Kích thước ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.');
+                  return;
+                }
+                setForm(f => ({ ...f, imageFile: file }));
+              }
+            }}
+          />
         </Section>
 
         <Section icon="info" title="Thông tin cơ bản">

@@ -7,6 +7,9 @@ const router = express.Router();
 // Public webhook route for MoMo IPN payments
 router.post("/momo-ipn", bookingController.handleMomoIPN.bind(bookingController));
 
+// Public route: Available slots (no auth required so users can check before booking)
+router.get("/slots/:courtId", bookingController.getAvailableSlots.bind(bookingController));
+
 // All booking routes below require authentication
 router.use(verifyToken);
 
@@ -16,9 +19,6 @@ router.get("/", bookingController.getUserBookings.bind(bookingController));
 router.get("/:id", bookingController.getBookingById.bind(bookingController));
 router.patch("/:id", bookingController.updateBooking.bind(bookingController));
 router.delete("/:id", bookingController.cancelBooking.bind(bookingController));
-
-// Available slots
-router.get("/slots/:courtId", bookingController.getAvailableSlots.bind(bookingController));
 
 // Admin/Owner routes (for managing court bookings)
 router.get("/court/:courtId/bookings", bookingController.getCourtBookings.bind(bookingController));

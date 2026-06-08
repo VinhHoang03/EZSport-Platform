@@ -3,6 +3,7 @@ import { Container, Row, Col, Card, Form, Button, InputGroup, Badge, Alert, Spin
 import { useNavigate } from 'react-router-dom';
 import { useBookingStore } from '../../store/bookingStore';
 import { bookingService } from '../../services/booking.service';
+import { courtService, venueService, type Court, type Venue } from '../../services/venue.service';
 import { useAuth } from '../../context/AuthContext';
 
 interface CheckoutPageProps {
@@ -13,10 +14,13 @@ interface CheckoutPageProps {
   onLogoClick?: () => void;
 }
 
-export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, onBackClick, onSuccessClick }) => {
+export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick, onSuccessClick }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { draft } = useBookingStore();
+  const [venueData, setVenueData] = useState<Venue | null>(null);
+  const [courtData, setCourtData] = useState<Court | null>(null);
+  const [isLoadingBookingData, setIsLoadingBookingData] = useState<boolean>(true);
   
   const [usePoints, setUsePoints] = useState<boolean>(true);
   const [voucherCode, setVoucherCode] = useState<string>('EZSPORT50');
@@ -37,38 +41,89 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
   const [bookerEmail, setBookerEmail] = useState<string>(draft?.bookerEmail || user?.email || 'an.nguyen@email.com');
 
   useEffect(() => {
-    if (!draft || !draft.slot) {
-      setError('Không tìm thấy thông tin đặt sân. Vui lòng chọn lại.');
+    if (!draft?.slot) {
+      setError('Khong tim thay thong tin dat san. Vui long chon lai.');
     }
   }, [draft]);
 
-  // Booking details from draft
-  const booking = draft ? {
-    venueName: draft.courtName,
-    sport: draft.sport,
-    address: draft.courtAddress,
-    image: draft.courtImage || '/images/badminton.png',
-    date: draft.slot ? new Date(draft.slot.date).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
-    time: draft.slot ? `${draft.slot.startTime} - ${draft.slot.endTime}` : '',
-    courtNo: draft.courtName || `Sân ${draft.courtId}`,
-    duration: `${draft.slot?.duration || 0} giờ`,
-    basePrice: draft.basePrice,
-    serviceFee: draft.serviceFee,
-    discount: draft.discount,
-    pointsDiscount: draft.pointsUsed
-  } : {
-    venueName: 'EZSport Arena Central',
-    sport: 'CẦU LÔNG',
-    address: '81C Lê Văn Hiến, Ngũ Hành Sơn, Đà Nẵng',
-    image: '/images/badminton.png',
-    date: 'Thứ 6, 16/05/2025',
-    time: '18:00 - 20:00',
-    courtNo: 'Sân B2',
-    duration: '2 giờ',
-    basePrice: 300000,
-    serviceFee: 15000,
-    discount: 30000,
-    pointsDiscount: 50000
+  useEffect(() => {
+    let isCanceled = false;
+
+    const fetchBookingData = async () => {
+      if (!venueId) {
+        setIsLoadingBookingData(false);
+        return;
+      }
+
+      setIsLoadingBookingData(true);
+      try {
+        const court = draft?.courtId
+          ? await courtService.getCourtById(String(draft.courtId)).catch(() => null)
+          : null;
+
+        let venue = await venueService.getVenueById(String(venueId)).catch(() => null);
+
+        if (!venue && court?.venue) {
+          const courtVenue = court.venue as any;
+          const courtVenueId = typeof courtVenue === 'string' ? courtVenue : courtVenue._id;
+          if (courtVenueId) {
+            venue = await venueService.getVenueById(String(courtVenueId)).catch(() => null);
+          }
+        }
+
+        const resolvedCourt =
+          court ??
+          (venue
+            ? await courtService
+                .getCourts({ venue: String(venue._id), active: 'true' })
+                .then((courts) => courts[0] ?? null)
+                .catch(() => null)
+            : null);
+
+        if (!venue) {
+          throw new Error('Khong tim thay thong tin san');
+        }
+
+        if (!isCanceled) {
+          setVenueData(venue);
+          setCourtData(resolvedCourt);
+        }
+      } catch (err: any) {
+        if (!isCanceled) {
+          setVenueData(null);
+          setCourtData(null);
+          setError(err?.response?.data?.message || err?.message || 'Khong the tai du lieu checkout');
+        }
+      } finally {
+        if (!isCanceled) {
+          setIsLoadingBookingData(false);
+        }
+      }
+    };
+
+    fetchBookingData();
+
+    return () => {
+      isCanceled = true;
+    };
+  }, [venueId, draft?.courtId]);
+
+  const selectedSport = draft?.sport || courtData?.sportTypes?.[0] || venueData?.sportTypes?.[0] || '';
+  const selectedBasePrice = draft?.basePrice || (courtData?.pricePerHour ?? venueData?.pricePerHour ?? 0) * (draft?.slot?.duration || 1);
+
+  const booking = {
+    venueName: venueData?.name || courtData?.name || draft?.courtName || '',
+    sport: selectedSport,
+    address: venueData?.location || draft?.courtAddress || '',
+    image: venueData?.image || venueData?.images?.[0] || courtData?.images?.[0] || draft?.courtImage || '',
+    date: draft?.slot ? new Date(draft.slot.date).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
+    time: draft?.slot ? `${draft.slot.startTime} - ${draft.slot.endTime}` : '',
+    courtNo: courtData?.name || draft?.courtName || '',
+    duration: `${draft?.slot?.duration || 0} gio`,
+    basePrice: selectedBasePrice,
+    serviceFee: draft?.serviceFee ?? 15000,
+    discount: draft?.discount ?? 0,
+    pointsDiscount: draft?.pointsUsed ?? 0
   };
 
   // Live order calculations
@@ -79,7 +134,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
   const total = subtotal + serviceFee - discountVal - pointsVal;
 
   const handleConfirmPayment = async () => {
-    if (!draft || !draft.slot) {
+    if (!draft || !draft.slot || !courtData?._id) {
       setError('Thông tin đặt sân không đầy đủ');
       return;
     }
@@ -89,12 +144,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
 
     try {
       const bookingPayload = {
-        courtId: draft.courtId,
+        courtId: courtData._id,
         bookingDate: new Date(draft.slot.date),
         startTime: draft.slot.startTime,
         endTime: draft.slot.endTime,
         duration: draft.slot.duration,
-        sport: draft.sport,
+        sport: selectedSport,
         basePrice: subtotal,
         serviceFee: serviceFee,
         discount: discountVal,
@@ -127,6 +182,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
       setIsSubmitting(false);
     }
   };
+
+  if (isLoadingBookingData) {
+    return (
+      <div className="vh-100 w-100 d-flex align-items-center justify-content-center bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <Spinner variant="success" />
+      </div>
+    );
+  }
 
   return (
     <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -174,11 +237,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
 
                 <div className="d-flex gap-3 align-items-center mb-4 flex-wrap flex-sm-nowrap">
                   <div className="overflow-hidden flex-shrink-0" style={{ width: '80px', height: '80px', borderRadius: '16px' }}>
-                    <img
+                    {booking.image && <img
                       src={booking.image}
-                      alt="Sunrise Premium"
+                      alt={booking.venueName || booking.courtNo}
                       className="w-100 h-100 object-fit-cover"
-                    />
+                    />}
                   </div>
                   <div>
                     <div className="d-flex align-items-center gap-2 mb-1.5 flex-wrap">
@@ -545,7 +608,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId: _venueId, o
 
                   <Button
                     onClick={handleConfirmPayment}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !draft?.slot || !courtData?._id}
                     className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-1 d-flex align-items-center justify-content-center gap-2"
                     style={{
                       background: '#0f172a',

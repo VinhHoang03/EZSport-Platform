@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Spinner } from 'react-bootstrap';
-import { G, W, TX, TX2 } from '../../../utils/theme';
+import { G, TX, TX2 } from '../../../utils/theme'; // W not used
 import { analyticsService, type OwnerStats, type RevenueChartData } from '../../../services/analytics.service';
 
 interface OwnerOverviewTabProps {

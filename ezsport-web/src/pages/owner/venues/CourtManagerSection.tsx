@@ -270,6 +270,36 @@ export const CourtManagerSection: React.FC = () => {
                   {idx + 1}
                 </div>
 
+                {/* Court image thumbnail */}
+                {court.images && court.images.length > 0 ? (
+                  <div style={{
+                    width: 80, height: 60, borderRadius: 8,
+                    overflow: 'hidden', border: '1px solid #e2e8f0',
+                    flexShrink: 0, background: '#f8fafc',
+                  }}>
+                    <img 
+                      src={court.images[0]} 
+                      alt={court.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        // Fallback to default image if load fails
+                        e.currentTarget.src = '/images/court-placeholder.png';
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{
+                    width: 80, height: 60, borderRadius: 8,
+                    border: '1px solid #e2e8f0', background: '#f8fafc',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#cbd5e1' }}>
+                      image
+                    </span>
+                  </div>
+                )}
+
                 {/* Court info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: 15, color: TX, marginBottom: 4 }}>

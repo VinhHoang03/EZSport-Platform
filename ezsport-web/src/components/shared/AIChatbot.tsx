@@ -2,15 +2,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { aiService } from '../../services/ai.service';
 import { useAuth } from '../../context/AuthContext';
+import { useBookingStore } from '../../store/bookingStore';
 import api from '../../api/api';
 
 interface CourtRecommendation {
   id: number | string;
+  venueId?: number | string;
   name: string;
   rating: number;
   location: string;
   distance: string;
   price: string;
+  pricePerHour: number;
   lat: number;
   lng: number;
   sportType: string;
@@ -22,20 +25,33 @@ interface CourtRecommendation {
 const normalizeRecommendation = (court: any): CourtRecommendation => {
   const venue = court?.venue || {};
   const sportType = court?.sportType || court?.sportTypes?.[0] || 'sport';
-  const price = court?.price || venue?.price || court?.pricePerHour;
-  const image = court?.image || court?.images?.[0] || venue?.images?.[0] || '';
+  const rawPricePerHour = court?.pricePerHour ?? venue?.pricePerHour;
+  const price = rawPricePerHour ?? court?.price ?? venue?.price;
+  const image = court?.image || court?.images?.[0] || venue?.images?.[0] || venue?.image || '';
+
+  // Extract venueId - handle both object and string
+  let venueId: string | undefined;
+  if (court?.venueId) {
+    venueId = typeof court.venueId === 'string' ? court.venueId : court.venueId._id;
+  } else if (venue?._id) {
+    venueId = venue._id;
+  } else if (court?.venue) {
+    venueId = typeof court.venue === 'string' ? court.venue : court.venue._id;
+  }
 
   return {
     id: court?._id || court?.id,
+    venueId,
     name: court?.name || 'Sân thể thao',
     rating: Number(court?.rating || venue?.rating || 4),
     location: court?.location || venue?.location || venue?.address || 'Đà Nẵng',
     distance: court?.distance != null ? `${Number(court.distance).toFixed(1)} km` : 'N/A',
     price: price != null ? String(price) : 'Liên hệ',
-    lat: Number(court?.lat || venue?.lat || 0),
-    lng: Number(court?.lng || venue?.lng || 0),
+    pricePerHour: Number(rawPricePerHour) || parsePriceValue(String(price || '')),
+    lat: Number(venue?.lat || court?.lat || 0),
+    lng: Number(venue?.lng || court?.lng || 0),
     sportType: String(sportType),
-    emoji: court?.emoji || '🏟️',
+    emoji: court?.emoji || venue?.emoji || '🏟️',
     image,
   };
 };
@@ -63,11 +79,74 @@ const hasSportKeyword = (value: string): boolean => {
 
 const hasSearchContext = (value: string): boolean => {
   const text = normalizePromptText(value);
-  return /(thanh khe|hai chau|ngu hanh son|gu hanh son|son tra|lien chieu|cam le|hoa vang|hoa xuan|ngay mai|hom nay|toi nay|\b([01]?\d|2[0-3])\s*(h|:)\s*([0-5]\d)?\b)/.test(text);
+  return /(an khe|thanh khe|hai chau|ngu hanh son|gu hanh son|son tra|lien chieu|cam le|hoa vang|hoa xuan|ngay mai|hom nay|toi nay|\b([01]?\d|2[0-3])\s*(h|:)\s*([0-5]\d)?\b)/.test(text);
 };
 
 const shouldMergeWithPreviousSearch = (value: string): boolean =>
   hasSportKeyword(value) && !hasSearchContext(value);
+
+const parseSlotFromPrompt = (value: string) => {
+  const text = normalizePromptText(value);
+  const rangeMatch = text.match(/\b([01]?\d|2[0-3])\s*(?:h|:)\s*([0-5]\d)?\s*(?:den|toi|-|~)\s*([01]?\d|2[0-3])\s*(?:h|:)?\s*([0-5]\d)?\b/);
+  const timeMatch = rangeMatch || text.match(/\b([01]?\d|2[0-3])\s*(?:h|:)\s*([0-5]\d)?\b/);
+  if (!timeMatch) return null;
+
+  const startHour = Number(timeMatch[1]);
+  const startMinute = Number(timeMatch[2] || 0);
+  const start = new Date();
+  if (text.includes('ngay mai') || text.includes('mai')) {
+    start.setDate(start.getDate() + 1);
+  }
+  start.setHours(startHour, startMinute, 0, 0);
+
+  const end = new Date(start);
+  if (rangeMatch) {
+    end.setHours(Number(rangeMatch[3]), Number(rangeMatch[4] || 0), 0, 0);
+    if (end <= start) {
+      end.setHours(start.getHours() + 1);
+    }
+  } else {
+    end.setHours(end.getHours() + 1);
+  }
+
+  const toDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const toTime = (date: Date) =>
+    `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+  return {
+    date: toDate(start),
+    startTime: toTime(start),
+    endTime: toTime(end),
+    duration: Math.max(1, (end.getTime() - start.getTime()) / 36e5),
+  };
+};
+
+const parsePriceValue = (value: string | number): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+
+  const priceText = String(value || '').trim();
+  if (!priceText) return 0;
+
+  const compactNumber = priceText.replace(/[^\d]/g, '');
+  if (/^\d+$/.test(priceText) && compactNumber) {
+    return Number(compactNumber);
+  }
+
+  const priceMatches = priceText.match(/\d{1,3}(?:[.,]\d{3})+|\d+/g);
+  if (!priceMatches?.length) return 0;
+
+  const values = priceMatches
+    .map((part) => Number(part.replace(/[.,]/g, '')))
+    .filter((num) => Number.isFinite(num) && num > 0);
+
+  if (!values.length) return 0;
+  return Math.min(...values);
+};
 
 interface AIChatbotProps {
   onDirectionsClick?: (lat: number, lng: number, name?: string) => void;
@@ -85,6 +164,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   setCurrentPage
 }) => {
   const { user, isAuthenticated } = useAuth();
+  const { initDraft, setDraft } = useBookingStore();
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -172,9 +252,11 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
           text: aiText,
           recommendations: recommendations?.map(r => ({
             _id: r.id,
+            venueId: r.venueId,
             name: r.name,
             location: r.location,
             price: r.price,
+            pricePerHour: r.pricePerHour,
             rating: r.rating,
             sportType: r.sportType,
             emoji: r.emoji,
@@ -310,47 +392,81 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
 
   const handleDetail = (rec: CourtRecommendation) => {
     if (onDetailClick) {
-      onDetailClick(rec.id);
+      // Use venueId if available, otherwise fallback to court id
+      const idToUse = rec.venueId || rec.id;
+      onDetailClick(idToUse);
       if (setCurrentPage) {
-        setCurrentPage('court-detail');
+        setCurrentPage('venue-detail');
       }
     }
   };
 
   const handleBooking = (rec: CourtRecommendation) => {
+    const checkoutVenueId = rec.venueId || rec.id;
+    const latestSearchText = [...messages]
+      .reverse()
+      .find((msg) => msg.sender === 'user' && hasSearchContext(msg.text))?.text || '';
+    const slot = parseSlotFromPrompt(latestSearchText);
+    const duration = slot?.duration || 1;
+    const pricePerHour = rec.pricePerHour || parsePriceValue(rec.price);
+    const basePrice = pricePerHour * duration;
+    const serviceFee = 15000;
+    const discount = 30000;
+    const pointsUsed = 50000;
+
+    initDraft(String(rec.id), rec.name, rec.location, rec.image);
+    setDraft({
+      sport: rec.sportType,
+      slot,
+      basePrice,
+      serviceFee,
+      discount,
+      pointsUsed,
+      totalPrice: basePrice + serviceFee - discount - pointsUsed,
+    });
+
     if (onBookingClick) {
-      onBookingClick(rec.id);
-      if (setCurrentPage) {
-        setCurrentPage('checkout');
-      }
-    } else if (onDetailClick) {
-      onDetailClick(rec.id);
-      if (setCurrentPage) {
-        setCurrentPage('court-detail');
-      }
+      onBookingClick(checkoutVenueId);
+    } else if (setCurrentPage) {
+      setCurrentPage('checkout');
+    }
+
+    if (setCurrentPage) {
+      setCurrentPage('checkout');
     }
   };
 
   // Format giá tiền từ DB để hiển thị đẹp
-  const formatPrice = (price: string): string => {
+  const formatPrice = (price: string | number): string => {
     if (!price) return 'Liên hệ';
     
-    // Nếu đã có định dạng đẹp (có chữ VNĐ, đ, /giờ, /h) → giữ nguyên
-    if (/[a-zA-ZđĐ\/]/.test(price) && !/^\d+$/.test(price.replace(/[.,\s]/g, ''))) {
-      return price;
+    const priceStr = String(price);
+    
+    // Nếu là số thuần túy (100000) hoặc string số ("100000")
+    const cleanNum = priceStr.replace(/[^\d]/g, '');
+    if (cleanNum && cleanNum === priceStr) {
+      const num = Number(cleanNum);
+      return `${num.toLocaleString('vi-VN')}đ/h`;
     }
     
-    // Tách số từ chuỗi (hỗ trợ range như "70000-120000" hay "70.000 - 120.000")
-    const nums = price.replace(/[^\d]/g, ' ').trim().split(/\s+/).filter(Boolean).map(Number).filter(n => n > 0);
+    // Tách tất cả các số từ chuỗi (hỗ trợ "100.000 - 200.000" hoặc "100000-200000")
+    const nums = priceStr
+      .replace(/[^\d]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(Number)
+      .filter(n => n > 0);
     
-    if (nums.length === 0) return price;
+    if (nums.length === 0) return 'Liên hệ';
     
     const fmt = (n: number) => n.toLocaleString('vi-VN');
     
     if (nums.length === 1) {
       return `${fmt(nums[0])}đ/h`;
     }
-    // Range giá
+    
+    // Range giá - format cả 2 số
     return `${fmt(Math.min(...nums))} - ${fmt(Math.max(...nums))}đ/h`;
   };
 
@@ -592,14 +708,20 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                             
                             <div className="d-flex gap-1.5">
                               <button 
-                                onClick={() => handleDirections(rec)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDirections(rec);
+                                }}
                                 className="btn btn-sm btn-light border d-flex align-items-center justify-content-center p-2 rounded-xl"
                                 title="Chỉ đường"
                               >
                                 <span className="material-symbols-outlined text-success" style={{ fontSize: '16px' }}>directions</span>
                               </button>
                               <button 
-                                onClick={() => handleBooking(rec)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleBooking(rec);
+                                }}
                                 className="btn btn-sm btn-success fw-bold px-3 py-1.5 rounded-pill d-flex align-items-center gap-1 border-0"
                                 style={{ fontSize: '11.5px', background: '#15803d' }}
                               >
