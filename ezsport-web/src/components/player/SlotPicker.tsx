@@ -15,7 +15,7 @@ interface SlotPickerProps {
   selectedStartTime?: string;
 }
 
-const DURATIONS = [1, 1.5, 2, 3];
+const DURATIONS = [1, 2, 3];
 
 // Generate next 7 days
 const getNextDays = () => {
@@ -86,6 +86,24 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
     return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
   };
 
+  // Check if a time slot is available for the selected duration
+  const isSlotAvailableForDuration = (startTime: string, dur: number): boolean => {
+    const startIdx = slots.findIndex(s => s.time === startTime);
+    if (startIdx === -1) return false;
+
+    // Check if start slot is available
+    if (!slots[startIdx].available) return false;
+
+    // Check if all slots within duration are available
+    const slotsNeeded = Math.ceil(dur); // 1.5h needs 2 slots
+    for (let i = 0; i < slotsNeeded; i++) {
+      if (startIdx + i >= slots.length) return false;
+      if (!slots[startIdx + i].available) return false;
+    }
+
+    return true;
+  };
+
 
   const selectedSlot = slots.find((s) => s.time === activeTime);
   const basePrice = (selectedSlot?.price ?? 0) * duration;
@@ -128,7 +146,7 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
         ) : (
           <div className="d-flex gap-2 flex-wrap">
             {slots
-              .filter(s => s.available) // ✅ CHỈ HIỂN THỊ SLOTS CÒN TRỐNG
+              .filter(s => s.available && isSlotAvailableForDuration(s.time, duration)) // ✅ CHECK CẢ DURATION
               .map((s) => (
                 <button
                   key={s.time}
@@ -156,7 +174,7 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
                   {s.time}
                 </button>
               ))}
-            {slots.filter(s => s.available).length === 0 && (
+            {slots.filter(s => s.available && isSlotAvailableForDuration(s.time, duration)).length === 0 && (
               <div style={{ 
                 width: '100%', 
                 textAlign: 'center', 
@@ -168,7 +186,7 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
                 border: '1px dashed #e5e7eb'
               }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>event_busy</span>
-                Không còn slot trống trong ngày này
+                Không còn slot trống {duration}h liên tiếp trong ngày này
               </div>
             )}
           </div>
@@ -179,39 +197,52 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
       <div className="mb-4">
         <p className="fw-semibold mb-2" style={{ fontSize: '14px', color: '#374151' }}>Thời lượng</p>
         <div className="d-flex gap-2">
-          {DURATIONS.map((d) => (
-            <button
-              key={d}
-              onClick={() => {
-                setDuration(d);
-                if (activeTime) {
-                  const selectedSlot = slots.find((s) => s.time === activeTime);
-                  onSlotSelect({
-                    date: activeDate,
-                    startTime: activeTime,
-                    endTime: calcEndTime(activeTime, d),
-                    duration: d,
-                    basePrice: (selectedSlot?.price ?? 0) * d,
-                  });
-                }
-              }}
-              style={{
-                width: '100%',
-                height: '56px',
-                borderRadius: '16px',
-                border: duration === d ? '2px solid #16a34a' : '1px solid #e5e7eb',
-                background: duration === d ? '#f0fdf4' : '#f3f4f6',
-                padding: '0 16px',
-                fontSize: '16px',
-                fontWeight: 600,
-                color: duration === d ? '#16a34a' : '#111827',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {d}h
-            </button>
-          ))}
+          {DURATIONS.map((d) => {
+            const availableSlotsForDuration = slots.filter(s => s.available && isSlotAvailableForDuration(s.time, d)).length;
+            const isDisabled = availableSlotsForDuration === 0;
+            
+            return (
+              <button
+                key={d}
+                onClick={() => {
+                  if (isDisabled) return;
+                  setDuration(d);
+                  // Clear selected time if it's no longer available for new duration
+                  if (activeTime && !isSlotAvailableForDuration(activeTime, d)) {
+                    setActiveTime('');
+                  } else if (activeTime) {
+                    const selectedSlot = slots.find((s) => s.time === activeTime);
+                    onSlotSelect({
+                      date: activeDate,
+                      startTime: activeTime,
+                      endTime: calcEndTime(activeTime, d),
+                      duration: d,
+                      basePrice: (selectedSlot?.price ?? 0) * d,
+                    });
+                  }
+                }}
+                disabled={isDisabled}
+                style={{
+                  width: '100%',
+                  height: '56px',
+                  borderRadius: '16px',
+                  border: duration === d ? '2px solid #16a34a' : '1px solid #e5e7eb',
+                  background: isDisabled ? '#f3f4f6' : duration === d ? '#f0fdf4' : '#f3f4f6',
+                  padding: '0 16px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: isDisabled ? '#9ca3af' : duration === d ? '#16a34a' : '#111827',
+                  outline: 'none',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled ? 0.5 : 1,
+                }}
+                title={isDisabled ? 'Không còn slot trống cho thời lượng này' : ''}
+              >
+                {d}h
+                {isDisabled && <div style={{ fontSize: '10px', marginTop: '2px', opacity: 0.7 }}>Hết chỗ</div>}
+              </button>
+            );
+          })}
         </div>
       </div>
 

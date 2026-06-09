@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Dropdown, Button, Spinner } from 'react-bootstrap';
+import { Spinner, Button, Dropdown } from 'react-bootstrap';
 import { W, TX, TX2 } from '../../../utils/theme';
-import { CreateCourtModal } from '../venues/CreateCourtModal';
-import { EditCourtModal } from '../venues/EditCourtModal';
 import { venueService, courtService, type Venue, type Court } from '../../../services/venue.service';
 
 interface Booking {
@@ -36,17 +34,10 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
   const [courts, setCourts] = useState<Court[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(true);
   const [loadingCourts, setLoadingCourts] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  
-  // Edit modal states
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingCourt, setEditingCourt] = useState<Court | null>(null);
-  const [updatingCourt, setUpdatingCourt] = useState(false);
 
   // Load venues on mount
   useEffect(() => {
-    venueService.getVenues({ active: 'all' })
+    venueService.getMyVenues({ active: 'all' })
       .then(v => {
         setVenues(v);
         if (v.length > 0) setSelectedVenueId(v[0]._id);
@@ -74,19 +65,6 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
 
   const selectedVenue = venues.find(v => v._id === selectedVenueId) || null;
 
-  const handleCreateCourt = async (payloads: (FormData | any)[]) => {
-    setSubmitting(true);
-    try {
-      await courtService.createCourt(payloads);
-      setShowModal(false);
-      fetchCourts(selectedVenueId);
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Lỗi tạo sân');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleDeleteCourt = async (court: Court) => {
     if (!window.confirm(`Xoá sân "${court.name}"?`)) return;
     try {
@@ -110,27 +88,8 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
     }
   };
 
-  const handleEditCourt = (court: Court) => {
-    setEditingCourt(court);
-    setShowEditModal(true);
-  };
-
-  const handleUpdateCourt = async (courtId: string, data: any) => {
-    setUpdatingCourt(true);
-    try {
-      await courtService.updateCourt(courtId, data);
-      setShowEditModal(false);
-      setEditingCourt(null);
-      fetchCourts(selectedVenueId);
-    } catch (err: any) {
-      alert(err?.response?.data?.message || 'Lỗi cập nhật sân');
-    } finally {
-      setUpdatingCourt(false);
-    }
-  };
-
-  const hours = Array.from({ length: 13 }, (_, i) => {
-    const hr = 8 + i;
+  const hours = Array.from({ length: 17 }, (_, i) => {
+    const hr = 6 + i; // Bắt đầu từ 6h sáng
     return `${hr.toString().padStart(2, '0')}:00`;
   });
 
@@ -324,21 +283,6 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
                     {!isActive && <span style={{ fontSize: '10px', marginLeft: '6px', opacity: 0.7 }}>(Tạm đóng)</span>}
                   </span>
 
-                  {/* Edit button */}
-                  <span
-                    className="material-symbols-outlined"
-                    style={{
-                      fontSize: '15px', cursor: 'pointer', opacity: 0.5,
-                      transition: 'all 0.2s',
-                    }}
-                    title="Chỉnh sửa sân"
-                    onClick={(e) => { e.stopPropagation(); handleEditCourt(court); }}
-                    onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#1d4ed8'; }}
-                    onMouseLeave={e => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = 'inherit'; }}
-                  >
-                    edit
-                  </span>
-
                   {/* Delete button */}
                   <span
                     className="material-symbols-outlined"
@@ -357,42 +301,6 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
               );
             })
           )}
-          
-          {/* ══ Add Court Button ══ */}
-          <button
-            onClick={() => setShowModal(true)}
-            disabled={!selectedVenueId}
-            style={{
-              height: '36px', borderRadius: '20px',
-              background: selectedVenueId
-                ? 'linear-gradient(135deg, #0f3d22, #166534)'
-                : '#e2e8f0',
-              color: '#fff', border: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: '6px', padding: '0 18px',
-              cursor: selectedVenueId ? 'pointer' : 'not-allowed',
-              boxShadow: selectedVenueId
-                ? '0 4px 14px rgba(15,61,34,0.3)'
-                : 'none',
-              fontSize: '13px', fontWeight: 700,
-              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              flexShrink: 0,
-            }}
-            title="Thêm sân con mới"
-            onMouseEnter={e => {
-              if (selectedVenueId) {
-                e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(15,61,34,0.35)';
-              }
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'none';
-              e.currentTarget.style.boxShadow = selectedVenueId
-                ? '0 4px 14px rgba(15,61,34,0.3)' : 'none';
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_circle</span>
-          </button>
         </div>
       </div>
 
@@ -549,28 +457,6 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
           </>
         )}
       </div>
-
-      {/* Create Court Modal */}
-      <CreateCourtModal
-        show={showModal}
-        submitting={submitting}
-        venue={selectedVenue}
-        onClose={() => setShowModal(false)}
-        onCreateCourt={handleCreateCourt}
-        showPrice={true}
-      />
-
-      {/* Edit Court Modal */}
-      <EditCourtModal
-        show={showEditModal}
-        submitting={updatingCourt}
-        court={editingCourt}
-        onClose={() => {
-          setShowEditModal(false);
-          setEditingCourt(null);
-        }}
-        onUpdateCourt={handleUpdateCourt}
-      />
     </div>
   );
 };

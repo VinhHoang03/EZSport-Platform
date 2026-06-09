@@ -1,6 +1,7 @@
 import express from "express";
 import { 
     getVenues, 
+    getMyVenues,
     getVenueById,
     createVenue, 
     updateVenue, 
@@ -14,6 +15,7 @@ const router = express.Router();
 
 
 router.get("/", getVenues);
+router.get("/owner/me", verifyToken, authorizeRoles("owner"), getMyVenues);
 router.get("/:id", getVenueById);
 router.post("/", verifyToken, authorizeRoles("owner"), upload.single("image"), createVenue);
 router.put("/:id", verifyToken, authorizeRoles("owner"), upload.single("image"), updateVenue);

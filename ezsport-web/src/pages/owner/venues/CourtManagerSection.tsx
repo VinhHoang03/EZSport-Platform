@@ -1,45 +1,117 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Spinner } from 'react-bootstrap';
-import { venueService, courtService, type Venue, type Court } from '../../../services/venue.service';
+import { courtService, type Court, type Venue, venueService } from '../../../services/venue.service';
 import { TX, TX2, W } from '../../../utils/theme';
 import { CreateCourtModal } from './CreateCourtModal';
 import { EditCourtModal } from './EditCourtModal';
 
-const SPORT_EMOJI: Record<string, string> = {
-  badminton: '🏸', pickleball: '🏓', soccer: '⚽', tennis: '🎾', basketball: '🏀',
+type PricingRule = {
+  label?: string;
+  startTime: string;
+  endTime: string;
+  price: number;
+  isActive: boolean;
 };
 
-const STATUS_STYLE: Record<string, { bg: string; color: string; label: string; icon: string }> = {
-  available:   { bg: '#dcfce7', color: '#15803d', label: 'Hoạt động', icon: '✅' },
-  maintenance: { bg: '#fef9c3', color: '#92400e', label: 'Bảo trì', icon: '🔧' },
-  inactive:    { bg: '#fee2e2', color: '#dc2626', label: 'Tạm đóng', icon: '🔒' },
+const SPORT_LABELS: Record<string, { label: string; icon: string }> = {
+  badminton: { label: 'Cầu lông', icon: 'sports_tennis' },
+  pickleball: { label: 'Pickleball', icon: 'sports_tennis' },
+  soccer: { label: 'Bóng đá', icon: 'sports_soccer' },
+  tennis: { label: 'Tennis', icon: 'sports_tennis' },
+  basketball: { label: 'Bóng rổ', icon: 'sports_basketball' },
 };
 
-const inp: React.CSSProperties = {
-  padding: '10px 14px', borderRadius: '10px',
-  border: '1.5px solid #e2e8f0', outline: 'none',
-  fontSize: '14px', color: TX, background: W,
-  width: '100%', fontWeight: 600,
+const STATUS_STYLE = {
+  available: { bg: '#e7f8ec', color: '#166534', label: 'Đang mở' },
+  inactive: { bg: '#ffe8e8', color: '#b91c1c', label: 'Đang đóng' },
+};
+
+const DAY_COLUMNS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+const toMinutes = (time: string) => {
+  const [hour = 0, minute = 0] = String(time || '00:00').split(':').map(Number);
+  return hour * 60 + minute;
+};
+
+const formatPrice = (value?: number) => `${(Number(value) || 0).toLocaleString('vi-VN')}đ`;
+const formatHourPrice = (value?: number) => `${formatPrice(value)}/giờ`;
+
+const defaultPricingRules = (court?: Court | null): PricingRule[] => {
+  const base = Number(court?.pricePerHour || 150000);
+  return [
+    { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: base, isActive: true },
+    { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: Math.max(base, base + 50000), isActive: true },
+  ];
+};
+
+const normalizePricingRules = (court?: Court | null): PricingRule[] => {
+  if (court?.pricingRules?.length) {
+    return court.pricingRules.map(rule => ({
+      label: rule.label || '',
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      price: Number(rule.price || 0),
+      isActive: rule.isActive !== false,
+    }));
+  }
+
+  return defaultPricingRules(court);
+};
+
+const getPriceForHour = (rules: PricingRule[], hour: number, fallback: number) => {
+  const minute = hour * 60;
+  const rule = rules.find(item => item.isActive && minute >= toMinutes(item.startTime) && minute < toMinutes(item.endTime));
+  return rule?.price ?? fallback;
+};
+
+const buttonBase: React.CSSProperties = {
+  border: 'none',
+  borderRadius: 8,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  fontSize: 12,
+  fontWeight: 800,
+  transition: 'all 0.18s ease',
+};
+
+const fieldStyle: React.CSSProperties = {
+  width: '100%',
+  height: 34,
+  border: '1px solid #dce5df',
+  borderRadius: 7,
+  background: W,
+  color: TX,
+  outline: 'none',
+  padding: '0 9px',
+  fontSize: 12,
+  fontWeight: 700,
 };
 
 export const CourtManagerSection: React.FC = () => {
   const [venues, setVenues] = useState<Venue[]>([]);
-  const [selectedVenueId, setSelectedVenueId] = useState<string>('');
+  const [selectedVenueId, setSelectedVenueId] = useState('');
   const [courts, setCourts] = useState<Court[]>([]);
+  const [selectedCourtId, setSelectedCourtId] = useState('');
+  const [pricingDraft, setPricingDraft] = useState<PricingRule[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(true);
   const [loadingCourts, setLoadingCourts] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [savingPricing, setSavingPricing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  
-  // Edit modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [updatingCourt, setUpdatingCourt] = useState(false);
 
-  // Load venues on mount
+  const selectedVenue = venues.find(v => v._id === selectedVenueId) || null;
+  const selectedCourt = courts.find(c => c._id === selectedCourtId) || null;
+  const activeCourts = courts.filter(c => c.isActive !== false).length;
+
   useEffect(() => {
-    venueService.getVenues({ active: 'all' })
+    venueService.getMyVenues({ active: 'all' })
       .then(v => {
         setVenues(v);
         if (v.length > 0) setSelectedVenueId(v[0]._id);
@@ -48,12 +120,14 @@ export const CourtManagerSection: React.FC = () => {
       .finally(() => setLoadingVenues(false));
   }, []);
 
-  // Load courts when venue changes
   const fetchCourts = useCallback((venueId: string) => {
     if (!venueId) return;
     setLoadingCourts(true);
     courtService.getCourts({ venue: venueId, active: 'all' })
-      .then(setCourts)
+      .then(data => {
+        setCourts(data);
+        setSelectedCourtId(current => data.find(c => c._id === current)?._id || data[0]?._id || '');
+      })
       .catch(console.error)
       .finally(() => setLoadingCourts(false));
   }, []);
@@ -62,7 +136,34 @@ export const CourtManagerSection: React.FC = () => {
     if (selectedVenueId) fetchCourts(selectedVenueId);
   }, [selectedVenueId, fetchCourts]);
 
-  const selectedVenue = venues.find(v => v._id === selectedVenueId) || null;
+  useEffect(() => {
+    const rules = normalizePricingRules(selectedCourt);
+    setPricingDraft(rules);
+    
+    // Auto-save default pricing rules for courts that don't have any
+    if (selectedCourt && (!selectedCourt.pricingRules || selectedCourt.pricingRules.length === 0)) {
+      const basePrice = Number(selectedCourt.pricePerHour || 150000);
+      const defaultRules = [
+        { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: basePrice, isActive: true },
+        { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: basePrice + 50000, isActive: true },
+      ];
+      
+      // Silently save to backend
+      courtService.updateCourt(selectedCourt._id, {
+        pricingRules: defaultRules,
+      } as Partial<Court>).catch(() => {
+        // Ignore error, user can manually save later
+      });
+    }
+  }, [selectedCourtId, selectedCourt?._id]);
+
+  const stats = useMemo(() => {
+    const rules = pricingDraft.filter(rule => rule.isActive);
+    const prices = rules.map(rule => Number(rule.price || 0)).filter(Boolean);
+    const min = prices.length ? Math.min(...prices) : selectedCourt?.pricePerHour || 0;
+    const max = prices.length ? Math.max(...prices) : selectedCourt?.pricePerHour || 0;
+    return { rules: rules.length, min, max };
+  }, [pricingDraft, selectedCourt]);
 
   const handleCreateCourt = async (payloads: (FormData | any)[]) => {
     setSubmitting(true);
@@ -78,28 +179,58 @@ export const CourtManagerSection: React.FC = () => {
   };
 
   const handleDeleteCourt = async (court: Court) => {
-    if (!window.confirm(`Xoá sân "${court.name}"?`)) return;
+    if (!window.confirm(`Xóa sân "${court.name}"?`)) return;
     setDeletingId(court._id);
     try {
       await courtService.deleteCourt(court._id);
       fetchCourts(selectedVenueId);
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Lỗi xoá sân');
+      alert(err?.response?.data?.message || 'Lỗi xóa sân');
     } finally {
       setDeletingId(null);
     }
   };
 
   const handleToggleStatus = async (court: Court) => {
-    const nextActive = !(court as any).isActive;
+    const nextActive = !court.isActive;
     try {
       await courtService.updateCourt(court._id, {
         isActive: nextActive,
         status: nextActive ? 'available' : 'inactive',
-      } as any);
+      } as Partial<Court>);
+      fetchCourts(selectedVenueId);
+    } catch {
+      alert('Lỗi cập nhật trạng thái');
+    }
+  };
+
+  const handleSavePricing = async () => {
+    if (!selectedCourt) return;
+
+    const cleanRules = pricingDraft
+      .map(rule => ({
+        ...rule,
+        label: rule.label?.trim() || 'Khung giờ',
+        price: Number(rule.price || 0),
+      }))
+      .filter(rule => rule.startTime && rule.endTime && toMinutes(rule.startTime) < toMinutes(rule.endTime));
+
+    if (!cleanRules.length) {
+      alert('Vui lòng thêm ít nhất một khung giờ hợp lệ.');
+      return;
+    }
+
+    setSavingPricing(true);
+    try {
+      await courtService.updateCourt(selectedCourt._id, {
+        pricePerHour: cleanRules[0].price,
+        pricingRules: cleanRules,
+      } as Partial<Court>);
       fetchCourts(selectedVenueId);
     } catch (err: any) {
-      alert('Lỗi cập nhật trạng thái');
+      alert(err?.response?.data?.message || 'Lỗi lưu bảng giá');
+    } finally {
+      setSavingPricing(false);
     }
   };
 
@@ -122,295 +253,446 @@ export const CourtManagerSection: React.FC = () => {
     }
   };
 
+  const updateRule = (index: number, patch: Partial<PricingRule>) => {
+    setPricingDraft(items => items.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
+  };
+
+  const addPricingRule = () => {
+    setPricingDraft(items => [
+      ...items,
+      { label: 'Khung giờ mới', startTime: '06:00', endTime: '07:00', price: selectedCourt?.pricePerHour || 150000, isActive: true },
+    ]);
+  };
+
   return (
-    <div style={{ paddingBottom: 40 }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h5 style={{ fontWeight: 800, color: TX, margin: 0 }}>Quản lý sân 🏟️</h5>
-        <p style={{ fontSize: 13, color: TX2, marginTop: 4, marginBottom: 0 }}>
-          Chọn địa điểm để xem và quản lý từng sân con bên trong
-        </p>
+    <div className="court-pricing" style={{ paddingBottom: 40 }}>
+      <style>{`
+        .court-pricing .hover-rise:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 24px rgba(15, 61, 34, 0.12);
+        }
+
+        .court-pricing .price-table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          font-size: 12px;
+        }
+
+        .court-pricing .price-table th {
+          background: #e9edfb;
+          color: #344057;
+          font-weight: 900;
+          padding: 10px;
+          border-bottom: 1px solid #dfe5f4;
+          white-space: nowrap;
+        }
+
+        .court-pricing .price-table td {
+          padding: 9px 10px;
+          border-bottom: 1px solid #edf1f5;
+          background: #fff;
+          vertical-align: middle;
+        }
+
+        .court-pricing .price-table tr:nth-child(even) td {
+          background: #fff9e8;
+        }
+
+        .court-pricing .price-table tr.inactive-row td {
+          opacity: 0.56;
+          background: #f8fafc;
+        }
+
+        .court-pricing .court-tab.active {
+          background: #f0fdf4;
+          border-color: #9fd7b0;
+          color: #0f3d22;
+        }
+
+        @media (max-width: 900px) {
+          .court-pricing .pricing-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .court-pricing .topbar {
+            align-items: stretch !important;
+            flex-direction: column;
+          }
+
+          .court-pricing .table-scroll {
+            overflow-x: auto;
+          }
+        }
+      `}</style>
+
+      <div className="topbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
+        <div>
+          <h5 style={{ margin: 0, color: TX, fontSize: 22, fontWeight: 900 }}>Bảng giá theo khung giờ</h5>
+          <p style={{ margin: '5px 0 0', color: TX2, fontSize: 13 }}>
+            Chọn sân, thiết lập giá từng khoảng giờ và lưu để khách thấy đúng giá khi đặt lịch.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            className="hover-rise"
+            onClick={() => setShowModal(true)}
+            disabled={!selectedVenueId}
+            style={{
+              ...buttonBase,
+              height: 38,
+              padding: '0 14px',
+              background: selectedVenueId ? '#0f3d22' : '#cbd5e1',
+              color: W,
+              cursor: selectedVenueId ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>add</span>
+            Thêm sân
+          </button>
+          <button
+            className="hover-rise"
+            onClick={handleSavePricing}
+            disabled={!selectedCourt || savingPricing}
+            style={{
+              ...buttonBase,
+              height: 38,
+              padding: '0 14px',
+              background: !selectedCourt || savingPricing ? '#cbd5e1' : '#fff',
+              color: !selectedCourt || savingPricing ? W : '#0f3d22',
+              border: !selectedCourt || savingPricing ? 'none' : '1px solid #9fd7b0',
+              cursor: !selectedCourt || savingPricing ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {savingPricing ? <Spinner size="sm" /> : <span className="material-symbols-outlined" style={{ fontSize: 17 }}>save</span>}
+            Lưu bảng giá
+          </button>
+        </div>
       </div>
 
-      {/* Venue Dropdown + Add button */}
       <div
         style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: '#f8fafc', borderRadius: 16,
-          padding: '16px 20px', marginBottom: 28,
+          background: W,
           border: '1px solid #e2e8f0',
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 12,
+          display: 'grid',
+          gridTemplateColumns: 'minmax(230px, 1fr) repeat(4, minmax(120px, auto))',
+          gap: 10,
+          alignItems: 'center',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)',
         }}
       >
-        <span className="material-symbols-outlined" style={{ color: '#0f3d22', fontSize: 22 }}>
-          location_on
-        </span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: TX2, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Địa điểm
-          </div>
+        <div>
+          <div style={{ color: TX2, fontSize: 11, fontWeight: 900, marginBottom: 5 }}>Địa điểm</div>
           {loadingVenues ? (
             <Spinner size="sm" variant="success" />
           ) : venues.length === 0 ? (
-            <span style={{ fontSize: 13, color: TX2 }}>Chưa có địa điểm nào. Hãy thêm địa điểm trước.</span>
+            <span style={{ color: TX2, fontSize: 13 }}>Chưa có địa điểm</span>
           ) : (
             <select
-              style={{ ...inp, border: 'none', background: 'transparent', padding: '2px 0', fontSize: 16, fontWeight: 800 }}
               value={selectedVenueId}
               onChange={e => setSelectedVenueId(e.target.value)}
+              style={{ ...fieldStyle, height: 38, fontSize: 13 }}
             >
-              {venues.map(v => (
-                <option key={v._id} value={v._id}>{v.name}</option>
-              ))}
+              {venues.map(venue => <option key={venue._id} value={venue._id}>{venue.name}</option>)}
             </select>
           )}
         </div>
 
-        {/* + Add court button */}
-        <button
-          onClick={() => setShowModal(true)}
-          disabled={!selectedVenueId}
-          title="Thêm sân mới"
-          style={{
-            width: 44, height: 44, borderRadius: '50%',
-            background: selectedVenueId ? '#0f3d22' : '#e2e8f0',
-            border: 'none', color: W, cursor: selectedVenueId ? 'pointer' : 'not-allowed',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: selectedVenueId ? '0 4px 12px rgba(15,61,34,0.25)' : 'none',
-            transition: 'all 0.2s', flexShrink: 0,
-          }}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 22 }}>add</span>
-        </button>
+        {[
+          { label: 'Tổng sân', value: courts.length },
+          { label: 'Đang mở', value: activeCourts },
+          { label: 'Khung giá', value: stats.rules },
+          { label: 'Khoảng giá', value: stats.min === stats.max ? formatPrice(stats.min) : `${formatPrice(stats.min)} - ${formatPrice(stats.max)}` },
+        ].map(item => (
+          <div key={item.label} style={{ background: '#f8fafc', border: '1px solid #edf1f5', borderRadius: 8, padding: '8px 10px' }}>
+            <div style={{ color: TX, fontSize: 14, fontWeight: 900, whiteSpace: 'nowrap' }}>{item.value}</div>
+            <div style={{ color: TX2, fontSize: 11, fontWeight: 700 }}>{item.label}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Court count badge */}
-      {selectedVenue && !loadingCourts && (
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{
-            background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac',
-            borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700,
-          }}>
-            {courts.length} sân trong "{selectedVenue.name}"
-          </span>
-          {courts.filter(c => (c as any).isActive !== false).length > 0 && (
-            <span style={{
-              background: '#dcfce7', color: '#15803d',
-              borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700,
-            }}>
-              ● {courts.filter(c => (c as any).isActive !== false).length} hoạt động
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Courts List */}
       {loadingCourts ? (
-        <div style={{ textAlign: 'center', padding: '48px 0' }}>
+        <div style={{ textAlign: 'center', padding: '54px 0', color: TX2 }}>
           <Spinner variant="success" />
-          <p style={{ marginTop: 12, color: TX2, fontSize: 14 }}>Đang tải danh sách sân...</p>
+          <p style={{ marginTop: 10, fontSize: 13, fontWeight: 700 }}>Đang tải danh sách sân...</p>
         </div>
       ) : !selectedVenueId ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: TX2 }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#d1d5db', display: 'block', marginBottom: 12 }}>
-            sports_tennis
-          </span>
-          Chọn một địa điểm để xem các sân
-        </div>
+        <EmptyState icon="location_searching" title="Chưa chọn địa điểm" desc="Chọn một địa điểm để bắt đầu cấu hình giá." />
       ) : courts.length === 0 ? (
-        <div
-          style={{
-            textAlign: 'center', padding: '48px 24px',
-            border: '2px dashed #e2e8f0', borderRadius: 16,
-            background: '#fafafa',
-          }}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#d1d5db', display: 'block', marginBottom: 12 }}>
-            add_circle
-          </span>
-          <p style={{ fontWeight: 700, color: TX, marginBottom: 4 }}>Chưa có sân nào</p>
-          <p style={{ fontSize: 13, color: TX2, marginBottom: 20 }}>
-            Nhấn <strong>+</strong> để thêm sân đầu tiên cho <strong>{selectedVenue?.name}</strong>
-          </p>
-          <button
-            onClick={() => setShowModal(true)}
-            style={{
-              background: '#0f3d22', color: W, border: 'none', borderRadius: 20,
-              padding: '10px 24px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
-            Thêm sân đầu tiên
-          </button>
-        </div>
+        <EmptyState
+          icon="add_circle"
+          title="Chưa có sân nào"
+          desc={`Tạo sân đầu tiên cho ${selectedVenue?.name || 'địa điểm này'} để thiết lập bảng giá.`}
+          action={<button onClick={() => setShowModal(true)} style={{ ...buttonBase, background: '#0f3d22', color: W, padding: '10px 16px' }}>Thêm sân đầu tiên</button>}
+        />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {courts.map((court, idx) => {
-            const st = (court as any).isActive !== false ? STATUS_STYLE.available : STATUS_STYLE.inactive;
-            const isDeleting = deletingId === court._id;
-            return (
-              <div
-                key={court._id}
-                style={{
-                  background: W, borderRadius: 14, border: '1px solid #e2e8f0',
-                  padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                  transition: 'box-shadow 0.2s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)')}
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)')}
-              >
-                {/* Index bubble */}
-                <div style={{
-                  width: 40, height: 40, borderRadius: '50%',
-                  background: '#f0fdf4', border: '2px solid #86efac',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: 15, color: '#15803d', flexShrink: 0,
-                }}>
-                  {idx + 1}
-                </div>
+        <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 12 }}>
+          <div style={{ background: W, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 12, fontWeight: 900, color: TX }}>
+              Danh sách sân
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10 }}>
+              {courts.map(court => {
+                const status = court.isActive !== false ? STATUS_STYLE.available : STATUS_STYLE.inactive;
+                const active = selectedCourtId === court._id;
+                const sports = court.sportTypes?.map(s => SPORT_LABELS[s]?.label || s).join(', ');
 
-                {/* Court image thumbnail */}
-                {court.images && court.images.length > 0 ? (
-                  <div style={{
-                    width: 80, height: 60, borderRadius: 8,
-                    overflow: 'hidden', border: '1px solid #e2e8f0',
-                    flexShrink: 0, background: '#f8fafc',
-                  }}>
-                    <img 
-                      src={court.images[0]} 
-                      alt={court.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => {
-                        // Fallback to default image if load fails
-                        e.currentTarget.src = '/images/court-placeholder.png';
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div style={{
-                    width: 80, height: 60, borderRadius: 8,
-                    border: '1px solid #e2e8f0', background: '#f8fafc',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#cbd5e1' }}>
-                      image
-                    </span>
-                  </div>
-                )}
-
-                {/* Court info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: TX, marginBottom: 4 }}>
-                    {(court as any).emoji || '🏟️'} {court.name}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                    {/* Sports */}
-                    {((court as any).sportTypes as string[] || []).map((s: string) => (
-                      <span key={s} style={{ fontSize: 12, color: TX2 }}>
-                        {SPORT_EMOJI[s] || '🏟️'} {s}
+                return (
+                  <button
+                    key={court._id}
+                    className={`court-tab ${active ? 'active' : ''}`}
+                    onClick={() => setSelectedCourtId(court._id)}
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
+                      background: active ? '#f0fdf4' : W,
+                      color: active ? '#0f3d22' : TX,
+                      padding: 10,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.18s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{court.name}</span>
+                      <span style={{ background: status.bg, color: status.color, borderRadius: 999, padding: '2px 7px', fontSize: 10, fontWeight: 900 }}>
+                        {status.label}
                       </span>
-                    ))}
-                    <span style={{ color: '#d1d5db' }}>·</span>
-                    {/* Type */}
-                    <span style={{ fontSize: 12, color: TX2 }}>
-                      {(court as any).courtType === 'outdoor' ? '🌤 Ngoài trời' : '🏠 Trong nhà'}
-                    </span>
-                    <span style={{ color: '#d1d5db' }}>·</span>
-                    {/* Price */}
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>
-                      {((court as any).pricePerHour || 0).toLocaleString('vi-VN')}đ/giờ
-                    </span>
+                    </div>
+                    <div style={{ marginTop: 5, color: TX2, fontSize: 11, fontWeight: 700 }}>{sports || 'Chưa chọn môn'}</div>
+                    <div style={{ marginTop: 5, color: '#0f3d22', fontSize: 12, fontWeight: 900 }}>
+                      {(() => {
+                        if (court.pricingRules && court.pricingRules.length > 0) {
+                          const prices = court.pricingRules
+                            .filter(r => r.isActive !== false)
+                            .map(r => Number(r.price || 0))
+                            .filter(p => p > 0);
+                          
+                          if (prices.length > 0) {
+                            const minPrice = Math.min(...prices);
+                            const maxPrice = Math.max(...prices);
+                            if (minPrice === maxPrice) {
+                              return formatHourPrice(minPrice);
+                            } else {
+                              return `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}/giờ`;
+                            }
+                          }
+                        }
+                        return formatHourPrice(court.pricePerHour);
+                      })()}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {selectedCourt && (
+              <div style={{ background: W, border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <span className="material-symbols-outlined" style={{ color: '#0f3d22', fontSize: 20 }}>sell</span>
+                      <h6 style={{ margin: 0, color: TX, fontSize: 15, fontWeight: 900 }}>{selectedCourt.name}</h6>
+                    </div>
+                    <div style={{ color: TX2, fontSize: 12, fontWeight: 700 }}>
+                      {selectedVenue?.name} · {selectedCourt.courtType === 'outdoor' ? 'Ngoài trời' : 'Trong nhà'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={() => handleToggleStatus(selectedCourt)}
+                      style={{
+                        ...buttonBase,
+                        height: 34,
+                        padding: '0 10px',
+                        background: selectedCourt.isActive !== false ? '#e7f8ec' : '#ffe8e8',
+                        color: selectedCourt.isActive !== false ? '#166534' : '#b91c1c',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 17 }}>
+                        {selectedCourt.isActive !== false ? 'toggle_on' : 'toggle_off'}
+                      </span>
+                      {selectedCourt.isActive !== false ? 'Nhận lịch' : 'Tạm đóng'}
+                    </button>
+                    <button onClick={() => handleEditCourt(selectedCourt)} title="Chỉnh sửa sân" style={{ ...buttonBase, width: 34, height: 34, background: '#eef7f1', color: '#0f3d22', border: '1px solid #cfe8d7' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 17 }}>edit</span>
+                    </button>
+                    <button onClick={() => handleDeleteCourt(selectedCourt)} disabled={deletingId === selectedCourt._id} title="Xóa sân" style={{ ...buttonBase, width: 34, height: 34, background: '#fff1f2', color: '#dc2626', border: '1px solid #ffd6dc' }}>
+                      {deletingId === selectedCourt._id ? <Spinner size="sm" variant="danger" /> : <span className="material-symbols-outlined" style={{ fontSize: 17 }}>delete</span>}
+                    </button>
                   </div>
                 </div>
-
-                {/* Status badge (clickable toggle) */}
-                <button
-                  onClick={() => handleToggleStatus(court)}
-                  title="Nhấn để chuyển trạng thái"
-                  style={{
-                    background: st.bg, color: st.color,
-                    border: 'none', borderRadius: 20,
-                    padding: '5px 12px', fontSize: 12, fontWeight: 700,
-                    cursor: 'pointer', flexShrink: 0,
-                    transition: 'opacity 0.2s',
-                  }}
-                >
-                  {st.icon} {st.label}
-                </button>
-
-                {/* Edit button */}
-                <button
-                  onClick={() => handleEditCourt(court)}
-                  title="Chỉnh sửa sân"
-                  style={{
-                    width: 34, height: 34, borderRadius: '50%',
-                    border: '1px solid #dbeafe', background: '#eff6ff',
-                    color: '#1d4ed8', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#dbeafe';
-                    e.currentTarget.style.transform = 'scale(1.1)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#eff6ff';
-                    e.currentTarget.style.transform = 'none';
-                  }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
-                </button>
-
-                {/* Delete */}
-                <button
-                  onClick={() => handleDeleteCourt(court)}
-                  disabled={isDeleting}
-                  title="Xoá sân"
-                  style={{
-                    width: 34, height: 34, borderRadius: '50%',
-                    border: '1px solid #fee2e2', background: '#fff5f5',
-                    color: '#dc2626', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, transition: 'all 0.2s',
-                  }}
-                >
-                  {isDeleting
-                    ? <Spinner size="sm" variant="danger" />
-                    : <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
-                  }
-                </button>
               </div>
-            );
-          })}
+            )}
 
-          {/* Quick add at bottom of list */}
-          <button
-            onClick={() => setShowModal(true)}
-            style={{
-              background: '#f8fafc', border: '2px dashed #cbd5e1',
-              borderRadius: 14, padding: '14px 20px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 10,
-              color: TX2, fontWeight: 700, fontSize: 14,
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#0f3d22';
-              e.currentTarget.style.color = '#0f3d22';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#cbd5e1';
-              e.currentTarget.style.color = TX2;
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add_circle</span>
-            Thêm sân mới vào {selectedVenue?.name}
-          </button>
+            <div style={{ background: W, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ color: TX, fontSize: 13, fontWeight: 900 }}>Bảng giá theo khung giờ</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {selectedCourt && (!selectedCourt.pricingRules || selectedCourt.pricingRules.length === 0) && (
+                    <div style={{
+                      fontSize: 11,
+                      color: '#dc2626',
+                      background: '#fee2e2',
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>warning</span>
+                      Chưa có bảng giá
+                    </div>
+                  )}
+                  <button onClick={addPricingRule} style={{ ...buttonBase, height: 30, padding: '0 10px', background: '#eef7f1', color: '#0f3d22' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
+                    Thêm khung
+                  </button>
+                </div>
+              </div>
+
+              <div className="table-scroll">
+                <table className="price-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 56 }}>#</th>
+                      <th>Tên khung</th>
+                      <th>Từ</th>
+                      <th>Đến</th>
+                      {DAY_COLUMNS.map(day => <th key={day}>{day}</th>)}
+                      <th>Giá/giờ</th>
+                      <th>TT</th>
+                      <th style={{ width: 52 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pricingDraft.map((rule, index) => (
+                      <tr key={`${rule.startTime}-${index}`} className={!rule.isActive ? 'inactive-row' : ''}>
+                        <td>
+                          <span style={{ background: '#eef7f1', color: '#0f3d22', borderRadius: 6, padding: '4px 7px', fontWeight: 900 }}>
+                            {index + 1}
+                          </span>
+                        </td>
+                        <td style={{ minWidth: 150 }}>
+                          <input value={rule.label || ''} onChange={e => updateRule(index, { label: e.target.value })} style={fieldStyle} placeholder="VD: Giờ cao điểm" />
+                        </td>
+                        <td><input type="time" value={rule.startTime} onChange={e => updateRule(index, { startTime: e.target.value })} style={fieldStyle} /></td>
+                        <td><input type="time" value={rule.endTime} onChange={e => updateRule(index, { endTime: e.target.value })} style={fieldStyle} /></td>
+                        {DAY_COLUMNS.map(day => (
+                          <td key={day} style={{ color: rule.isActive ? '#166534' : TX2, fontWeight: 900, whiteSpace: 'nowrap' }}>
+                            {formatPrice(rule.price)}
+                          </td>
+                        ))}
+                        <td style={{ minWidth: 120 }}>
+                          <input
+                            type="number"
+                            min={0}
+                            value={rule.price}
+                            onChange={e => updateRule(index, { price: Number(e.target.value || 0) })}
+                            style={{ ...fieldStyle, color: '#b91c1c', fontWeight: 900 }}
+                          />
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => updateRule(index, { isActive: !rule.isActive })}
+                            style={{
+                              ...buttonBase,
+                              height: 28,
+                              padding: '0 8px',
+                              background: rule.isActive ? '#e7f8ec' : '#f1f5f9',
+                              color: rule.isActive ? '#166534' : TX2,
+                            }}
+                          >
+                            {rule.isActive ? 'Bật' : 'Tắt'}
+                          </button>
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => setPricingDraft(items => items.filter((_, idx) => idx !== index))}
+                            disabled={pricingDraft.length <= 1}
+                            title="Xóa khung giá"
+                            style={{
+                              ...buttonBase,
+                              width: 30,
+                              height: 30,
+                              background: pricingDraft.length <= 1 ? '#f1f5f9' : '#fff1f2',
+                              color: pricingDraft.length <= 1 ? '#94a3b8' : '#dc2626',
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ background: W, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ padding: '10px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: TX, fontSize: 13, fontWeight: 900 }}>
+                  Giá cặp đang dùng
+                </div>
+                <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {pricingDraft.filter(rule => rule.isActive).map((rule, index) => (
+                    <div key={`${rule.label}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f7f8ff', border: '1px solid #e4e8fa', borderRadius: 8, padding: 10 }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 8, background: '#ffe8e8', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
+                        {String(index + 1).padStart(2, '0')}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: TX, fontSize: 13, fontWeight: 900 }}>{rule.label || 'Khung giờ'}</div>
+                        <div style={{ color: TX2, fontSize: 12, fontWeight: 700 }}>{rule.startTime} - {rule.endTime}</div>
+                      </div>
+                      <div style={{ color: '#b91c1c', fontSize: 13, fontWeight: 900 }}>{formatHourPrice(rule.price)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: W, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ padding: '10px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: TX, fontSize: 13, fontWeight: 900 }}>
+                  Preview giá theo giờ
+                </div>
+                <div style={{ padding: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 7 }}>
+                    {Array.from({ length: 19 }, (_, idx) => idx + 6).map(hour => {
+                      const price = getPriceForHour(pricingDraft, hour, selectedCourt?.pricePerHour || 0);
+                      const isHigh = price >= stats.max && stats.max > stats.min;
+                      return (
+                        <div
+                          key={hour}
+                          style={{
+                            borderRadius: 7,
+                            border: '1px solid #edf1f5',
+                            background: isHigh ? '#ffe8e8' : '#effaf2',
+                            color: isHigh ? '#b91c1c' : '#166534',
+                            padding: '7px 4px',
+                            textAlign: 'center',
+                            minHeight: 50,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, color: TX2, fontWeight: 800 }}>{String(hour).padStart(2, '0')}:00</div>
+                          <div style={{ fontSize: 11, fontWeight: 900 }}>{formatPrice(price)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Create Court Modal */}
       <CreateCourtModal
         show={showModal}
         submitting={submitting}
@@ -419,7 +701,6 @@ export const CourtManagerSection: React.FC = () => {
         onCreateCourt={handleCreateCourt}
       />
 
-      {/* Edit Court Modal */}
       <EditCourtModal
         show={showEditModal}
         submitting={updatingCourt}
@@ -433,3 +714,14 @@ export const CourtManagerSection: React.FC = () => {
     </div>
   );
 };
+
+const EmptyState: React.FC<{ icon: string; title: string; desc: string; action?: React.ReactNode }> = ({ icon, title, desc, action }) => (
+  <div style={{ textAlign: 'center', padding: '54px 20px', color: TX2, background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
+    <span className="material-symbols-outlined" style={{ fontSize: 44, color: '#0f3d22', display: 'block', marginBottom: 10 }}>
+      {icon}
+    </span>
+    <div style={{ color: TX, fontSize: 16, fontWeight: 900, marginBottom: 5 }}>{title}</div>
+    <p style={{ margin: action ? '0 0 16px' : 0, fontSize: 13, fontWeight: 700 }}>{desc}</p>
+    {action}
+  </div>
+);

@@ -4,6 +4,21 @@ import { User } from "../models/user.model";
 import Voucher from "../models/voucher.model";
 import UserVoucher from "../models/userVoucher.model";
 
+const toMinutes = (time: string): number => {
+  const [hour = 0, minute = 0] = String(time || "00:00").split(":").map(Number);
+  return hour * 60 + minute;
+};
+
+const getCourtPriceForTime = (court: any, time: string): number => {
+  const minute = toMinutes(time);
+  const matchingRule = (court.pricingRules || []).find((rule: any) => {
+    if (rule.isActive === false) return false;
+    return minute >= toMinutes(rule.startTime) && minute < toMinutes(rule.endTime);
+  });
+
+  return Number(matchingRule?.price ?? court.pricePerHour ?? 0);
+};
+
 class BookingService {
   /**
    * Create a new booking
@@ -257,10 +272,10 @@ class BookingService {
     });
 
     const slots: { time: string; available: boolean; price?: number }[] = [];
-    // Default hours: 06:00 - 22:00 (can be configured per court)
+    // Default hours: 06:00 - 24:00 (to allow 23:00 slot for bookings)
     const startHour = 6;
     const startMin = 0;
-    const endHour = 22;
+    const endHour = 24;
     const endMin = 0;
 
     let currentHour = startHour;
@@ -287,7 +302,7 @@ class BookingService {
       slots.push({
         time: timeStr,
         available: !conflictingBooking,
-        price: court.pricePerHour ?? 0,
+        price: getCourtPriceForTime(court, timeStr),
       });
 
       // Move to next slot

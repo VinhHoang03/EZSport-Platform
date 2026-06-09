@@ -64,6 +64,13 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
     const validNames = names.filter(n => n.trim() !== '');
     if (!venue || validNames.length === 0) return;
 
+    // Tạo pricing rules mặc định dựa trên pricePerHour
+    const basePrice = pricePerHour ? Number(pricePerHour) : 150000;
+    const defaultPricingRules = [
+      { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: basePrice, isActive: true },
+      { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: basePrice + 50000, isActive: true },
+    ];
+
     const payloads: (FormData | any)[] = [];
     for (const nameVal of validNames) {
       // If there's an image file, use FormData. Otherwise use plain object
@@ -75,7 +82,8 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
         payload.append('sportTypes', JSON.stringify(sportTypes));
         payload.append('courtType', courtType);
         payload.append('emoji', SPORT_EMOJI[sportTypes[0]] || '🏟️');
-        payload.append('pricePerHour', pricePerHour || '0');
+        payload.append('pricePerHour', String(basePrice));
+        payload.append('pricingRules', JSON.stringify(defaultPricingRules));
         payload.append('status', status);
         payload.append('isActive', String(isActive));
         payload.append('images', imageFile);
@@ -89,7 +97,8 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
           sportTypes,
           courtType,
           emoji: SPORT_EMOJI[sportTypes[0]] || '🏟️',
-          pricePerHour: pricePerHour ? Number(pricePerHour) : 0,
+          pricePerHour: basePrice,
+          pricingRules: defaultPricingRules,
           status,
           isActive
         };
@@ -215,7 +224,7 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
             </div>
           </div>
 
-          {showPrice && (
+          {false && showPrice && (
             <div>
               <label style={{ fontSize: '13px', fontWeight: 700, color: TX, display: 'block', marginBottom: '6px' }}>Giá / giờ (VNĐ)</label>
               <input

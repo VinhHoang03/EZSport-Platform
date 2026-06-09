@@ -230,7 +230,7 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = () => { // onOpenCr
 
   const fetchVenues = () => {
     setLoading(true);
-    venueService.getVenues({ active: 'all' }).then(setVenues).catch(console.error).finally(() => setLoading(false));
+    venueService.getMyVenues({ active: 'all' }).then(setVenues).catch(console.error).finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchVenues(); }, []);
