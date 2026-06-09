@@ -1,5 +1,6 @@
 import { openai } from '../configs/openai';
 import Court from '../models/court.model';
+import Booking from '../models/booking.model';
 import { calculateDistance } from '../utils/distance.util';
 
 interface CourtSuggestionParams {
@@ -259,6 +260,96 @@ const applyDistance = (courts: any[], userLat?: number, userLng?: number, maxDis
     .sort((a: any, b: any) => a.distance - b.distance);
 };
 
+// Helper function to filter courts by booking availability
+async function filterCourtsByBookingAvailability(
+  courts: any[],
+  dateText: string | null,
+  startTime: number | null,
+  endTime: number | null
+): Promise<any[]> {
+  // If no time specified, return all courts
+  if (startTime === null) {
+    console.log('[filterBooking] No time specified, returning all courts');
+    return courts;
+  }
+
+  // Parse date from text (today, tomorrow, or specific date)
+  let bookingDate = new Date();
+  if (dateText && dateText.includes('mai')) {
+    bookingDate.setDate(bookingDate.getDate() + 1);
+  }
+  // If no dateText or "hôm nay" or "nay", use today
+  bookingDate.setHours(0, 0, 0, 0);
+
+  const nextDay = new Date(bookingDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  console.log('[filterBooking] Checking bookings for date:', bookingDate.toISOString());
+  console.log('[filterBooking] Requested time (in minutes):', startTime, '-', endTime);
+
+  // Get all confirmed bookings for this date
+  const bookings = await Booking.find({
+    bookingDate: {
+      $gte: bookingDate,
+      $lt: nextDay,
+    },
+    status: { $in: ['CONFIRMED', 'CHECKED_IN'] },
+  });
+
+  console.log('[filterBooking] Found', bookings.length, 'confirmed bookings on this date');
+
+  // Filter out courts with conflicting bookings
+  const availableCourts = courts.filter((court: any) => {
+    const courtId = court._id.toString();
+    const courtBookings = bookings.filter(
+      (b: any) => b.courtId && b.courtId.toString() === courtId
+    );
+
+    if (courtBookings.length === 0) {
+      console.log(`[filterBooking] Court ${court.name} (${courtId}): NO bookings, AVAILABLE`);
+      return true; // No bookings, available
+    }
+
+    console.log(`[filterBooking] Court ${court.name} (${courtId}): ${courtBookings.length} booking(s) found`);
+
+    // Convert requested time from minutes to decimal hours for comparison
+    const requestedStartHours = startTime / 60;
+    const requestedEndHours = endTime ? endTime / 60 : requestedStartHours + 1;
+
+    console.log(`[filterBooking] Request converted: ${requestedStartHours}h - ${requestedEndHours}h`);
+
+    const hasConflict = courtBookings.some((booking: any) => {
+      const bookingStart = parseTimeToHours(booking.startTime);
+      const bookingEnd = parseTimeToHours(booking.endTime);
+
+      // Overlap check: (start1 < end2) && (end1 > start2)
+      const overlap = requestedStartHours < bookingEnd && requestedEndHours > bookingStart;
+      
+      console.log(`[filterBooking]   - Booking ${booking._id}: ${booking.startTime}-${booking.endTime} (${bookingStart}h-${bookingEnd}h) vs request (${requestedStartHours}h-${requestedEndHours}h) => ${overlap ? 'CONFLICT' : 'OK'}`);
+
+      return overlap;
+    });
+
+    if (hasConflict) {
+      console.log(`[filterBooking] Court ${court.name}: EXCLUDED (has conflict)`);
+    } else {
+      console.log(`[filterBooking] Court ${court.name}: AVAILABLE (no conflict)`);
+    }
+
+    return !hasConflict; // Available if no conflict
+  });
+
+  console.log('[filterBooking] Filtered from', courts.length, 'to', availableCourts.length, 'available courts');
+  
+  return availableCourts;
+}
+
+// Helper to convert "HH:mm" to decimal hours
+function parseTimeToHours(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h + m / 60;
+}
+
 export class CourtService {
   static async suggestCourts(params: CourtSuggestionParams): Promise<CourtSuggestionResponse> {
     const { prompt, userLat, userLng, maxDistance = 10, limit = 5 } = params;
@@ -340,7 +431,15 @@ export class CourtService {
         return true;
       });
 
-      if (candidateCourts.length === 0) {
+      // Filter out courts with confirmed bookings in the requested time slot
+      const availableCourts = await filterCourtsByBookingAvailability(
+        candidateCourts,
+        requestedDateText || null,
+        requestedTime ?? null,
+        requestedEndTime ?? null
+      );
+
+      if (availableCourts.length === 0) {
         // Try again without location filter if originally requested location
         if (requestedLocation) {
           const courtsWithoutLocationFilter = allCourts.filter((court: any) => {
@@ -349,17 +448,25 @@ export class CourtService {
             return true;
           });
           
-          if (courtsWithoutLocationFilter.length > 0) {
+          // Filter by booking availability
+          const availableWithoutLocation = await filterCourtsByBookingAvailability(
+            courtsWithoutLocationFilter,
+            requestedDateText || null,
+            requestedTime ?? null,
+            requestedEndTime ?? null
+          );
+          
+          if (availableWithoutLocation.length > 0) {
             const shouldUseDistance = Boolean(userLat && userLng);
             const rankedCourts = shouldUseDistance
-              ? applyDistance(courtsWithoutLocationFilter, userLat, userLng, maxDistance)
-              : courtsWithoutLocationFilter.map(toPlainCourt);
+              ? applyDistance(availableWithoutLocation, userLat, userLng, maxDistance)
+              : availableWithoutLocation.map(toPlainCourt);
 
             const suggestions = rankedCourts.slice(0, limit);
             
             return {
               suggestions,
-              aiExplanation: `Mình không tìm thấy sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} ở ${DISTRICT_LABELS[requestedLocation] || requestedLocation}, nhưng có ${suggestions.length} sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} khác trong hệ thống. Bạn có thể xem các lựa chọn bên dưới nhé.`,
+              aiExplanation: `Mình không tìm thấy sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} ở ${DISTRICT_LABELS[requestedLocation] || requestedLocation}, nhưng có ${suggestions.length} sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} khác còn trống. Bạn có thể xem các lựa chọn bên dưới nhé.`,
               matchedCriteria: {
                 sportType: requestedSportType,
               },
@@ -379,8 +486,8 @@ export class CourtService {
 
       const shouldUseDistance = Boolean(userLat && userLng && !requestedLocation);
       const rankedCourts = shouldUseDistance
-        ? applyDistance(candidateCourts, userLat, userLng, maxDistance)
-        : candidateCourts.map(toPlainCourt);
+        ? applyDistance(availableCourts, userLat, userLng, maxDistance)
+        : availableCourts.map(toPlainCourt);
 
       const suggestions = rankedCourts.slice(0, limit);
 

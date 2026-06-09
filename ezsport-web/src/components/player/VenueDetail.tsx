@@ -709,11 +709,17 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                     <div className="d-flex justify-content-between align-items-center mb-4">
                       <div>
                         <span className="text-muted small d-block" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          BẮT ĐẦU TỪ
+                          {selectedSlot ? 'GIÁ ĐÃ CHỌN' : 'BẮT ĐẦU TỪ'}
                         </span>
                         <span className="fw-extrabold text-success fs-3" style={{ color: '#1a6b3c', fontWeight: 900 }}>
-                          {formatVND(pricePerHour)}<span className="text-muted fw-normal" style={{ fontSize: '14px' }}>/ giờ</span>
+                          {formatVND(selectedSlot ? selectedSlot.basePrice / selectedSlot.duration : pricePerHour)}
+                          <span className="text-muted fw-normal" style={{ fontSize: '14px' }}>/ giờ</span>
                         </span>
+                        {selectedSlot && selectedSlot.duration > 1 && (
+                          <div className="text-muted small mt-1" style={{ fontSize: '12px' }}>
+                            {selectedSlot.duration}h = {formatVND(selectedSlot.basePrice)}
+                          </div>
+                        )}
                       </div>
                       <Badge className="bg-light text-dark border py-2 px-3 rounded-pill fw-bold d-flex align-items-center gap-1">
                         <span className="material-symbols-outlined text-warning" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>flash_on</span>
@@ -724,28 +730,55 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                       <div className="mb-4">
                         <p className="fw-semibold mb-2" style={{ fontSize: '13px', color: '#374151' }}>Chọn sân</p>
                         <div className="d-flex flex-column gap-2">
-                          {courts.map((court) => (
-                            <button
-                              key={court._id}
-                              type="button"
-                              onClick={() => setSelectedCourtId(court._id)}
-                              className="text-start"
-                              style={{
-                                border: selectedCourtId === court._id ? '2px solid #16a34a' : '1px solid #e5e7eb',
-                                borderRadius: '14px',
-                                background: selectedCourtId === court._id ? '#f0fdf4' : '#fff',
-                                padding: '10px 12px',
-                                color: '#111827',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <div className="d-flex justify-content-between align-items-center">
-                                <strong style={{ fontSize: '13px' }}>{court.name}</strong>
-                                <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700 }}>{court.pricePerHour?.toLocaleString('vi-VN')}đ/giờ</span>
-                              </div>
-                              <div className="text-muted" style={{ fontSize: '12px' }}>{court.sportTypes?.join(', ')}</div>
-                            </button>
-                          ))}
+                          {courts.map((court) => {
+                            // Calculate court price based on selected time slot
+                            let displayPrice = court.pricePerHour || 0;
+                            
+                            if (selectedSlot?.startTime && court.pricingRules && court.pricingRules.length > 0) {
+                              // Convert time to minutes
+                              const [hour, minute] = selectedSlot.startTime.split(':').map(Number);
+                              const timeInMinutes = hour * 60 + minute;
+                              
+                              // Find matching pricing rule
+                              const matchingRule = court.pricingRules.find((rule: any) => {
+                                if (rule.isActive === false) return false;
+                                const [startH, startM] = rule.startTime.split(':').map(Number);
+                                const [endH, endM] = rule.endTime.split(':').map(Number);
+                                const ruleStart = startH * 60 + startM;
+                                const ruleEnd = endH * 60 + endM;
+                                return timeInMinutes >= ruleStart && timeInMinutes < ruleEnd;
+                              });
+                              
+                              if (matchingRule) {
+                                displayPrice = Number(matchingRule.price || displayPrice);
+                              }
+                            }
+                            
+                            return (
+                              <button
+                                key={court._id}
+                                type="button"
+                                onClick={() => setSelectedCourtId(court._id)}
+                                className="text-start"
+                                style={{
+                                  border: selectedCourtId === court._id ? '2px solid #16a34a' : '1px solid #e5e7eb',
+                                  borderRadius: '14px',
+                                  background: selectedCourtId === court._id ? '#f0fdf4' : '#fff',
+                                  padding: '10px 12px',
+                                  color: '#111827',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <div className="d-flex justify-content-between align-items-center">
+                                  <strong style={{ fontSize: '13px' }}>{court.name}</strong>
+                                  <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700 }}>
+                                    {displayPrice.toLocaleString('vi-VN')}đ/giờ
+                                  </span>
+                                </div>
+                                <div className="text-muted" style={{ fontSize: '12px' }}>{court.sportTypes?.join(', ')}</div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

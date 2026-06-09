@@ -10,6 +10,13 @@ export interface ICourt extends Document {
   courtType?: 'indoor' | 'outdoor';
   emoji: string;
   pricePerHour: number;
+  pricingRules?: {
+    label?: string;
+    startTime: string;
+    endTime: string;
+    price: number;
+    isActive: boolean;
+  }[];
   status: 'available' | 'maintenance' | 'inactive';
   isActive: boolean;
 }
@@ -24,6 +31,18 @@ const CourtSchema: Schema = new Schema<ICourt>(
     courtType: { type: String, enum: ['indoor', 'outdoor'] },
     emoji: { type: String, default: '🏟️' },
     pricePerHour: { type: Number, required: true, min: 0 },
+    pricingRules: {
+      type: [
+        {
+          label: { type: String, default: "" },
+          startTime: { type: String, required: true },
+          endTime: { type: String, required: true },
+          price: { type: Number, required: true, min: 0 },
+          isActive: { type: Boolean, default: true },
+        },
+      ],
+      default: [],
+    },
     status: { type: String, enum: ['available', 'maintenance', 'inactive'], default: 'available', },
     isActive: { type: Boolean, default: true },
   },

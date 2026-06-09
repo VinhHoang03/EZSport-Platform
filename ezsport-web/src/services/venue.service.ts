@@ -76,6 +76,13 @@ export interface Court {
   
   // Pricing
   pricePerHour: number;
+  pricingRules?: Array<{
+    label?: string;
+    startTime: string;
+    endTime: string;
+    price: number;
+    isActive: boolean;
+  }>;
   
   // Status
   status: 'available' | 'maintenance' | 'inactive';
@@ -92,6 +99,15 @@ export const venueService = {
     if (params?.search) query.append('search', params.search);
     if (params?.active) query.append('active', params.active);
     const { data } = await api.get(`/venues?${query.toString()}`);
+    return data.data;
+  },
+
+  getMyVenues: async (params?: { sport?: string; search?: string; active?: string }): Promise<Venue[]> => {
+    const query = new URLSearchParams();
+    if (params?.sport) query.append('sport', params.sport);
+    if (params?.search) query.append('search', params.search);
+    if (params?.active) query.append('active', params.active);
+    const { data } = await api.get(`/venues/owner/me?${query.toString()}`);
     return data.data;
   },
 

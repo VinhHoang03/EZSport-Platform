@@ -11,6 +11,25 @@ const parseSportTypes = (raw: any): string[] => {
   try { return JSON.parse(raw); } catch { return [String(raw)]; }
 };
 
+const parsePricingRules = (raw: any) => {
+  if (!raw) return [];
+  const parsed = Array.isArray(raw) ? raw : (() => {
+    try { return JSON.parse(raw); } catch { return []; }
+  })();
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((rule: any) => ({
+      label: String(rule.label || "").trim(),
+      startTime: String(rule.startTime || "").trim(),
+      endTime: String(rule.endTime || "").trim(),
+      price: Number(rule.price || 0),
+      isActive: rule.isActive !== false,
+    }))
+    .filter(rule => rule.startTime && rule.endTime && rule.price >= 0);
+};
+
 const serializeCourt = (court: any) => {
   const doc = court?.toObject ? court.toObject() : court;
   return {
@@ -98,6 +117,13 @@ export const createCourt = async (req: Request, res: Response) => {
       body.images = files.map((file) => file.path);
     }
 
+    if (body.pricingRules) {
+      body.pricingRules = parsePricingRules(body.pricingRules);
+      if (body.pricingRules.length && !body.pricePerHour) {
+        body.pricePerHour = body.pricingRules[0].price;
+      }
+    }
+
     const court = new Court(body);
     await court.save();
 
@@ -120,6 +146,13 @@ export const updateCourt = async (req: Request, res: Response) => {
 
     if (files.length) {
       body.images = files.map((file) => file.path);
+    }
+
+    if (body.pricingRules) {
+      body.pricingRules = parsePricingRules(body.pricingRules);
+      if (body.pricingRules.length && !body.pricePerHour) {
+        body.pricePerHour = body.pricingRules[0].price;
+      }
     }
 
     delete body.sportType;

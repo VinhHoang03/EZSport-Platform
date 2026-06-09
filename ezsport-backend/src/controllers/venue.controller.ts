@@ -46,6 +46,28 @@ export const getVenues = async (req: Request, res: Response) => {
   }
 };
 
+// ── GET /venues/owner/me ──────────────────────────────────────────────────────
+export const getMyVenues = async (req: Request, res: Response) => {
+  try {
+    const ownerId = req.user?.id || req.id;
+    if (!ownerId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { sport, search, active } = req.query;
+    const filter: any = { owner: ownerId };
+
+    if (active !== 'all') filter.isActive = true;
+    if (sport) filter.sportTypes = { $in: [sport] };
+    if (search) filter.$text = { $search: String(search) };
+
+    const venues = await Venue.find(filter).sort({ createdAt: -1 });
+    res.status(200).json({ message: "Fetch owner venues success", data: venues.map(serializeVenue) });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // ── GET /venues/:id ───────────────────────────────────────────────────────────
 export const getVenueById = async (req: Request, res: Response) => {
   try {
