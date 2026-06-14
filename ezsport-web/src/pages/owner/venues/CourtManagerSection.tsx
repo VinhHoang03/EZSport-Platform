@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { courtService, type Court, type Venue, venueService } from '../../../services/venue.service';
+import { parseVenuePriceRange } from '../../../utils/pricing';
 import { TX, TX2, W } from '../../../utils/theme';
 import { CreateCourtModal } from './CreateCourtModal';
 import { EditCourtModal } from './EditCourtModal';
@@ -36,15 +37,18 @@ const toMinutes = (time: string) => {
 const formatPrice = (value?: number) => `${(Number(value) || 0).toLocaleString('vi-VN')}đ`;
 const formatHourPrice = (value?: number) => `${formatPrice(value)}/giờ`;
 
-const defaultPricingRules = (court?: Court | null): PricingRule[] => {
-  const base = Number(court?.pricePerHour || 150000);
+const defaultPricingRules = (court?: Court | null, venue?: Venue | null): PricingRule[] => {
+  const venuePriceRange = parseVenuePriceRange(venue?.price, venue?.pricePerHour);
+  const fallbackPrice = Number(court?.pricePerHour || 0);
+  const base = venuePriceRange.min || fallbackPrice;
+  const peak = venuePriceRange.max || base;
   return [
     { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: base, isActive: true },
-    { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: Math.max(base, base + 50000), isActive: true },
+    { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: peak, isActive: true },
   ];
 };
 
-const normalizePricingRules = (court?: Court | null): PricingRule[] => {
+const normalizePricingRules = (court?: Court | null, venue?: Venue | null): PricingRule[] => {
   if (court?.pricingRules?.length) {
     return court.pricingRules.map(rule => ({
       label: rule.label || '',
@@ -55,7 +59,7 @@ const normalizePricingRules = (court?: Court | null): PricingRule[] => {
     }));
   }
 
-  return defaultPricingRules(court);
+  return defaultPricingRules(court, venue);
 };
 
 const getPriceForHour = (rules: PricingRule[], hour: number, fallback: number) => {
@@ -137,16 +141,12 @@ export const CourtManagerSection: React.FC = () => {
   }, [selectedVenueId, fetchCourts]);
 
   useEffect(() => {
-    const rules = normalizePricingRules(selectedCourt);
+    const rules = normalizePricingRules(selectedCourt, selectedVenue);
     setPricingDraft(rules);
     
     // Auto-save default pricing rules for courts that don't have any
     if (selectedCourt && (!selectedCourt.pricingRules || selectedCourt.pricingRules.length === 0)) {
-      const basePrice = Number(selectedCourt.pricePerHour || 150000);
-      const defaultRules = [
-        { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: basePrice, isActive: true },
-        { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: basePrice + 50000, isActive: true },
-      ];
+      const defaultRules = defaultPricingRules(selectedCourt, selectedVenue);
       
       // Silently save to backend
       courtService.updateCourt(selectedCourt._id, {
@@ -155,7 +155,7 @@ export const CourtManagerSection: React.FC = () => {
         // Ignore error, user can manually save later
       });
     }
-  }, [selectedCourtId, selectedCourt?._id]);
+  }, [selectedCourtId, selectedCourt?._id, selectedVenue?._id, selectedVenue?.price, selectedVenue?.pricePerHour]);
 
   const stats = useMemo(() => {
     const rules = pricingDraft.filter(rule => rule.isActive);
@@ -258,9 +258,10 @@ export const CourtManagerSection: React.FC = () => {
   };
 
   const addPricingRule = () => {
+    const venuePriceRange = parseVenuePriceRange(selectedVenue?.price, selectedVenue?.pricePerHour);
     setPricingDraft(items => [
       ...items,
-      { label: 'Khung giờ mới', startTime: '06:00', endTime: '07:00', price: selectedCourt?.pricePerHour || 150000, isActive: true },
+      { label: 'Khung giờ mới', startTime: '06:00', endTime: '07:00', price: selectedCourt?.pricePerHour || venuePriceRange.min, isActive: true },
     ]);
   };
 
