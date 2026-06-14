@@ -1,67 +1,53 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { jwtConfig } from "../configs/jwt.config";
+import jwt, { JwtPayload } from "jsonwebtoken";
 
-export interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    role: string;
-  };
+interface AuthPayload extends JwtPayload {
+  id: string;
+  role?: string;
 }
 
-interface JwtPayload {
-  userId: string;
-  role: string;
-}
-
-export const authMiddleware = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      return res.status(401).json({
-        message: "Token not provided"
-      });
-    }
-
-    if (!authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        message: "Invalid token format"
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    const decoded = jwt.verify(token, jwtConfig.secret) as JwtPayload;
-
-    req.user = decoded;
-
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      message: "Invalid or expired token"
-    });
+// 🔹 Mở rộng interface Request để có thể gắn userId vào req
+declare module "express-serve-static-core" {
+  interface Request {
+    id?: string;
+    role?: string;
+    user?: {
+      id: string;
+      role?: string;
+    };
   }
-};
+}
 
-export const requireRole = (role: string) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({
-        message: "Unauthorized"
-      });
+export function verifyToken(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ message: "Không có token" });
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as AuthPayload;
+    req.id = decoded.id;
+    req.role = decoded.role;
+    // Thêm req.user để tương thích với yêu cầu
+    req.user = {
+      id: decoded.id,
+      role: decoded.role,
+    };
+    next();
+  } catch (err) {
+    res.status(401).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+  }
+}
+
+export const authorizeRoles = (...roles: string[]) => {
+  return (req: any, res: Response, next: NextFunction) => {
+    if (!roles.includes(req.role)) {
+      return res.status(403).json({ message: "Access denied" });
     }
-
-    if (req.user.role !== role) {
-      return res.status(403).json({
-        message: "Forbidden"
-      });
-    }
-
     next();
   };
 };

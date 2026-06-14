@@ -1,3 +1,4 @@
+/*
 import User from "../models/user.model";
 
 export const getUsers = async (role?: string) => {
@@ -48,3 +49,5 @@ export const deleteUser = async (userId: string) => {
 
   return user;
 };
+*/
+export {};

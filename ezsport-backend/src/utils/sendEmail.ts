@@ -2,15 +2,24 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // SSL
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD?.replace(/\s/g, ""), // xoá khoảng trắng
-  },
-});
+const emailUser = process.env.EMAIL_USER;
+const emailPassword = process.env.EMAIL_PASSWORD?.replace(/\s/g, "");
+
+let transporter: nodemailer.Transporter | null = null;
+
+if (!emailUser || !emailPassword) {
+  console.warn("WARNING: Missing EMAIL_USER or EMAIL_PASSWORD environment variables for email transport. Email sending is disabled.");
+} else {
+  transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true, // SSL
+    auth: {
+      user: emailUser,
+      pass: emailPassword,
+    },
+  });
+}
 
 interface EmailOptions {
   to: string;
@@ -25,6 +34,10 @@ interface EmailOptions {
 }
 
 export const sendEmail = async (options: EmailOptions) => {
+  if (!transporter) {
+    console.warn(`[SMTP Disabled] Would send email to: ${options.to}\nSubject: ${options.subject}\nContent: ${options.text || options.html}`);
+    return;
+  }
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -51,8 +64,8 @@ export const sendResetPasswordEmail = async (
     subject: "Đặt lại mật khẩu",
     html: `
       <p>Bạn đã yêu cầu đặt lại mật khẩu.</p>
-      <p>Link có hiệu lực trong <b>5 phút</b>.</p>
-      <a href="${resetLink}">Đổi mật khẩu</a>
+      <p>Link có hiệu lực trong <b>1 giờ</b>.</p>
+      <p><a href="${resetLink}">Nhấp để đổi mật khẩu</a></p>
       <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
     `,
   });

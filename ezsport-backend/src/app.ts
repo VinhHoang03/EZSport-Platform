@@ -1,14 +1,8 @@
 import express, { NextFunction, Request, Response, Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import authRoutes from "./routes/auth.routes";
-import serviceResquestRoutes from "./routes/serviceRequest.routes";
-import userRoutes from "./routes/user.routes";
-import addressRoutes from './routes/address.routes';
-import providerRequestRoutes from './routes/providerRequest.routes';
-import providerRoutes from './routes/provider.routes';
-import adminRoutes from './routes/admin.routes';
-import courtRoutes from './routes/court.routes';
+import path from 'path';
+import route from "./routes/index.routes";
 
 
 const app: Application = express();
@@ -24,7 +18,14 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Serve static files from uploads folder
+// When running from dist/, __dirname is ezsport-backend/dist
+// So ../uploads will point to ezsport-backend/uploads
+const uploadsPath = path.join(__dirname, '../uploads');
+console.log('📁 Serving uploads from:', uploadsPath);
+app.use('/uploads', express.static(uploadsPath));
 
 // Xử lý lỗi parse JSON (ví dụ: Body đặt JSON nhưng nội dung rỗng/không hợp lệ)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
@@ -33,21 +34,14 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   }
   next(err);
 });
+route(app);
 
-app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
-app.use("/service-requests", serviceResquestRoutes);
-app.use("/addresses", addressRoutes);
-app.use("/provider-requests", providerRequestRoutes);
-app.use("/providers", providerRoutes);
-app.use("/admin", adminRoutes);
-app.use("/courts", courtRoutes);
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error("GLOBAL ERROR:", err);
   res.status(500).json({
     message: "Lỗi máy chủ nội bộ",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    error: err.message || err,
   });
 });
 

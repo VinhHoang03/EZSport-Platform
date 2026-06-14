@@ -1,3 +1,4 @@
+/*
 import { Router } from "express";
 import {
   getUsers,
@@ -9,10 +10,6 @@ import {
 import { authMiddleware, requireRole } from "../middlewares/auth.middleware";
 
 const router = Router();
-
-/**
- * ADMIN routes
- */
 
 router.get(
   "/users",
@@ -42,4 +39,8 @@ router.delete(
   deleteUser
 );
 
+export default router;
+*/
+import { Router } from "express";
+const router = Router();
 export default router;

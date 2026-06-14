@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { loginService } from "../services/auth.service";
 import { registerService } from "../services/auth.service";
+import { googleLoginService } from "../services/auth.service";
 import { registerSchema } from "../validators/auth.validator";
 import {
   forgotPasswordService,
@@ -11,9 +12,9 @@ import {
 export const login = async (req: Request, res: Response) => {
   try {
 
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    const result = await loginService(email, password);
+    const result = await loginService(username, password);
 
     res.status(200).json({
       message: "Login success",
@@ -29,16 +30,36 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+export const googleLogin = async (req: Request, res: Response) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) throw new Error("Google credential is required");
+
+    const result = await googleLoginService(credential);
+
+    res.status(200).json({
+      message: "Google login success",
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      message: error.message
+    });
+  }
+};
+
 export const register = async (req: Request, res: Response) => {
   try {
 
     const data = registerSchema.parse(req.body);
 
     const user = await registerService(
+      data.username,
       data.email,
       data.password,
       data.fullName,
-      data.phone
+      data.phone,
+      data.role
     );
 
     res.status(201).json({
@@ -63,11 +84,10 @@ export const forgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
-    const resetUrl = await forgotPasswordService(email);
+    await forgotPasswordService(email);
 
     res.json({
-      message: "Reset password link generated",
-      resetUrl
+      message: "Reset password link sent to your email",
     });
 
   } catch (error: any) {

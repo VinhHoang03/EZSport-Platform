@@ -1,57 +1,44 @@
 import mongoose, { Document, Schema } from "mongoose";
-
-export type UserRole = "CUSTOMER" | "PROVIDER" | "ADMIN";
-
+import { UserRole, UserStatus } from "../enum/user.enum"
 export interface IUser extends Document {
-  email: string;
-  passwordHash: string;
   fullName: string;
+  username: string;
+  email?: string;
+  password: string;
   phone?: string;
   avatar?: string;
-  role: UserRole;
-  status: "ACTIVE" | "INACTIVE" | "BANNED";
-
-  resetPasswordTokenHash?: string;
-  resetPasswordExpire?: Date;
+  role: "admin" | "owner" | "player";
+  status: "active" | "inactive" | "banned";
+  createdAt: Date;
+  updatedAt: Date;
+  lastLogin?: Date;
+  loyaltyPoints?: number;
 }
 
-const UserSchema = new Schema<IUser>(
-  {
-    email: {
-      type: String,
-      required: true,
-      unique: true
+export interface IUserDocument extends IUser, Document {}
+
+  const userSchema = new Schema<IUserDocument>(
+    {
+      fullName: { type: String, required: true },
+      username: { type: String, required: true, unique: true },
+      email: { type: String, required: false, unique: true, sparse: true },
+      password: { type: String },
+      phone: { type: String },
+      avatar: { type: String },
+      role: {
+        type: String,
+        enum: Object.values(UserRole),
+        default: UserRole.PLAYER,
+      },
+      status: {
+        type: String,
+        enum: Object.values(UserStatus),
+        default: UserStatus.ACTIVE,
+      },
+      lastLogin: { type: Date, default: null },
+      loyaltyPoints: { type: Number, default: 0, min: 0 },
     },
+    { timestamps: true }
+  );
 
-    passwordHash: {
-      type: String,
-      required: true
-    },
-
-    fullName: {
-      type: String,
-      required: true
-    },
-
-    phone: String,
-    avatar: String,
-
-    role: {
-      type: String,
-      enum: ["CUSTOMER", "PROVIDER", "ADMIN"],
-      default: "CUSTOMER"
-    },
-
-    status: {
-      type: String,
-      enum: ["ACTIVE", "INACTIVE", "BANNED"],
-      default: "ACTIVE"
-    },
-
-    resetPasswordTokenHash: String,
-    resetPasswordExpire: Date
-  },
-  { timestamps: true }
-);
-
-export default mongoose.model<IUser>("User", UserSchema);
+export const User = mongoose.model<IUserDocument>("User", userSchema);
