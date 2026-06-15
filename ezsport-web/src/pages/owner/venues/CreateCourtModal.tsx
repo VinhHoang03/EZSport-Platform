@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Button, Spinner } from 'react-bootstrap';
 import { type Venue } from '../../../services/venue.service';
+import { parseVenuePriceRange } from '../../../utils/pricing';
 import { W, TX, TX2 } from '../../../utils/theme';
 
 const SPORT_OPTIONS = [
@@ -64,11 +65,13 @@ export const CreateCourtModal: React.FC<CreateCourtModalProps> = ({
     const validNames = names.filter(n => n.trim() !== '');
     if (!venue || validNames.length === 0) return;
 
-    // Tạo pricing rules mặc định dựa trên pricePerHour
-    const basePrice = pricePerHour ? Number(pricePerHour) : 150000;
+    // Tạo pricing rules mặc định dựa trên khoảng giá hiển thị của venue.
+    const venuePriceRange = parseVenuePriceRange(venue.price, venue.pricePerHour);
+    const basePrice = pricePerHour ? Number(pricePerHour) : venuePriceRange.min;
+    const peakPrice = pricePerHour ? basePrice : venuePriceRange.max;
     const defaultPricingRules = [
       { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: basePrice, isActive: true },
-      { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: basePrice + 50000, isActive: true },
+      { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: peakPrice, isActive: true },
     ];
 
     const payloads: (FormData | any)[] = [];

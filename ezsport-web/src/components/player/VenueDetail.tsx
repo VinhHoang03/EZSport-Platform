@@ -788,6 +788,8 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                       <SlotPicker
                         courtId={selectedCourtId || String(venueId)}
                         onSlotSelect={handleSlotSelect}
+                        openTime={venueData?.openTime}
+                        closeTime={venueData?.closeTime}
                       />
                     </div>
 

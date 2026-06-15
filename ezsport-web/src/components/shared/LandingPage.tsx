@@ -23,6 +23,18 @@ const resolveCourtImage = (imgUrl: string, sportType?: string) => {
   return imgUrl;
 };
 
+const getVenueSports = (court: any): string[] => {
+  if (Array.isArray(court?.sportTypes) && court.sportTypes.length > 0) {
+    return court.sportTypes;
+  }
+
+  if (court?.sportType) {
+    return [court.sportType];
+  }
+
+  return ['Sports'];
+};
+
 // ─── MAIN ───────────────────────────────────────────────────────────────────
 export const LandingPage: React.FC<{
   onExplore?: () => void;
@@ -369,7 +381,7 @@ export const LandingPage: React.FC<{
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: 56, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 800, color: OG, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>⚽ Địa điểm nổi bật</div>
-              <h2 style={{ margin: 0, fontSize: 48, fontWeight: 900, letterSpacing: -2, color: TX }}>Sân thể thao cao cấp gần bạn</h2>
+              <h2 style={{ margin: 0, fontSize: 48, fontWeight: 900, letterSpacing: -2, color: TX }}>Sân thể thao cao cấp </h2>
             </div>
             <button onClick={() => navigate(ROUTES.MAP)} style={{ background: 'none', border: `2px solid ${G}`, color: G, borderRadius: 999, padding: '11px 26px', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
               Xem tất cả <Arrow />
@@ -383,10 +395,10 @@ export const LandingPage: React.FC<{
                   delay={index * 0.12}
                   name={court.name}
                   price={court.price ? (court.price.includes('/h') || court.price.includes('K') ? court.price : `${court.price}đ/h`) : '300.000đ/h'}
-                  rating={court.rating ? String(court.rating) : '4.5'}
+                  rating={court.reviewsCount > 0 ? String(court.rating.toFixed(1)) : 'Mới'}
                   area={court.location}
-                  sport={(court.sportType || 'SPORTS').toUpperCase()}
-                  img={resolveCourtImage(court.image, court.sportType)}
+                  sport={getVenueSports(court)}
+                  img={resolveCourtImage(court.image, getVenueSports(court)[0])}
                   onClick={() => navigate(`/venues/${court._id}`)}
                 />
               ))

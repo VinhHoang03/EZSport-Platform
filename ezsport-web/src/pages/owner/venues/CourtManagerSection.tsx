@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { courtService, type Court, type Venue, venueService } from '../../../services/venue.service';
+import { parseVenuePriceRange } from '../../../utils/pricing';
 import { TX, TX2, W } from '../../../utils/theme';
 import { CreateCourtModal } from './CreateCourtModal';
 import { EditCourtModal } from './EditCourtModal';
@@ -33,29 +34,68 @@ const toMinutes = (time: string) => {
   return hour * 60 + minute;
 };
 
+const fromMinutes = (minutes: number) => {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
+const getVenueTimeBounds = (venue?: Venue | null) => {
+  const openMinutes = toMinutes(venue?.openTime || '06:00');
+  const closeMinutes = toMinutes(venue?.closeTime || '22:00');
+  return {
+    openMinutes,
+    closeMinutes: closeMinutes > openMinutes ? closeMinutes : 22 * 60,
+  };
+};
+
+const clampTimeToVenue = (time: string, venue?: Venue | null) => {
+  const { openMinutes, closeMinutes } = getVenueTimeBounds(venue);
+  const minutes = Math.min(Math.max(toMinutes(time), openMinutes), closeMinutes);
+  return fromMinutes(minutes);
+};
+
+const getPreviewHours = (venue?: Venue | null) => {
+  const { openMinutes, closeMinutes } = getVenueTimeBounds(venue);
+  const startHour = Math.floor(openMinutes / 60);
+  const endHour = Math.ceil(closeMinutes / 60);
+  return Array.from({ length: Math.max(endHour - startHour, 0) }, (_, idx) => startHour + idx);
+};
+
 const formatPrice = (value?: number) => `${(Number(value) || 0).toLocaleString('vi-VN')}đ`;
 const formatHourPrice = (value?: number) => `${formatPrice(value)}/giờ`;
 
-const defaultPricingRules = (court?: Court | null): PricingRule[] => {
-  const base = Number(court?.pricePerHour || 150000);
+const defaultPricingRules = (court?: Court | null, venue?: Venue | null): PricingRule[] => {
+  const venuePriceRange = parseVenuePriceRange(venue?.price, venue?.pricePerHour);
+  const fallbackPrice = Number(court?.pricePerHour || 0);
+  const base = venuePriceRange.min || fallbackPrice;
+  const peak = venuePriceRange.max || base;
+  const { openMinutes, closeMinutes } = getVenueTimeBounds(venue);
+  const peakStartMinutes = Math.min(Math.max(16 * 60, openMinutes), closeMinutes);
+  if (peakStartMinutes <= openMinutes) {
+    return [
+      { label: 'Giờ hoạt động', startTime: fromMinutes(openMinutes), endTime: fromMinutes(closeMinutes), price: peak || base, isActive: true },
+    ];
+  }
+
   return [
-    { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: base, isActive: true },
-    { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: Math.max(base, base + 50000), isActive: true },
+    { label: 'Giờ thấp điểm', startTime: fromMinutes(openMinutes), endTime: fromMinutes(peakStartMinutes), price: base, isActive: true },
+    { label: 'Giờ cao điểm', startTime: fromMinutes(peakStartMinutes), endTime: fromMinutes(closeMinutes), price: peak, isActive: true },
   ];
 };
 
-const normalizePricingRules = (court?: Court | null): PricingRule[] => {
+const normalizePricingRules = (court?: Court | null, venue?: Venue | null): PricingRule[] => {
   if (court?.pricingRules?.length) {
     return court.pricingRules.map(rule => ({
       label: rule.label || '',
-      startTime: rule.startTime,
-      endTime: rule.endTime,
+      startTime: clampTimeToVenue(rule.startTime, venue),
+      endTime: clampTimeToVenue(rule.endTime, venue),
       price: Number(rule.price || 0),
       isActive: rule.isActive !== false,
-    }));
+    })).filter(rule => toMinutes(rule.startTime) < toMinutes(rule.endTime));
   }
 
-  return defaultPricingRules(court);
+  return defaultPricingRules(court, venue);
 };
 
 const getPriceForHour = (rules: PricingRule[], hour: number, fallback: number) => {
@@ -137,16 +177,12 @@ export const CourtManagerSection: React.FC = () => {
   }, [selectedVenueId, fetchCourts]);
 
   useEffect(() => {
-    const rules = normalizePricingRules(selectedCourt);
+    const rules = normalizePricingRules(selectedCourt, selectedVenue);
     setPricingDraft(rules);
     
     // Auto-save default pricing rules for courts that don't have any
     if (selectedCourt && (!selectedCourt.pricingRules || selectedCourt.pricingRules.length === 0)) {
-      const basePrice = Number(selectedCourt.pricePerHour || 150000);
-      const defaultRules = [
-        { label: 'Giờ thấp điểm', startTime: '06:00', endTime: '16:00', price: basePrice, isActive: true },
-        { label: 'Giờ cao điểm', startTime: '16:00', endTime: '24:00', price: basePrice + 50000, isActive: true },
-      ];
+      const defaultRules = defaultPricingRules(selectedCourt, selectedVenue);
       
       // Silently save to backend
       courtService.updateCourt(selectedCourt._id, {
@@ -155,7 +191,7 @@ export const CourtManagerSection: React.FC = () => {
         // Ignore error, user can manually save later
       });
     }
-  }, [selectedCourtId, selectedCourt?._id]);
+  }, [selectedCourtId, selectedCourt?._id, selectedVenue?._id, selectedVenue?.price, selectedVenue?.pricePerHour, selectedVenue?.openTime, selectedVenue?.closeTime]);
 
   const stats = useMemo(() => {
     const rules = pricingDraft.filter(rule => rule.isActive);
@@ -258,9 +294,12 @@ export const CourtManagerSection: React.FC = () => {
   };
 
   const addPricingRule = () => {
+    const venuePriceRange = parseVenuePriceRange(selectedVenue?.price, selectedVenue?.pricePerHour);
+    const { openMinutes, closeMinutes } = getVenueTimeBounds(selectedVenue);
+    const endMinutes = Math.min(openMinutes + 60, closeMinutes);
     setPricingDraft(items => [
       ...items,
-      { label: 'Khung giờ mới', startTime: '06:00', endTime: '07:00', price: selectedCourt?.pricePerHour || 150000, isActive: true },
+      { label: 'Khung giờ mới', startTime: fromMinutes(openMinutes), endTime: fromMinutes(endMinutes), price: selectedCourt?.pricePerHour || venuePriceRange.min, isActive: true },
     ]);
   };
 
@@ -664,7 +703,7 @@ export const CourtManagerSection: React.FC = () => {
                 </div>
                 <div style={{ padding: 12 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 7 }}>
-                    {Array.from({ length: 19 }, (_, idx) => idx + 6).map(hour => {
+                    {getPreviewHours(selectedVenue).map(hour => {
                       const price = getPriceForHour(pricingDraft, hour, selectedCourt?.pricePerHour || 0);
                       const isHigh = price >= stats.max && stats.max > stats.min;
                       return (
