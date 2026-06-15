@@ -438,6 +438,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
     setDraft({
       sport: rec.sportType,
       slot,
+      comboType: slot?.comboType,
       basePrice,
       serviceFee,
       discount,

@@ -26,6 +26,7 @@ interface CourtSuggestionResponse {
     startTime: string;
     endTime: string;
     duration: number;
+    comboType?: 'week' | 'month';
   };
 }
 
@@ -410,6 +411,7 @@ export class CourtService {
     let requestedTime: number | undefined = undefined;
     let requestedEndTime: number | undefined = undefined;
     let requestedDateText: string | undefined = undefined;
+    let requestedComboType: 'week' | 'month' | undefined = undefined;
     let aiExplanation: string = '';
     let tomorrowFallbackActive = false;
 
@@ -427,6 +429,7 @@ Hãy trả về một đối tượng JSON duy nhất (không có markdown, khô
   "date": "YYYY-MM-DD" (ví dụ nếu người dùng nói ngày mai thì chuyển thành "${tomorrowDateStr}", nếu ngày 17 thì chuyển thành "2026-06-17", nếu hôm nay/tối nay thì chuyển thành "${currentDateDashStr}") hoặc null nếu không nhắc tới ngày nào cụ thể,
   "startTime": "HH:mm" (ví dụ "18:00") hoặc null,
   "endTime": "HH:mm" (ví dụ "20:00") hoặc null,
+  "comboType": "week" | "month" | null,
   "aiExplanation": "Chuỗi phản hồi tiếng Việt thân thiện tương ứng nếu intent không phải là search, hoặc nếu intent là search nhưng thiếu thông tin cần thiết hoặc sai thời gian chơi."
 }
 
@@ -439,7 +442,8 @@ Quy tắc phân tích thông thường:
 - sportType: cầu lông/badminton -> "badminton", bóng đá/đá banh -> "soccer", tennis/quần vợt -> "tennis", bóng rổ -> "basketball", pickleball -> "pickleball".
 - location: dịch quận huyện ở Đà Nẵng sang tên tiếng Việt chuẩn có dấu.
 - date: hãy tính toán chính xác ngày dương lịch tương ứng dựa trên ngày hiện tại là ${currentDateStr} và điền dưới dạng YYYY-MM-DD.
-- startTime/endTime: nhận diện giờ đặt sân cụ thể. Nếu người dùng nói "chiều tối" -> "17:00", "sáng" -> "08:00".`;
+- startTime/endTime: nhận diện giờ đặt sân cụ thể. Nếu người dùng nói "chiều tối" -> "17:00", "sáng" -> "08:00".
+- comboType: nếu người dùng muốn đặt sân theo combo 1 tuần, combo tuần, đặt tuần thì điền "week"; nếu muốn đặt combo 1 tháng, combo tháng, đặt tháng thì điền "month". Các trường hợp thông thường không nhắc đến combo thì điền null.`;
 
       const messages: any[] = [
         { role: 'system', content: systemPrompt }
@@ -487,6 +491,7 @@ Quy tắc phân tích thông thường:
       
       requestedDateText = parsed.date || parsed.dateText || undefined;
       aiExplanation = parsed.aiExplanation || '';
+      requestedComboType = parsed.comboType || undefined;
 
       if (parsed.startTime) {
         const [h, m] = parsed.startTime.split(':').map(Number);
@@ -499,7 +504,7 @@ Quy tắc phân tích thông thường:
         requestedEndTime = requestedTime + 60; // mặc định 1 tiếng
       }
 
-      console.log('[AI suggest parser] parsed output:', { intent, requestedSportType, requestedLocation, requestedDateText, requestedTime, requestedEndTime });
+      console.log('[AI suggest parser] parsed output:', { intent, requestedSportType, requestedLocation, requestedDateText, requestedTime, requestedEndTime, requestedComboType });
     } catch (err) {
       console.warn('[AI suggest parser] LLM parser failed, falling back to regex rules:', err);
       // Fallback
@@ -510,6 +515,14 @@ Quy tắc phân tích thông thường:
       requestedEndTime = requestedTimeRange.end;
       requestedDateText = detectDateText(prompt);
       intent = detectIntent(prompt);
+    }
+
+    // Direct regex reinforcement to guarantee comboType detection
+    const lowerPrompt = normalizeText(prompt);
+    if (lowerPrompt.includes('combo 1 thang') || lowerPrompt.includes('combo thang') || lowerPrompt.includes('monthly combo') || lowerPrompt.includes('dat thang')) {
+      requestedComboType = 'month';
+    } else if (lowerPrompt.includes('combo 1 tuan') || lowerPrompt.includes('combo tuan') || lowerPrompt.includes('weekly combo') || lowerPrompt.includes('dat tuan')) {
+      requestedComboType = 'week';
     }
 
     try {
@@ -571,7 +584,10 @@ Quy tắc phân tích thông thường:
       }
 
       // Step 3: Fetch active courts and filter
-      const allCourts = await Court.find({ isActive: true }).populate('venue');
+      let allCourts = await Court.find({ isActive: true }).populate('venue');
+      
+      // Filter out orphan courts that do not belong to a valid venue
+      allCourts = allCourts.filter((court: any) => court.venue !== null && court.venue !== undefined);
 
       if (allCourts.length === 0) {
         return {
@@ -685,19 +701,22 @@ Hãy viết một lời phản hồi tự nhiên, lịch sự (2-3 câu) bằng 
 Chúng tôi đã tự động chuyển ngày chơi sang Ngày Mai và tìm thấy các sân trống phù hợp sau:
 ${courtsInfo}
 
-Hãy viết một phản hồi ngắn gọn, tự nhiên và thân thiện (2-3 câu) bằng tiếng Việt giải thích khéo léo rằng giờ chơi hôm nay đã trôi qua rồi, nên hệ thống đề xuất các sân này vào Ngày Mai để họ tham khảo đặt sân bên dưới.`;
+Hãy viết một phản hồi ngắn gọn, tự nhiên và thân thiện (2-3 câu) bằng tiếng Việt giải thích khéo léo rằng giờ chơi hôm nay đã trôi qua rồi, nên hệ thống đề xuất các sân này vào Ngày Mai để họ tham khảo đặt sân bên dưới.
+LƯU Ý CỰC KỲ QUAN TRỌNG: Chỉ được giới thiệu và sử dụng tên sân/địa chỉ chính xác trong danh sách được cung cấp. Tuyệt đối không tự bịa ra quận/huyện/địa điểm/tên sân khác không có trong danh sách.`;
         } else if (usedLocationFallback) {
           suggestPrompt = `Bạn là trợ lý AI EZSport thân thiện. Khách hàng yêu cầu tìm sân ở khu vực cụ thể: "${prompt}".
-Tuy nhiên, các sân trống ở khu vực đó đã hết. Chúng tôi đã tìm thấy một số sân trống phù hợp ở các khu vực lân cận khác như sau:
+Tuy nhiên, các sân trống ở khu vực đó đã hết. Chúng tôi đã tìm thấy một số sân trống phù hợp trong hệ thống như sau:
 ${courtsInfo}
 
-Hãy viết một phản hồi ngắn gọn, tự nhiên (2-3 câu) bằng tiếng Việt giải thích khéo léo rằng khu vực họ tìm hiện đã hết sân trống, và giới thiệu các sân ở khu vực lân cận này cho họ.`;
+Hãy viết một phản hồi ngắn gọn, tự nhiên (2-3 câu) bằng tiếng Việt giải thích khéo léo rằng khu vực họ tìm hiện đã hết sân trống, và giới thiệu các sân thay thế này cho họ.
+LƯU Ý CỰC KỲ QUAN TRỌNG: Chỉ được giới thiệu và sử dụng đúng tên sân/địa chỉ chính xác trong danh sách được cung cấp. Tuyệt đối không tự bịa ra hay suy đoán quận/huyện/địa điểm khác ngoài thông tin địa chỉ cụ thể có sẵn trong danh sách trên.`;
         } else {
           suggestPrompt = `Bạn là trợ lý AI EZSport thân thiện. Khách hàng yêu cầu: "${prompt}".
 Chúng tôi đã tìm thấy các sân trống phù hợp sau:
 ${courtsInfo}
 
-Hãy viết một phản hồi ngắn gọn, thân thiện (2-3 câu) bằng tiếng Việt để giới thiệu các sân này và khuyến khích họ chọn đặt sân bên dưới.`;
+Hãy viết một phản hồi ngắn gọn, thân thiện (2-3 câu) bằng tiếng Việt để giới thiệu các sân này và khuyến khích họ chọn đặt sân bên dưới.
+LƯU Ý CỰC KỲ QUAN TRỌNG: Chỉ được giới thiệu và sử dụng tên sân/địa chỉ chính xác trong danh sách được cung cấp. Tuyệt đối không tự bịa ra quận/huyện/địa điểm khác ngoài danh sách.`;
         }
 
         const completion = await openai.chat.completions.create({
@@ -737,6 +756,7 @@ Hãy viết một phản hồi ngắn gọn, thân thiện (2-3 câu) bằng ti�
         startTime: formatMinutesToHHMM(requestedTime),
         endTime: formatMinutesToHHMM(requestedEndTime || (requestedTime + 60)),
         duration: Math.max(1, ((requestedEndTime || (requestedTime + 60)) - requestedTime) / 60),
+        comboType: requestedComboType,
       } : undefined;
 
       return {
