@@ -202,8 +202,8 @@ const RegisterPage: React.FC = () => {
               <Form.Control type="text" placeholder="an_nguyen" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={username} onChange={e => setUsername(e.target.value)} required />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email (tùy chọn)</Form.Label>
-              <Form.Control type="email" placeholder="an.nguyen@example.com" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={email} onChange={e => setEmail(e.target.value)} />
+              <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email</Form.Label>
+              <Form.Control type="email" placeholder="an.nguyen@example.com" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={email} onChange={e => setEmail(e.target.value)} required />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Số điện thoại</Form.Label>
