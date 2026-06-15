@@ -55,6 +55,8 @@ export interface Venue {
   // Status
   isActive: boolean;
   isVerified: boolean;
+  comboWeeklyDiscount?: number;
+  comboMonthlyDiscount?: number;
 
   createdAt?: string;
   updatedAt?: string;

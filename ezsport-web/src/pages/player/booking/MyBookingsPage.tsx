@@ -12,7 +12,8 @@ const STATUS_MAP: Record<string, { label: string; variant: string }> = {
 };
 
 const TAB_STATUSES: Record<string, string[]> = {
-  upcoming:  ['PENDING', 'CONFIRMED', 'CHECKED_IN'],
+  upcoming:  ['PENDING', 'CONFIRMED'],
+  checked_in: ['CHECKED_IN'],
   done:      ['COMPLETED'],
   cancelled: ['CANCELLED'],
 };
@@ -32,8 +33,12 @@ const BookingCard: React.FC<{ booking: Booking; onClick: () => void }> = ({ book
       <Card.Body className="p-3">
         <div className="d-flex justify-content-between align-items-start mb-2">
           <div>
-            <p className="fw-bold mb-0" style={{ fontSize: '15px' }}>{(booking.courtId as any)?.name || 'Sân EZSport'}</p>
-            <p className="text-muted mb-0" style={{ fontSize: '12px' }}>{booking.sport}</p>
+            <p className="fw-bold mb-0" style={{ fontSize: '15px' }}>
+              {(booking.courtId as any)?.venue?.name || 'Sân EZSport'}
+            </p>
+            <p className="text-muted mb-0" style={{ fontSize: '12px' }}>
+              {(booking.courtId as any)?.name || 'Sân 1'} · {booking.sport}
+            </p>
           </div>
           <Badge bg={status.variant} style={{ fontSize: '11px' }}>{status.label}</Badge>
         </div>
@@ -87,6 +92,7 @@ const MyBookingsPage: React.FC = () => {
         style={{ borderBottom: '2px solid #e5e7eb' }}
       >
         <Tab eventKey="upcoming" title="Sắp tới" />
+        <Tab eventKey="checked_in" title="Đã check-in" />
         <Tab eventKey="done" title="Hoàn thành" />
         <Tab eventKey="cancelled" title="Đã huỷ" />
       </Tabs>

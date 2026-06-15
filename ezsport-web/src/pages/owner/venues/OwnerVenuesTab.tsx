@@ -74,6 +74,8 @@ const emptyForm = () => ({
   isActive: true,
   amenities: DEFAULT_AMENITIES.map(a => ({ ...a })),
   imageFile: null as File | null,
+  comboWeeklyDiscount: 5,
+  comboMonthlyDiscount: 15,
 });
 
 type FormState = ReturnType<typeof emptyForm>;
@@ -261,6 +263,8 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = () => { // onOpenCr
         return existing ? { ...existing } : { ...def };
       }),
       imageFile: null,
+      comboWeeklyDiscount: c.comboWeeklyDiscount !== undefined ? c.comboWeeklyDiscount : 5,
+      comboMonthlyDiscount: c.comboMonthlyDiscount !== undefined ? c.comboMonthlyDiscount : 15,
     });
     setView('form');
   };
@@ -646,6 +650,7 @@ export const OwnerVenuesTab: React.FC<OwnerVenuesTabProps> = () => { // onOpenCr
                 <input style={inp} type="time" value={form.closeTime} onChange={e => setForm(f => ({ ...f, closeTime: e.target.value }))} />
               </Col>
             </Row>
+
             <div
               className="d-flex justify-content-between align-items-center p-3"
               style={{ background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}
