@@ -139,7 +139,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout leftContent={leftContent} topLink={topLink}>
-      <div style={{ marginBottom: '32px' }}>
+      <div className="auth-form-heading" style={{ marginBottom: '32px' }}>
         <h2 style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a', letterSpacing: '-1.5px', marginBottom: '8px' }}>
           Đăng nhập
         </h2>
@@ -147,7 +147,7 @@ const LoginPage: React.FC = () => {
       </div>
 
       {/* Social login buttons */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '28px' }}>
+      <div className="auth-social-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '28px' }}>
         <div style={{ display: 'flex', alignItems: 'stretch' }}>
           <div ref={googleButtonRef} style={{ width: '100%' }} />
           {!googleButtonRendered && (
@@ -232,7 +232,7 @@ const LoginPage: React.FC = () => {
           </div>
         </Form.Group>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13.5px', marginBottom: '28px' }}>
+        <div className="auth-form-options" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13.5px', marginBottom: '28px' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600, color: '#334155' }}>
             <input type="checkbox" style={{ accentColor: '#1a6b3c', width: 16, height: 16 }} />
             Ghi nhớ đăng nhập

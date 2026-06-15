@@ -126,17 +126,17 @@ export const LandingPage: React.FC<{
     <div style={{ fontFamily: f, background: SL, color: TX, overflowX: 'hidden', minHeight: '100vh' }}>
 
       {/* ── NAVBAR ── */}
-      <nav style={{
+      <nav className="landing-nav" style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200, height: 90,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 48px', background: 'rgba(255,255,255,0.88)',
         backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
         borderBottom: '1px solid rgba(0,0,0,0.07)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => navigate(ROUTES.LANDING)}>
+        <div className="landing-nav-logo" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => navigate(ROUTES.LANDING)}>
           <img src="/logo3.png" alt="EZSport Logo" style={{ height: 60, width: 'auto', objectFit: 'contain', transform: 'scale(3.5)', transformOrigin: 'left center', marginLeft: '5px' }} />
         </div>
-        <div style={{ display: 'flex', gap: 40 }}>
+        <div className="landing-nav-links" style={{ display: 'flex', gap: 40 }}>
           {[
             { en: 'Bookings', vi: 'Đặt sân', onClick: () => navigate(ROUTES.MAP) },
             { en: 'Marketplace', vi: 'Cửa hàng', onClick: () => alert('Tính năng Cửa hàng sắp ra mắt!') },
@@ -146,7 +146,7 @@ export const LandingPage: React.FC<{
             <a key={l.en} href="#" onClick={(e) => { e.preventDefault(); l.onClick(); }} style={{ fontSize: 17, fontWeight: 700, color: TX2, textDecoration: 'none' }}>{l.vi}</a>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <div className="landing-nav-actions" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           {!isAuthenticated ? (
             <>
               <button onClick={() => navigate(ROUTES.LOGIN)} style={{
@@ -315,7 +315,7 @@ export const LandingPage: React.FC<{
       </nav>
 
       {/* ── HERO (Full-screen video background) ── */}
-      <section style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <section className="landing-hero" style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
 
         {/* Video BG */}
         <FadingVideo src="caulong.mp4" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} />
@@ -324,7 +324,7 @@ export const LandingPage: React.FC<{
         <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to bottom, rgba(5,20,10,0.5) 0%, rgba(10,30,18,0.65) 55%, rgba(15,61,34,0.88) 100%)' }} />
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '120px 48px 80px', maxWidth: 900, width: '100%' }}>
+        <div className="landing-hero-content" style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '120px 48px 80px', maxWidth: 900, width: '100%' }}>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 999, padding: '7px 18px', marginBottom: 28 }}>
@@ -333,6 +333,7 @@ export const LandingPage: React.FC<{
           </motion.div>
 
           <BlurText
+            className="landing-hero-title"
             text="Tương lai của quản lý & đặt sân thể thao"
             greenWords={['quản', 'lý', 'đặt', 'sân']}
             style={{ fontSize: 64, fontWeight: 900, lineHeight: 1.05, letterSpacing: -3, color: W, justifyContent: 'center', marginBottom: 24 }}
@@ -343,7 +344,7 @@ export const LandingPage: React.FC<{
             Nền tảng đặt sân thể thao số 1 Việt Nam. Đặt sân chất lượng cao ngay lập tức, không cần gọi điện thoại.
           </motion.p>
 
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0, duration: 0.6 }}
+          <motion.div className="landing-hero-actions" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0, duration: 0.6 }}
             style={{ display: 'flex', gap: 16, marginBottom: 64 }}>
             <button onClick={() => navigate(ROUTES.MAP)} style={{ background: G, color: W, border: 'none', borderRadius: 999, padding: '16px 36px', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, boxShadow: `0 12px 36px ${G}60` }}>
               Đặt sân ngay <Arrow />
@@ -356,7 +357,7 @@ export const LandingPage: React.FC<{
             </button>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
+          <motion.div className="landing-stats" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
             style={{ display: 'flex', background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 24, overflow: 'hidden' }}>
             {[{ n: '5.2K+', l: 'Thành viên' }, { n: '98%', l: 'Tỉ lệ đặt sân' }, { n: '120+', l: 'Sân thể thao' }, { n: '4.9★', l: 'Đánh giá' }].map((s, i) => (
               <div key={s.l} style={{ padding: '20px 36px', borderRight: i < 3 ? '1px solid rgba(255,255,255,0.12)' : 'none', textAlign: 'center' }}>
@@ -376,9 +377,9 @@ export const LandingPage: React.FC<{
 
 
       {/* ── VENUES ── */}
-      <section ref={venuesSectionRef} style={{ padding: '100px 64px', background: W }}>
+      <section className="landing-section landing-venues" ref={venuesSectionRef} style={{ padding: '100px 64px', background: W }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: 56, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <motion.div className="landing-section-heading" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: 56, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 800, color: OG, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>⚽ Địa điểm nổi bật</div>
               <h2 style={{ margin: 0, fontSize: 48, fontWeight: 900, letterSpacing: -2, color: TX }}>Sân thể thao cao cấp </h2>
@@ -387,7 +388,7 @@ export const LandingPage: React.FC<{
               Xem tất cả <Arrow />
             </button>
           </motion.div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }}>
+          <div className="landing-venue-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }}>
             {displayCourts && displayCourts.length > 0 ? (
               displayCourts.slice(0, 3).map((court, index) => (
                 <VenueCard
@@ -417,9 +418,10 @@ export const LandingPage: React.FC<{
       </section>
 
       {/* ── PROMO BANNER CAROUSEL ── */}
-      <section style={{ padding: '30px 64px 80px', background: W }}>
+      <section className="landing-section landing-promo-section" style={{ padding: '30px 64px 80px', background: W }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div
+            className="landing-promo"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -523,7 +525,7 @@ export const LandingPage: React.FC<{
               </div>
 
               {/* Right Side Icon Container */}
-              <div style={{
+              <div className="landing-promo-icon" style={{
                 flex: '1 1 250px',
                 display: 'flex',
                 justifyContent: 'center',
@@ -578,7 +580,7 @@ export const LandingPage: React.FC<{
       </section>
 
       {/* ── WHY ── */}
-      <section style={{ padding: '100px 64px', background: SL }}>
+      <section className="landing-section" style={{ padding: '100px 64px', background: SL }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ textAlign: 'center', marginBottom: 64 }}>
             <h2 style={{ margin: '0 0 16px', fontSize: 48, fontWeight: 900, letterSpacing: -2, color: TX }}>Tại sao chọn EZSport?</h2>
@@ -586,7 +588,7 @@ export const LandingPage: React.FC<{
               Chúng tôi tái định nghĩa trải nghiệm thể thao với công nghệ tiên phong và tập trung gắn kết cộng đồng.
             </p>
           </motion.div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 22 }}>
+          <div className="landing-feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 22 }}>
             {[
               { emoji: '⚡', title: 'Đặt sân thông minh bằng AI', text: 'Thuật toán gợi ý khung giờ đặt sân tối ưu dựa trên lịch sử hoạt động của bạn.' },
               { emoji: '🗺️', title: 'Bản đồ trực quan', text: 'Xem các sân thể thao còn trống quanh thành phố của bạn theo thời gian thực dễ dàng.' },
@@ -606,18 +608,18 @@ export const LandingPage: React.FC<{
       </section>
 
       {/* ── CTA ── */}
-      <section style={{ padding: '100px 64px', background: GD, position: 'relative', overflow: 'hidden' }}>
+      <section className="landing-section landing-cta" style={{ padding: '100px 64px', background: GD, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: `${G}60` }} />
         <div style={{ position: 'absolute', bottom: -60, left: 100, width: 240, height: 240, borderRadius: '50%', background: `${OG}30` }} />
         <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 56, fontWeight: 900, color: W, letterSpacing: -2, lineHeight: 1.1 }}>
+            <h2 className="landing-cta-title" style={{ margin: '0 0 20px', fontSize: 56, fontWeight: 900, color: W, letterSpacing: -2, lineHeight: 1.1 }}>
               Sẵn sàng nâng tầm<br /><span style={{ color: '#86efac' }}>Cuộc chơi của bạn?</span>
             </h2>
             <p style={{ margin: '0 0 44px', fontSize: 18, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
               Tham gia cùng hơn 5,200+ người chơi đang trải nghiệm đặt sân thông minh cùng EZSport.
             </p>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+            <div className="landing-cta-actions" style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
               <button onClick={() => navigate(ROUTES.MAP)} style={{ background: W, color: GD, border: 'none', borderRadius: 999, padding: '16px 40px', fontSize: 16, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                 Khám phá sân ngay <Arrow />
               </button>
