@@ -160,15 +160,41 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   };
 
   // Live order calculations
-  const subtotal = booking.basePrice;
+  const [comboType, setComboType] = useState<'week' | 'month' | undefined>(undefined);
+
+  const getComboDates = () => {
+    if (!draft?.slot?.date) return [];
+    const baseDate = new Date(draft.slot.date);
+    const count = comboType === 'month' ? 4 : (comboType === 'week' ? 2 : 1);
+    const dates: Date[] = [];
+    for (let i = 0; i < count; i++) {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + i * 7);
+      dates.push(d);
+    }
+    return dates;
+  };
+
+  const comboDates = getComboDates();
+  const sessionsCount = comboDates.length || 1;
+
+  const baseSubtotal = booking.basePrice;
+  const subtotal = baseSubtotal * sessionsCount;
+  const weeklyRate = venueData?.comboWeeklyDiscount !== undefined ? venueData.comboWeeklyDiscount : 5;
+  const monthlyRate = venueData?.comboMonthlyDiscount !== undefined ? venueData.comboMonthlyDiscount : 15;
+
+  const comboDiscount = comboType === 'month' 
+    ? Math.floor(subtotal * (monthlyRate / 100)) 
+    : (comboType === 'week' ? Math.floor(subtotal * (weeklyRate / 100)) : 0);
+
   const serviceFee = booking.serviceFee;
   const discountVal = appliedVoucher 
     ? (appliedVoucher.type === 'percent' 
-        ? Math.min(Math.floor(subtotal * appliedVoucher.value / 100), appliedVoucher.maxDiscount || Infinity) 
+        ? Math.min(Math.floor((subtotal - comboDiscount) * appliedVoucher.value / 100), appliedVoucher.maxDiscount || Infinity) 
         : appliedVoucher.value)
     : 0;
   const pointsVal = usePoints && canUsePoints ? pointsDiscountValue : 0;
-  const total = Math.max(0, subtotal + serviceFee - discountVal - pointsVal);
+  const total = Math.max(0, subtotal + serviceFee - comboDiscount - discountVal - pointsVal);
 
   const handleApplyVoucher = async (code: string) => {
     if (!code.trim()) {
@@ -224,7 +250,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         endTime: draft.slot.endTime,
         duration: draft.slot.duration,
         sport: selectedSport,
-        basePrice: subtotal,
+        basePrice: baseSubtotal,
         serviceFee: serviceFee,
         discount: discountVal,
         pointsUsed: usePoints && canUsePoints ? selectedPoints : 0,
@@ -235,6 +261,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         bookerEmail: bookerEmail,
         voucherCode: appliedVoucher?.code || undefined,
         notes: '',
+        comboType: comboType,
       };
 
       const createdBooking = await bookingService.createBooking(bookingPayload);
@@ -359,6 +386,91 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     <span className="fw-bold text-dark" style={{ fontSize: '14px' }}>{booking.duration}</span>
                   </Col>
                 </Row>
+              </Card>
+
+              {/* Block 1.5: Chọn gói đặt sân (Combo) */}
+              <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
+                <h5 className="fw-bold text-dark mb-3" style={{ fontWeight: 800 }}>Chọn hình thức đặt</h5>
+                <Row className="g-3">
+                  <Col md={4}>
+                    <div
+                      onClick={() => setComboType(undefined)}
+                      className="p-3 rounded-4 border text-center h-100 d-flex flex-column justify-content-between"
+                      style={{
+                        cursor: 'pointer',
+                        borderWidth: '2px',
+                        borderColor: !comboType ? '#16a34a' : '#cbd5e1',
+                        background: !comboType ? '#f0fdf4' : '#fff',
+                        transition: 'all 0.2s',
+                        borderRadius: '16px'
+                      }}
+                    >
+                      <div>
+                        <span className="fw-bold d-block" style={{ fontSize: '15px' }}>Đặt lịch lẻ</span>
+                        <small className="text-muted" style={{ fontSize: '11px' }}>Chỉ đặt 1 buổi duy nhất</small>
+                      </div>
+                      <Badge bg="secondary" className="mt-3 py-2 px-3 align-self-center rounded-pill" style={{ fontSize: '10px' }}>Mặc định</Badge>
+                    </div>
+                  </Col>
+                  
+                  <Col md={4}>
+                    <div
+                      onClick={() => setComboType('week')}
+                      className="p-3 rounded-4 border text-center h-100 d-flex flex-column justify-content-between"
+                      style={{
+                        cursor: 'pointer',
+                        borderWidth: '2px',
+                        borderColor: comboType === 'week' ? '#16a34a' : '#cbd5e1',
+                        background: comboType === 'week' ? '#f0fdf4' : '#fff',
+                        transition: 'all 0.2s',
+                        borderRadius: '16px'
+                      }}
+                    >
+                      <div>
+                        <span className="fw-bold d-block" style={{ fontSize: '15px' }}>Combo 1 tuần</span>
+                        <small className="text-muted" style={{ fontSize: '11px' }}>Đặt 2 buổi trong 2 tuần liên tiếp</small>
+                      </div>
+                      <Badge bg="success" className="mt-3 py-2 px-3 align-self-center rounded-pill" style={{ fontSize: '10px' }}>Giảm {weeklyRate}%</Badge>
+                    </div>
+                  </Col>
+
+                  <Col md={4}>
+                    <div
+                      onClick={() => setComboType('month')}
+                      className="p-3 rounded-4 border text-center h-100 d-flex flex-column justify-content-between"
+                      style={{
+                        cursor: 'pointer',
+                        borderWidth: '2px',
+                        borderColor: comboType === 'month' ? '#16a34a' : '#cbd5e1',
+                        background: comboType === 'month' ? '#f0fdf4' : '#fff',
+                        transition: 'all 0.2s',
+                        borderRadius: '16px'
+                      }}
+                    >
+                      <div>
+                        <span className="fw-bold d-block" style={{ fontSize: '15px' }}>Combo 1 tháng</span>
+                        <small className="text-muted" style={{ fontSize: '11px' }}>Đặt 4 buổi trong 4 tuần liên tiếp</small>
+                      </div>
+                      <Badge bg="danger" className="mt-3 py-2 px-3 align-self-center rounded-pill" style={{ fontSize: '10px' }}>Giảm {monthlyRate}% 🔥</Badge>
+                    </div>
+                  </Col>
+                </Row>
+                
+                {comboDates.length > 1 && (
+                  <div className="mt-4 p-3 rounded-4" style={{ backgroundColor: '#f8fafc', borderRadius: '16px' }}>
+                    <span className="text-muted small fw-bold d-block mb-2" style={{ fontSize: '11px', letterSpacing: '0.5px' }}>
+                      CHI TIẾT CÁC BUỔI ĐẶT TRONG COMBO:
+                    </span>
+                    <div className="d-flex flex-column gap-2">
+                      {comboDates.map((date, idx) => (
+                        <div key={idx} className="d-flex align-items-center justify-content-between p-2.5 rounded-3 bg-white border border-light shadow-sm" style={{ fontSize: '13px' }}>
+                          <span className="fw-semibold text-dark">Buổi {idx + 1}: {date.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                          <span className="text-muted">{booking.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
 
               {/* Block 2: Thông tin người đặt */}
@@ -742,11 +854,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
                   <div className="d-flex flex-column gap-3 mb-4" style={{ fontSize: '14.5px' }}>
                     <div className="d-flex justify-content-between text-secondary">
-                      <span>Phí thuê sân</span>
+                      <span>Phí thuê sân ({sessionsCount} buổi)</span>
                       <span className="fw-semibold text-dark">
                         {subtotal.toLocaleString('vi-VN')}đ
                       </span>
                     </div>
+
+                    {comboDiscount > 0 && (
+                      <div className="d-flex justify-content-between text-danger">
+                        <span>Ưu đãi Combo ({comboType === 'month' ? `${monthlyRate}%` : `${weeklyRate}%`})</span>
+                        <span className="fw-bold">
+                          -{comboDiscount.toLocaleString('vi-VN')}đ
+                        </span>
+                      </div>
+                    )}
 
                     <div className="d-flex justify-content-between text-secondary">
                       <span>Phí dịch vụ</span>

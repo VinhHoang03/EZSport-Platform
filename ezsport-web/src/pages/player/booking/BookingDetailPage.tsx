@@ -19,6 +19,41 @@ const BookingDetailPage: React.FC = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState('');
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkInError, setCheckInError] = useState('');
+
+  const handlePlayerCheckIn = () => {
+    if (!navigator.geolocation) {
+      alert("Trình duyệt của bạn không hỗ trợ định vị GPS để check-in.");
+      return;
+    }
+    setCheckingIn(true);
+    setCheckInError('');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const updated = await bookingService.checkInBooking(booking!._id, latitude, longitude);
+          setBooking(updated);
+          alert("🎉 Check-in thành công! Bạn đã nhận được 50 điểm tích luỹ.");
+        } catch (err: any) {
+          const errMsg = err.response?.data?.message || err.message || "Check-in thất bại.";
+          setCheckInError(errMsg);
+          alert(errMsg);
+        } finally {
+          setCheckingIn(false);
+        }
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        const errMsg = "Không thể lấy vị trí hiện tại của bạn. Vui lòng cấp quyền truy cập GPS.";
+        setCheckInError(errMsg);
+        alert(errMsg);
+        setCheckingIn(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   useEffect(() => {
     if (!bookingId) return;
@@ -83,6 +118,35 @@ const BookingDetailPage: React.FC = () => {
           <p className="fw-bold mb-0" style={{ fontSize: '18px', color: '#16a34a', letterSpacing: '2px' }}>
             #{booking._id.slice(-8).toUpperCase()}
           </p>
+
+          {booking.status === 'CONFIRMED' && (
+            <div className="mt-3 pt-3 border-top">
+              <Button
+                variant="success"
+                className="w-100 fw-bold d-flex align-items-center justify-content-center gap-2"
+                style={{ borderRadius: '12px', padding: '12px' }}
+                onClick={handlePlayerCheckIn}
+                disabled={checkingIn}
+              >
+                {checkingIn ? (
+                  <>
+                    <Spinner size="sm" animation="border" className="me-1" />
+                    Đang xác thực vị trí...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">where_to_vote</span>
+                    Tự check-in nhận điểm (200m)
+                  </>
+                )}
+              </Button>
+              {checkInError && (
+                <p className="text-danger small mt-2 mb-0 fw-semibold">
+                  {checkInError}
+                </p>
+              )}
+            </div>
+          )}
         </Card.Body>
       </Card>
 
@@ -90,10 +154,20 @@ const BookingDetailPage: React.FC = () => {
       <Card className="border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
         <Card.Body className="p-4">
           <h6 className="fw-bold mb-3">Thông tin sân</h6>
-          <InfoRow label="Sân" value={(booking.courtId as any)?.name || 'Sân EZSport'} />
+          <InfoRow label="Địa điểm" value={(booking.courtId as any)?.venue?.name || 'Sân EZSport'} />
+          <InfoRow label="Sân" value={(booking.courtId as any)?.name || 'Sân 1'} />
+          {(booking.courtId as any)?.venue?.location && (
+            <InfoRow label="Địa chỉ" value={(booking.courtId as any)?.venue?.location} />
+          )}
           <InfoRow label="Môn" value={booking.sport} />
           <InfoRow label="Ngày" value={date} />
           <InfoRow label="Giờ" value={`${booking.startTime} – ${booking.endTime} (${booking.duration}h)`} />
+          {booking.comboId && (
+            <InfoRow label="Hình thức" value={booking.comboType === 'month' ? 'Combo 1 tháng (4 buổi)' : 'Combo 1 tuần (2 buổi)'} color="#dc2626" bold />
+          )}
+          {booking.notes && (
+            <InfoRow label="Ghi chú" value={booking.notes} />
+          )}
         </Card.Body>
       </Card>
 

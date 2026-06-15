@@ -3,6 +3,8 @@ import Court from "../models/court.model";
 import { User } from "../models/user.model";
 import Voucher from "../models/voucher.model";
 import UserVoucher from "../models/userVoucher.model";
+import Venue from "../models/venue.model";
+import { calculateDistance } from "../utils/distance.util";
 
 const toMinutes = (time: string): number => {
   const [hour = 0, minute = 0] = String(time || "00:00").split(":").map(Number);
@@ -25,83 +27,99 @@ class BookingService {
    */
   async createBooking(userId: string, bookingData: any): Promise<IBooking> {
     await this.cleanupStaleMomoBookings();
-    // Check if user exists
     const user = await User.findById(userId);
     if (!user) throw new Error("Người dùng không tồn tại");
 
-    // Check if court exists
     const court = await Court.findById(bookingData.courtId);
     if (!court) throw new Error("Sân không tồn tại");
 
-    // Validate if the slot is in the past
-    const bookingDateObj = new Date(bookingData.bookingDate);
+    const venue = await Venue.findById(court.venue);
+    if (!venue) throw new Error("Địa điểm không tồn tại");
+
     const now = new Date();
-    
-    const targetDateStr = `${bookingDateObj.getFullYear()}-${String(bookingDateObj.getMonth() + 1).padStart(2, "0")}-${String(bookingDateObj.getDate()).padStart(2, "0")}`;
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    
-    const isPastDate = targetDateStr < todayStr;
-    const isToday = targetDateStr === todayStr;
-    
-    if (isPastDate) {
-      throw new Error("Không thể đặt sân trong quá khứ");
+    const sessionsCount = bookingData.comboType === "month" ? 4 : (bookingData.comboType === "week" ? 2 : 1);
+    const bookingDates: Date[] = [];
+    for (let i = 0; i < sessionsCount; i++) {
+      const d = new Date(bookingData.bookingDate);
+      d.setDate(d.getDate() + i * 7);
+      bookingDates.push(d);
     }
-    
-    if (isToday) {
-      const [slotHour, slotMinute] = bookingData.startTime.split(":").map(Number);
-      const currentHourNow = now.getHours();
-      const currentMinuteNow = now.getMinutes();
+
+    for (const bDate of bookingDates) {
+      const targetDateStr = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, "0")}-${String(bDate.getDate()).padStart(2, "0")}`;
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       
-      if (slotHour < currentHourNow || (slotHour === currentHourNow && slotMinute <= currentMinuteNow)) {
-        throw new Error("Không thể đặt khung giờ đã trôi qua");
+      const isPastDate = targetDateStr < todayStr;
+      const isToday = targetDateStr === todayStr;
+      
+      if (isPastDate) {
+        throw new Error(`Không thể đặt sân trong quá khứ (${targetDateStr})`);
+      }
+      
+      if (isToday) {
+        const [slotHour, slotMinute] = bookingData.startTime.split(":").map(Number);
+        const currentHourNow = now.getHours();
+        const currentMinuteNow = now.getMinutes();
+        
+        if (slotHour < currentHourNow || (slotHour === currentHourNow && slotMinute <= currentMinuteNow)) {
+          throw new Error("Không thể đặt khung giờ đã trôi qua");
+        }
+      }
+
+      const conflictingBooking = await Booking.findOne({
+        courtId: bookingData.courtId,
+        bookingDate: {
+          $gte: new Date(bDate),
+          $lt: new Date(new Date(bDate).getTime() + 86400000),
+        },
+        $and: [
+          {
+            $or: [
+              { startTime: bookingData.startTime },
+              { endTime: bookingData.endTime },
+              {
+                startTime: { $lt: bookingData.endTime },
+                endTime: { $gt: bookingData.startTime },
+              },
+            ]
+          },
+          {
+            $or: [
+              { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
+              { status: "PENDING", paymentMethod: { $ne: "momo" } }
+            ]
+          }
+        ]
+      });
+
+      if (conflictingBooking) {
+        const formattedDate = bDate.toLocaleDateString("vi-VN");
+        throw new Error(`Sân đã bị đặt vào ngày ${formattedDate} trong khung giờ này`);
       }
     }
 
-    // Check for booking conflicts
-    // Block if ANY active/pending booking overlaps (including PENDING to prevent double-booking
-    // before owner has a chance to confirm/reject)
-    const existingBooking = await Booking.findOne({
-      courtId: bookingData.courtId,
-      bookingDate: {
-        $gte: new Date(bookingData.bookingDate),
-        $lt: new Date(new Date(bookingData.bookingDate).getTime() + 86400000), // same day
-      },
-      $and: [
-        {
-          $or: [
-            { startTime: bookingData.startTime },
-            { endTime: bookingData.endTime },
-            {
-              startTime: { $lt: bookingData.endTime },
-              endTime: { $gt: bookingData.startTime },
-            },
-          ]
-        },
-        {
-          $or: [
-            { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
-            { status: "PENDING", paymentMethod: { $ne: "momo" } }
-          ]
-        }
-      ]
-    });
+    const singleBasePrice = Number(bookingData.basePrice || 0);
+    const subtotal = singleBasePrice * sessionsCount;
 
+    const weeklyRate = (venue.comboWeeklyDiscount !== undefined) ? venue.comboWeeklyDiscount : 5;
+    const monthlyRate = (venue.comboMonthlyDiscount !== undefined) ? venue.comboMonthlyDiscount : 15;
 
-    if (existingBooking) {
-      throw new Error("Sân đã được đặt trong khung giờ này");
+    let comboDiscount = 0;
+    if (bookingData.comboType === "month") {
+      comboDiscount = Math.floor(subtotal * (monthlyRate / 100));
+    } else if (bookingData.comboType === "week") {
+      comboDiscount = Math.floor(subtotal * (weeklyRate / 100));
     }
 
-    const subtotal = Number(bookingData.basePrice || 0);
     const serviceFee = Number(bookingData.serviceFee || 0);
     const orderValue = subtotal + serviceFee;
     let discount = 0;
-    let pointsUsedForDiscount = Number(bookingData.pointsUsed || 0); // Điểm dùng để giảm giá
+    let pointsUsedForDiscount = Number(bookingData.pointsUsed || 0);
     const voucherCode = bookingData.voucherCode
       ? String(bookingData.voucherCode).toUpperCase().trim()
       : undefined;
     let userVoucher: any = null;
 
-    // Handle voucher discount
     if (voucherCode) {
       const voucher = await Voucher.findOne({ code: voucherCode, active: true });
       if (!voucher) throw new Error("Voucher khong ton tai");
@@ -111,14 +129,14 @@ class BookingService {
       if (voucher.usedCount >= voucher.quantity) {
         throw new Error("Voucher da het luot su dung");
       }
-      if (orderValue < voucher.minOrderValue) {
+      if ((orderValue - comboDiscount) < voucher.minOrderValue) {
         throw new Error(`Don hang toi thieu ${voucher.minOrderValue.toLocaleString("vi-VN")}d`);
       }
 
       const rawDiscount = voucher.type === "percent"
-        ? Math.floor(orderValue * (voucher.value / 100))
+        ? Math.floor((orderValue - comboDiscount) * (voucher.value / 100))
         : voucher.value;
-      discount = Math.min(rawDiscount, voucher.maxDiscount || rawDiscount, orderValue);
+      discount = Math.min(rawDiscount, voucher.maxDiscount || rawDiscount, orderValue - comboDiscount);
 
       if (voucher.pointCost > 0) {
         userVoucher = await UserVoucher.findOne({ userId, voucherId: voucher._id, status: "available" });
@@ -128,35 +146,59 @@ class BookingService {
       }
     }
 
-    // Handle loyalty points discount (500 points = 50,000đ)
     let pointsDiscount = 0;
     if (pointsUsedForDiscount > 0) {
-      // Check if user has enough points
       if ((user.loyaltyPoints || 0) < pointsUsedForDiscount) {
         throw new Error("Ban khong du diem de su dung");
       }
-      // Convert points to discount (100 points = 10,000đ)
-      pointsDiscount = Math.floor(pointsUsedForDiscount * 100); // 500 points = 50,000đ
-      
-      // Deduct points from user
+      pointsDiscount = Math.floor(pointsUsedForDiscount * 100);
       user.loyaltyPoints = (user.loyaltyPoints || 0) - pointsUsedForDiscount;
       await user.save();
     }
 
-    const finalTotal = Math.max(orderValue - discount - pointsDiscount, 0);
+    const finalTotal = Math.max(orderValue - comboDiscount - discount - pointsDiscount, 0);
 
-    // Create booking
-    const booking = await Booking.create({
-      userId,
-      ...bookingData,
-      discount,
-      pointsUsed: pointsUsedForDiscount,
-      voucherCode,
-      totalPrice: finalTotal,
-      status: "PENDING",
-    });
+    const mongoose = require("mongoose");
+    const comboId = sessionsCount > 1 ? new mongoose.Types.ObjectId() : undefined;
 
-    if (voucherCode) {
+    let primaryBooking: any = null;
+
+    for (let i = 0; i < sessionsCount; i++) {
+      const bDate = bookingDates[i];
+      const isFirst = i === 0;
+
+      const sessionBooking = await Booking.create({
+        userId,
+        courtId: bookingData.courtId,
+        bookingDate: bDate,
+        startTime: bookingData.startTime,
+        endTime: bookingData.endTime,
+        duration: bookingData.duration,
+        sport: bookingData.sport,
+        basePrice: singleBasePrice,
+        serviceFee: isFirst ? serviceFee : 0,
+        discount: isFirst ? (discount + comboDiscount) : 0,
+        pointsUsed: isFirst ? pointsUsedForDiscount : 0,
+        voucherCode: isFirst ? voucherCode : undefined,
+        totalPrice: isFirst ? finalTotal : 0,
+        paymentMethod: bookingData.paymentMethod,
+        bookerName: bookingData.bookerName,
+        bookerPhone: bookingData.bookerPhone,
+        bookerEmail: bookingData.bookerEmail,
+        notes: isFirst
+          ? (bookingData.notes || "")
+          : `Combo buổi thứ ${i + 1} (Đã thanh toán chung trong buổi đầu tiên)`,
+        status: "PENDING",
+        comboId,
+        comboType: bookingData.comboType,
+      });
+
+      if (isFirst) {
+        primaryBooking = sessionBooking;
+      }
+    }
+
+    if (voucherCode && primaryBooking) {
       const voucher = await Voucher.findOneAndUpdate(
         { code: voucherCode },
         { $inc: { usedCount: 1 } },
@@ -165,7 +207,7 @@ class BookingService {
 
       if (userVoucher) {
         userVoucher.status = "used";
-        userVoucher.usedBookingId = booking._id;
+        userVoucher.usedBookingId = primaryBooking._id;
         userVoucher.usedAt = new Date();
         await userVoucher.save();
       } else if (voucher && voucher.pointCost === 0) {
@@ -174,13 +216,13 @@ class BookingService {
           voucherId: voucher._id,
           code: voucher.code,
           status: "used",
-          usedBookingId: booking._id,
+          usedBookingId: primaryBooking._id,
           usedAt: new Date(),
         }).catch(() => null);
       }
     }
 
-    return booking.populate("userId courtId");
+    return primaryBooking.populate("userId courtId");
   }
 
   /**
@@ -232,7 +274,13 @@ class BookingService {
 
     const [bookings, total] = await Promise.all([
       Booking.find(query)
-        .populate("userId courtId")
+        .populate("userId")
+        .populate({
+          path: "courtId",
+          populate: {
+            path: "venue"
+          }
+        })
         .sort({ bookingDate: -1 })
         .skip(skip)
         .limit(limit),
@@ -246,7 +294,14 @@ class BookingService {
    * Get booking by ID
    */
   async getBookingById(bookingId: string): Promise<IBooking | null> {
-    return await Booking.findById(bookingId).populate("userId courtId");
+    return await Booking.findById(bookingId)
+      .populate("userId")
+      .populate({
+        path: "courtId",
+        populate: {
+          path: "venue",
+        },
+      });
   }
 
   /**
@@ -297,6 +352,13 @@ class BookingService {
       { status: "CANCELLED" },
       { new: true }
     ).populate("userId courtId");
+
+    if (booking.comboId) {
+      await Booking.updateMany(
+        { comboId: booking.comboId, status: { $ne: "CANCELLED" } },
+        { status: "CANCELLED" }
+      );
+    }
 
     if (updated) {
       await this.refundBookingResources(updated);
@@ -471,6 +533,13 @@ class BookingService {
       { new: true }
     ).populate("userId courtId");
 
+    if (booking.comboId) {
+      await Booking.updateMany(
+        { comboId: booking.comboId, status: "PENDING" },
+        { status: "CONFIRMED" }
+      );
+    }
+
     return updated;
   }
 
@@ -491,6 +560,13 @@ class BookingService {
       { new: true }
     ).populate("userId courtId");
 
+    if (booking.comboId) {
+      await Booking.updateMany(
+        { comboId: booking.comboId, status: { $ne: "CANCELLED" } },
+        { status: "CANCELLED" }
+      );
+    }
+
     if (updated) {
       await this.refundBookingResources(updated);
     }
@@ -501,19 +577,67 @@ class BookingService {
   /**
    * Check-in booking (court staff only)
    */
-  async checkInBooking(bookingId: string): Promise<IBooking | null> {
-    const booking = await Booking.findById(bookingId);
+  async checkInBooking(
+    bookingId: string,
+    userId?: string,
+    role?: string,
+    userLat?: number,
+    userLng?: number
+  ): Promise<IBooking | null> {
+    const booking = await Booking.findById(bookingId).populate({
+      path: "courtId",
+      populate: {
+        path: "venue",
+      },
+    });
     if (!booking) throw new Error("Đặt sân không tồn tại");
 
     if (booking.status !== "CONFIRMED") {
       throw new Error("Chỉ có thể check-in đặt sân đã xác nhận");
     }
 
+    const isOwnerOrAdmin = role === "admin" || role === "owner";
+    const isBooker = booking.userId._id.toString() === userId || booking.userId.toString() === userId;
+
+    if (!isOwnerOrAdmin && isBooker) {
+      if (userLat === undefined || userLng === undefined) {
+        throw new Error("Vui lòng cung cấp vị trí GPS để check-in");
+      }
+
+      const court = booking.courtId as any;
+      const venue = court?.venue;
+      if (!venue || venue.lat === undefined || venue.lng === undefined) {
+        throw new Error("Không tìm thấy thông tin định vị của sân");
+      }
+
+      const distance = calculateDistance(userLat, userLng, venue.lat, venue.lng);
+      if (distance > 0.2) {
+        throw new Error(
+          `Bạn ở quá xa sân để check-in (Khoảng cách hiện tại: ${(distance * 1000).toFixed(0)}m, cần dưới 200m)`
+        );
+      }
+    } else if (!isOwnerOrAdmin && !isBooker) {
+      throw new Error("Bạn không có quyền check-in đặt sân này");
+    }
+
     const updated = await Booking.findByIdAndUpdate(
       bookingId,
       { status: "CHECKED_IN" },
       { new: true }
-    ).populate("userId courtId");
+    )
+      .populate("userId")
+      .populate({
+        path: "courtId",
+        populate: {
+          path: "venue",
+        },
+      });
+
+    // Cộng điểm thưởng loyaltyPoints cho người chơi khi họ tự check-in
+    if (isBooker && userId) {
+      const pointsToReward = 50;
+      await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: pointsToReward } });
+    }
 
     return updated;
   }
@@ -551,8 +675,22 @@ class BookingService {
       { new: true }
     ).populate("userId courtId");
 
-    if (status === "CANCELLED" && booking.status !== "CANCELLED" && updated) {
-      await this.refundBookingResources(updated);
+    if (booking.comboId) {
+      await Booking.updateMany(
+        { comboId: booking.comboId },
+        { status }
+      );
+
+      if (status === "CANCELLED" && booking.status !== "CANCELLED") {
+        const comboBookings = await Booking.find({ comboId: booking.comboId });
+        for (const cb of comboBookings) {
+          await this.refundBookingResources(cb);
+        }
+      }
+    } else {
+      if (status === "CANCELLED" && booking.status !== "CANCELLED" && updated) {
+        await this.refundBookingResources(updated);
+      }
     }
 
     return updated;

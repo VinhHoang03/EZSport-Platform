@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Dropdown } from 'react-bootstrap';
+import { Card, Row, Col, Button, Dropdown, Modal } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
 import { voucherService, type Voucher } from '../../services/voucher.service';
+import { venueService, type Venue } from '../../services/venue.service';
 import { CreateVoucherModal, type VoucherFormData } from './CreateVoucherModal';
 import { EditVoucherModal } from './EditVoucherModal';
 
@@ -71,9 +72,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
     { id: 'RLD-98207', venue: 'Sân bóng 365', owner: 'Phạm Minh D', value: 600000, rate: 10, commission: 60000, status: 'paid', img: 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?w=80&auto=format&fit=crop&q=60' },
   ]);
 
+  const [venues, setVenues] = useState<Venue[]>([]);
+
+  // States for Venue Combo Config Modal
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [selectedVenueForConfig, setSelectedVenueForConfig] = useState<Venue | null>(null);
+  const [configWeeklyDiscount, setConfigWeeklyDiscount] = useState(5);
+  const [configMonthlyDiscount, setConfigMonthlyDiscount] = useState(15);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
   const menuItems = [
     { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
     { id: 'owners', icon: 'real_estate_agent', label: 'Quản lý chủ sân' },
+    { id: 'venues', icon: 'sports_tennis', label: 'Cấu hình Combo & Sân' },
     { id: 'users', icon: 'groups', label: 'Danh bạ người dùng' },
     { id: 'finance', icon: 'payments', label: 'Tài chính & Hoa hồng' },
     { id: 'marketing', icon: 'campaign', label: 'Marketing & Khuyến mãi' },
@@ -85,10 +96,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
     return num.toLocaleString('vi-VN') + 'đ';
   };
 
+  const fetchVenues = () => {
+    venueService.getVenues()
+      .then(setVenues)
+      .catch((err) => console.error('Lỗi tải danh sách sân:', err));
+  };
+
   useEffect(() => {
     voucherService.listAdmin()
       .then(setVouchers)
       .catch((err) => alert(err?.response?.data?.message || 'Khong the tai danh sach voucher'));
+    fetchVenues();
   }, []);
 
   // Dynamic Commission Rate updates
@@ -328,6 +346,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
     if (confirm) {
       setBanners(prev => prev.filter(b => b.id !== id));
       alert(`🗑️ Đã gỡ bỏ banner thành công!`);
+    }
+  };
+
+  const handleOpenConfig = (v: Venue) => {
+    setSelectedVenueForConfig(v);
+    setConfigWeeklyDiscount(v.comboWeeklyDiscount !== undefined ? v.comboWeeklyDiscount : 5);
+    setConfigMonthlyDiscount(v.comboMonthlyDiscount !== undefined ? v.comboMonthlyDiscount : 15);
+    setShowConfigModal(true);
+  };
+
+  const handleSaveConfig = async () => {
+    if (!selectedVenueForConfig) return;
+    if (configWeeklyDiscount < 0 || configWeeklyDiscount > 100 || configMonthlyDiscount < 0 || configMonthlyDiscount > 100) {
+      alert('Tỷ lệ phần trăm chiết khấu phải từ 0 đến 100%');
+      return;
+    }
+    setIsSavingConfig(true);
+    try {
+      await venueService.updateVenue(selectedVenueForConfig._id, {
+        comboWeeklyDiscount: configWeeklyDiscount,
+        comboMonthlyDiscount: configMonthlyDiscount
+      });
+      alert('🎉 Cập nhật tỷ lệ chiết khấu combo thành công!');
+      setShowConfigModal(false);
+      setSelectedVenueForConfig(null);
+      fetchVenues();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Không thể cập nhật cấu hình combo');
+    } finally {
+      setIsSavingConfig(false);
     }
   };
 
@@ -1912,6 +1960,94 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
               </Row>
             </>
+          ) : activeMenu === 'venues' ? (
+            <>
+              {/* ─── VENUES & COMBO CONFIGURATION VIEW ─── */}
+              <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div>
+                  <h2 style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: 0 }}>Cấu hình Combo & Sân</h2>
+                  <p style={{ fontSize: '13px', color: TX2, margin: '2px 0 0 0' }}>Thiết lập tỷ lệ chiết khấu combo tuần và tháng trực tiếp cho từng sân thể thao</p>
+                </div>
+              </div>
+
+              <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                <Card.Body className="p-4">
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: `1px solid ${BORDER}` }}>
+                          {['TÊN SÂN', 'ĐỊA CHỈ', 'COMBO TUẦN (%)', 'COMBO THÁNG (%)', 'GIÁ HIỂN THỊ', 'TRẠNG THÁI', 'HÀNH ĐỘNG'].map((h, i) => (
+                            <th key={i} style={{ padding: '14px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 800, color: TX2, letterSpacing: '0.05em' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {venues.map((v, idx) => {
+                          const weeklyDisc = v.comboWeeklyDiscount !== undefined ? v.comboWeeklyDiscount : 5;
+                          const monthlyDisc = v.comboMonthlyDiscount !== undefined ? v.comboMonthlyDiscount : 15;
+                          return (
+                            <tr key={v._id} style={{ borderBottom: `1px solid ${BORDER}`, background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'all 0.1s' }}>
+                              <td style={{ padding: '16px' }}>
+                                <div className="d-flex align-items-center gap-3">
+                                  {v.image && <img src={v.image} alt={v.name} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: `1px solid ${BORDER}` }} />}
+                                  <div>
+                                    <span style={{ fontSize: '13px', fontWeight: 800, color: TX }}>{v.name}</span>
+                                    <div style={{ fontSize: '11px', color: TX2 }}>{v.sportTypes?.join(', ')}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '16px', fontSize: '12px', color: TX2, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {v.location}
+                              </td>
+                              <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: PRIMARY }}>
+                                {weeklyDisc}%
+                              </td>
+                              <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: '#ef4444' }}>
+                                {monthlyDisc}%
+                              </td>
+                              <td style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: TX }}>
+                                {v.price}
+                              </td>
+                              <td style={{ padding: '16px' }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '6px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700,
+                                  background: v.isActive ? '#e6fcf0' : '#fee2e2',
+                                  color: v.isActive ? '#15803d' : '#ef4444'
+                                }}>
+                                  {v.isActive ? 'HOẠT ĐỘNG' : 'TẠM ĐÓNG'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '16px' }}>
+                                <Button
+                                  variant="light"
+                                  size="sm"
+                                  style={{
+                                    border: `1px solid ${BORDER}`,
+                                    borderRadius: '8px',
+                                    fontWeight: 700,
+                                    fontSize: '11px',
+                                    padding: '6px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    color: TX
+                                  }}
+                                  onClick={() => handleOpenConfig(v)}
+                                >
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>settings</span>
+                                  Cấu hình
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card.Body>
+              </Card>
+            </>
           ) : (
             <>
               {/* Fallback for unfinished admin tabs */}
@@ -1956,6 +2092,124 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
         onSubmit={handleEditVoucher}
         voucher={selectedVoucher}
       />
+
+      {/* Cấu hình Combo Modal */}
+      <Modal
+        show={showConfigModal}
+        onHide={() => {
+          if (!isSavingConfig) {
+            setShowConfigModal(false);
+            setSelectedVenueForConfig(null);
+          }
+        }}
+        centered
+        backdrop="static"
+      >
+        <Modal.Header closeButton={!isSavingConfig} style={{ borderBottom: `1px solid ${BORDER}`, background: '#f8fafc' }}>
+          <Modal.Title style={{ fontSize: '18px', fontWeight: 800, color: TX }}>
+            Cấu hình Chiết khấu Combo
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4">
+          {selectedVenueForConfig && (
+            <div className="mb-4 d-flex align-items-center gap-3 p-3" style={{ background: '#f1f5f9', borderRadius: '12px' }}>
+              {selectedVenueForConfig.image && (
+                <img
+                  src={selectedVenueForConfig.image}
+                  alt={selectedVenueForConfig.name}
+                  style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', border: `1px solid ${BORDER}` }}
+                />
+              )}
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: TX }}>{selectedVenueForConfig.name}</div>
+                <div style={{ fontSize: '12px', color: TX2 }}>{selectedVenueForConfig.location}</div>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-3">
+            <label style={{ fontSize: '12px', fontWeight: 700, color: TX, marginBottom: '6px', display: 'block' }}>
+              Tỷ lệ chiết khấu Combo Tuần (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={configWeeklyDiscount}
+              onChange={e => setConfigWeeklyDiscount(Math.min(100, Math.max(0, Number(e.target.value))))}
+              style={{
+                width: '100%',
+                border: `1px solid ${BORDER}`,
+                borderRadius: '8px',
+                padding: '10px 14px',
+                fontSize: '14px',
+                fontWeight: 700,
+                outline: 'none',
+                color: PRIMARY
+              }}
+              placeholder="Mặc định: 5"
+            />
+            <small style={{ color: TX2, fontSize: '11px', marginTop: '4px', display: 'block' }}>
+              Áp dụng giảm giá khi đặt lịch cố định lặp lại theo tuần.
+            </small>
+          </div>
+
+          <div className="mb-3">
+            <label style={{ fontSize: '12px', fontWeight: 700, color: TX, marginBottom: '6px', display: 'block' }}>
+              Tỷ lệ chiết khấu Combo Tháng (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={configMonthlyDiscount}
+              onChange={e => setConfigMonthlyDiscount(Math.min(100, Math.max(0, Number(e.target.value))))}
+              style={{
+                width: '100%',
+                border: `1px solid ${BORDER}`,
+                borderRadius: '8px',
+                padding: '10px 14px',
+                fontSize: '14px',
+                fontWeight: 700,
+                outline: 'none',
+                color: '#ef4444'
+              }}
+              placeholder="Mặc định: 15"
+            />
+            <small style={{ color: TX2, fontSize: '11px', marginTop: '4px', display: 'block' }}>
+              Áp dụng giảm giá khi đặt lịch cố định lặp lại theo tháng.
+            </small>
+          </div>
+        </Modal.Body>
+        <Modal.Footer style={{ borderTop: `1px solid ${BORDER}`, background: '#f8fafc' }}>
+          <Button
+            variant="light"
+            disabled={isSavingConfig}
+            onClick={() => {
+              setShowConfigModal(false);
+              setSelectedVenueForConfig(null);
+            }}
+            style={{ borderRadius: '8px', fontWeight: 700, fontSize: '13px' }}
+          >
+            Hủy bỏ
+          </Button>
+          <Button
+            disabled={isSavingConfig}
+            onClick={handleSaveConfig}
+            style={{
+              background: '#0f3d22',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 700,
+              fontSize: '13px',
+              padding: '8px 20px',
+              color: W
+            }}
+          >
+            {isSavingConfig ? 'Đang lưu...' : 'Lưu cấu hình'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
     </div>
   );

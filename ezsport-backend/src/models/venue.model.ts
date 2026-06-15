@@ -49,6 +49,8 @@ export interface IVenue extends Document {
   // Status
   isActive: boolean;
   isVerified: boolean;
+  comboWeeklyDiscount?: number;
+  comboMonthlyDiscount?: number;
 }
 
 const AmenitySchema = new Schema<IAmenity>(
@@ -115,6 +117,8 @@ const VenueSchema: Schema = new Schema<IVenue>(
     // Status
     isActive:     { type: Boolean, default: true },
     isVerified:   { type: Boolean, default: false },
+    comboWeeklyDiscount: { type: Number, default: 5, min: 0, max: 100 },
+    comboMonthlyDiscount: { type: Number, default: 15, min: 0, max: 100 },
   },
   { timestamps: true }
 );

@@ -21,6 +21,7 @@ export const createBookingSchema = z.object({
   bookerPhone: z.string().regex(phoneRegex, "Số điện thoại không hợp lệ"),
   bookerEmail: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
   notes: z.string().optional(),
+  comboType: z.enum(["week", "month"]).optional(),
 });
 
 export const updateBookingSchema = z.object({

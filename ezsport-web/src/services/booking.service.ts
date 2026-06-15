@@ -19,12 +19,14 @@ export interface CreateBookingPayload {
   bookerPhone: string;
   bookerEmail?: string;
   notes?: string;
+  comboType?: 'week' | 'month';
 }
 
 export interface Booking extends CreateBookingPayload {
   _id: string;
   userId: string;
   status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED';
+  comboId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -163,11 +165,8 @@ export const bookingService = {
     return data.data;
   },
 
-  /**
-   * Check-in booking (staff)
-   */
-  checkInBooking: async (bookingId: string): Promise<Booking> => {
-    const { data } = await api.patch(`/bookings/${bookingId}/checkin`);
+  checkInBooking: async (bookingId: string, userLat?: number, userLng?: number): Promise<Booking> => {
+    const { data } = await api.patch(`/bookings/${bookingId}/checkin`, { userLat, userLng });
     return data.data;
   },
 

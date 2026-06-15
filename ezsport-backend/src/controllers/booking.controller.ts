@@ -315,8 +315,11 @@ class BookingController {
   async checkInBooking(req: Request, res: Response) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const userId = (req as any).user?.id || (req as any).id;
+      const role = (req as any).user?.role || (req as any).role;
+      const { userLat, userLng } = req.body;
 
-      const booking = await bookingService.checkInBooking(id);
+      const booking = await bookingService.checkInBooking(id, userId, role, userLat, userLng);
 
       return res.status(200).json({
         message: "Check-in đặt sân thành công",
