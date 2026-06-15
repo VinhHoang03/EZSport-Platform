@@ -13,6 +13,8 @@ interface SlotPickerProps {
   onSlotSelect: (slot: { date: string; startTime: string; endTime: string; duration: number; basePrice: number }) => void;
   selectedDate?: string;
   selectedStartTime?: string;
+  openTime?: string;
+  closeTime?: string;
 }
 
 const DURATIONS = [1, 2, 3];
@@ -37,7 +39,12 @@ const getNextDays = () => {
 
 };
 
-const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selectedDate, selectedStartTime }) => {
+const toMinutes = (time: string) => {
+  const [hour = 0, minute = 0] = String(time || '00:00').split(':').map(Number);
+  return hour * 60 + minute;
+};
+
+const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selectedDate, selectedStartTime, openTime = '06:00', closeTime = '22:00' }) => {
   const days = getNextDays();
   const [activeDate, setActiveDate] = useState(selectedDate || days[0].value);
   const [activeTime, setActiveTime] = useState(selectedStartTime || '');
@@ -67,9 +74,8 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
   }, [courtId, activeDate]);
 
   const calcEndTime = (start: string, dur: number) => {
-    const [h, m] = start.split(':').map(Number);
-    const totalMin = h * 60 + m + dur * 60;
-    const eh = Math.floor(totalMin / 60) % 24;
+    const totalMin = toMinutes(start) + dur * 60;
+    const eh = Math.floor(totalMin / 60);
     const em = totalMin % 60;
     return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
   };
@@ -78,6 +84,12 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
   const isSlotAvailableForDuration = (startTime: string, dur: number): boolean => {
     const startIdx = slots.findIndex(s => s.time === startTime);
     if (startIdx === -1) return false;
+
+    const startMinutes = toMinutes(startTime);
+    const endMinutes = startMinutes + dur * 60;
+    const openMinutes = toMinutes(openTime);
+    const closeMinutes = toMinutes(closeTime);
+    if (startMinutes < openMinutes || endMinutes > closeMinutes) return false;
 
     // Check if start slot is available
     if (!slots[startIdx].available) return false;
