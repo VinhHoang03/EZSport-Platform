@@ -178,6 +178,14 @@ const BookingSuccessPage: React.FC = () => {
                   <span className="text-muted">Giờ</span>
                   <span className="fw-semibold">{timeRange}</span>
                 </div>
+                {dbBooking?.comboId && (
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Hình thức</span>
+                    <span className="fw-semibold text-danger">
+                      {dbBooking.comboType === 'month' ? 'Combo 1 tháng (4 buổi)' : 'Combo 1 tuần (2 buổi)'}
+                    </span>
+                  </div>
+                )}
                 <hr />
                 <div className="d-flex justify-content-between">
                   <span className="text-muted">Tổng thanh toán</span>
