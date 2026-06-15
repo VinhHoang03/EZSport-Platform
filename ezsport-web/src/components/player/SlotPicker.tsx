@@ -24,13 +24,17 @@ const getNextDays = () => {
   for (let i = 0; i < 7; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
     days.push({
       label: `${d.getDate()}/${d.getMonth() + 1}`,
       dayName: dayNames[d.getDay()],
-      value: d.toISOString().split('T')[0],
+      value: `${year}-${month}-${day}`,
     });
   }
   return days;
+
 };
 
 const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selectedDate, selectedStartTime }) => {
@@ -55,25 +59,9 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
           }))
         );
       })
-      .catch(() => {
-        // fallback mock slots
-        setSlots([
-          { time: '07:00', available: false, price: 150000 },
-          { time: '08:00', available: true, price: 150000 },
-          { time: '09:00', available: true, price: 150000 },
-          { time: '10:00', available: false, price: 150000 },
-          { time: '11:00', available: true, price: 180000 },
-          { time: '13:00', available: true, price: 180000 },
-          { time: '14:00', available: true, price: 180000 },
-          { time: '15:00', available: true, price: 180000 },
-          { time: '16:00', available: false, price: 200000 },
-          { time: '17:00', available: true, price: 200000 },
-          { time: '18:00', available: true, price: 200000 },
-          { time: '19:00', available: true, price: 200000 },
-          { time: '20:00', available: false, price: 200000 },
-          { time: '21:00', available: true, price: 150000 },
-          { time: '22:00', available: true, price: 150000 },
-        ]);
+      .catch((err) => {
+        console.error('[SlotPicker] Failed to load slots:', err?.message);
+        setSlots([]); // Trả về rỗng thay vì mock - tránh hiển thị slot giả
       })
       .finally(() => setLoading(false));
   }, [courtId, activeDate]);

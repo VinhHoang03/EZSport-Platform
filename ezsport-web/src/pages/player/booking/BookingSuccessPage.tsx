@@ -80,6 +80,8 @@ const BookingSuccessPage: React.FC = () => {
   const timeRange = dbBooking ? `${dbBooking.startTime} – ${dbBooking.endTime}` : (draft?.slot ? `${draft.slot.startTime} – ${draft.slot.endTime}` : '');
   const totalPrice = dbBooking?.totalPrice ?? draft?.totalPrice ?? 0;
   const currentStatus = dbBooking?.status || 'PENDING';
+  const isMomo = dbBooking?.paymentMethod === 'momo';
+  const isPendingMomo = currentStatus === 'PENDING' && isMomo;
 
   return (
     <Container className="py-5 d-flex flex-column align-items-center" style={{ maxWidth: '560px' }}>
@@ -89,13 +91,17 @@ const BookingSuccessPage: React.FC = () => {
         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
         style={{
           width: '72px', height: '72px', borderRadius: '50%',
-          background: currentStatus === 'CANCELLED' ? '#ef4444' : '#16a34a', 
+          background: currentStatus === 'CANCELLED' 
+            ? '#ef4444' 
+            : (isPendingMomo ? '#f59e0b' : '#16a34a'), 
           display: 'flex', alignItems: 'center',
           justifyContent: 'center', marginBottom: '24px',
         }}
       >
         <span className="material-symbols-outlined" style={{ color: '#fff', fontSize: '36px', fontWeight: 700 }}>
-          {currentStatus === 'CANCELLED' ? 'close' : 'check'}
+          {currentStatus === 'CANCELLED' 
+            ? 'close' 
+            : (isPendingMomo ? 'pending' : 'check')}
         </span>
       </motion.div>
 
@@ -106,13 +112,18 @@ const BookingSuccessPage: React.FC = () => {
         className="text-center w-100"
       >
         <h2 className="fw-bold mb-1" style={{ fontSize: '26px' }}>
-          {currentStatus === 'CANCELLED' ? 'Đặt sân thất bại!' : 'Đặt sân thành công!'}
+          {currentStatus === 'CANCELLED' 
+            ? 'Đặt sân thất bại!' 
+            : (isPendingMomo ? 'Chờ thanh toán MoMo...' : 'Đặt sân thành công!')}
         </h2>
         <p className="text-muted mb-4" style={{ fontSize: '14px' }}>
           {currentStatus === 'CANCELLED' 
             ? 'Thanh toán của bạn đã bị hủy hoặc gặp lỗi.' 
-            : 'Xác nhận và mã check-in đã được đồng bộ hóa thành công.'}
+            : (isPendingMomo 
+                ? 'Đơn đặt sân chưa được thanh toán thành công qua MoMo.' 
+                : 'Xác nhận và mã check-in đã được đồng bộ hóa thành công.')}
         </p>
+
 
         <Card className="border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
           <Card.Body className="p-4 text-start">
@@ -137,11 +148,16 @@ const BookingSuccessPage: React.FC = () => {
                 style={{ height: '160px', background: '#f9fafb', border: '2px dashed #e5e7eb' }}
               >
                 <div className="text-center">
-                  <span className="material-symbols-outlined d-block mb-1" style={{ fontSize: '40px', color: '#9ca3af' }}>qr_code_2</span>
-                  <p className="text-muted mb-0" style={{ fontSize: '12px' }}>QR check-in: Sẵn sàng sử dụng</p>
+                  <span className="material-symbols-outlined d-block mb-1" style={{ fontSize: '40px', color: isPendingMomo ? '#f59e0b' : '#9ca3af' }}>
+                    {isPendingMomo ? 'hourglass_empty' : 'qr_code_2'}
+                  </span>
+                  <p className="text-muted mb-0" style={{ fontSize: '12px' }}>
+                    {isPendingMomo ? 'QR check-in: Chờ thanh toán hoàn tất' : 'QR check-in: Sẵn sàng sử dụng'}
+                  </p>
                 </div>
               </div>
             )}
+
 
             {/* Details */}
             {bookingDate && (

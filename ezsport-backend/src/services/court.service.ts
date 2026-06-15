@@ -5,6 +5,7 @@ import { calculateDistance } from '../utils/distance.util';
 
 interface CourtSuggestionParams {
   prompt: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
   userLat?: number;
   userLng?: number;
   maxDistance?: number;
@@ -19,6 +20,12 @@ interface CourtSuggestionResponse {
     priceRange?: string;
     location?: string;
     features?: string[];
+  };
+  parsedSlot?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
   };
 }
 
@@ -273,28 +280,60 @@ async function filterCourtsByBookingAvailability(
     return courts;
   }
 
-  // Parse date from text (today, tomorrow, or specific date)
-  let bookingDate = new Date();
-  if (dateText && dateText.includes('mai')) {
-    bookingDate.setDate(bookingDate.getDate() + 1);
+  // Parse date from text (today, tomorrow, specific date, or YYYY-MM-DD format)
+  let localDate = new Date();
+  if (dateText) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
+      const [y, m, d] = dateText.split('-').map(Number);
+      localDate = new Date(y, m - 1, d);
+    } else if (dateText.includes('mai')) {
+      localDate.setDate(localDate.getDate() + 1);
+    }
   }
-  // If no dateText or "hôm nay" or "nay", use today
-  bookingDate.setHours(0, 0, 0, 0);
+  
+  // Construct UTC Date at midnight (how bookings are stored in DB)
+  const bookingDate = new Date(Date.UTC(localDate.getFullYear(), localDate.getMonth(), localDate.getDate()));
+  const nextDay = new Date(bookingDate.getTime() + 86400000);
 
-  const nextDay = new Date(bookingDate);
-  nextDay.setDate(nextDay.getDate() + 1);
+  // Check if target date is in the past, or target time is in the past today
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const isToday = 
+    localDate.getFullYear() === now.getFullYear() &&
+    localDate.getMonth() === now.getMonth() &&
+    localDate.getDate() === now.getDate();
+  const isPast = localDate < todayMidnight;
+  
+  if (isPast) {
+    console.log('[filterBooking] Requested date is in the past, returning no courts');
+    return [];
+  }
+  
+  if (isToday && startTime !== null) {
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    if (startTime <= currentMinutes) {
+      console.log('[filterBooking] Requested start time is in the past today, returning no courts');
+      return [];
+    }
+  }
 
   console.log('[filterBooking] Checking bookings for date:', bookingDate.toISOString());
   console.log('[filterBooking] Requested time (in minutes):', startTime, '-', endTime);
 
-  // Get all confirmed bookings for this date
+  // Get all bookings (excluding unpaid MoMo bookings) for this date
   const bookings = await Booking.find({
     bookingDate: {
       $gte: bookingDate,
       $lt: nextDay,
     },
-    status: { $in: ['CONFIRMED', 'CHECKED_IN'] },
+    $or: [
+      { status: { $in: ['CONFIRMED', 'CHECKED_IN'] } },
+      { status: 'PENDING', paymentMethod: { $ne: 'momo' } }
+    ]
   });
+
+
 
   console.log('[filterBooking] Found', bookings.length, 'confirmed bookings on this date');
 
@@ -352,20 +391,157 @@ function parseTimeToHours(timeStr: string): number {
 
 export class CourtService {
   static async suggestCourts(params: CourtSuggestionParams): Promise<CourtSuggestionResponse> {
-    const { prompt, userLat, userLng, maxDistance = 10, limit = 5 } = params;
-    const requestedSportType = detectSportType(prompt);
-    const requestedLocation = detectDaNangDistrict(prompt);
-    const requestedTimeRange = parseTimeRange(prompt);
-    const requestedTime = requestedTimeRange.start;
-    const requestedEndTime = requestedTimeRange.end;
-    const requestedDateText = detectDateText(prompt);
-    const intent = detectIntent(prompt);
+    const { prompt, history, userLat, userLng, maxDistance = 10, limit = 5 } = params;
+
+    const now = new Date();
+    const currentDayOfWeek = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'][now.getDay()];
+    const currentDateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
+    const currentDateDashStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDateStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
+    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    let intent: Intent = 'unknown';
+    let requestedSportType: string | undefined = undefined;
+    let requestedLocation: string | undefined = undefined;
+    let requestedTime: number | undefined = undefined;
+    let requestedEndTime: number | undefined = undefined;
+    let requestedDateText: string | undefined = undefined;
+    let aiExplanation: string = '';
+    let tomorrowFallbackActive = false;
+
+    // Step 1: LLM Parsing of User Intent and Parameters
+    try {
+      const systemPrompt = `Bạn là trợ lý AI phân tích cú pháp tìm sân thể thao tại Đà Nẵng cho hệ thống EZSport.
+Thời gian thực tế hiện tại của hệ thống là: ${currentTimeStr} ngày ${currentDayOfWeek} (${currentDateStr}).
+
+Hãy phân tích câu nhập mới nhất của người dùng kết hợp với lịch sử trò chuyện được cung cấp để suy luận đầy đủ thông tin tìm sân.
+Hãy trả về một đối tượng JSON duy nhất (không có markdown, không có chữ thừa) với các trường sau:
+{
+  "intent": "greeting" | "identity" | "thanks" | "search" | "unknown",
+  "sportType": "badminton" | "pickleball" | "soccer" | "tennis" | "basketball" | null,
+  "location": "Thanh Khê" | "Hải Châu" | "Ngũ Hành Sơn" | "Sơn Trà" | "Liên Chiểu" | "Cẩm Lệ" | "Hòa Vang" | "Hòa Xuân" | "An Khê" | null,
+  "date": "YYYY-MM-DD" (ví dụ nếu người dùng nói ngày mai thì chuyển thành "${tomorrowDateStr}", nếu ngày 17 thì chuyển thành "2026-06-17", nếu hôm nay/tối nay thì chuyển thành "${currentDateDashStr}") hoặc null nếu không nhắc tới ngày nào cụ thể,
+  "startTime": "HH:mm" (ví dụ "18:00") hoặc null,
+  "endTime": "HH:mm" (ví dụ "20:00") hoặc null,
+  "aiExplanation": "Chuỗi phản hồi tiếng Việt thân thiện tương ứng nếu intent không phải là search, hoặc nếu intent là search nhưng thiếu thông tin cần thiết hoặc sai thời gian chơi."
+}
+
+Quy tắc đặc biệt quan trọng:
+1. Yêu cầu đặt sân nhưng thiếu Ngày Chơi: Nếu người dùng muốn tìm/đặt sân (search) nhưng KHÔNG hề nói rõ ngày chơi (như hôm nay, ngày mai, thứ hai, ngày 20/06, v.v.), hãy bắt buộc thiết lập:
+   - "intent": "unknown"
+   - "aiExplanation": "Bạn muốn đặt sân chơi vào hôm nay hay ngày nào khác ạ? Vui lòng bổ sung ngày chơi để mình kiểm tra lịch trống chính xác nhé!"
+
+Quy tắc phân tích thông thường:
+- sportType: cầu lông/badminton -> "badminton", bóng đá/đá banh -> "soccer", tennis/quần vợt -> "tennis", bóng rổ -> "basketball", pickleball -> "pickleball".
+- location: dịch quận huyện ở Đà Nẵng sang tên tiếng Việt chuẩn có dấu.
+- date: hãy tính toán chính xác ngày dương lịch tương ứng dựa trên ngày hiện tại là ${currentDateStr} và điền dưới dạng YYYY-MM-DD.
+- startTime/endTime: nhận diện giờ đặt sân cụ thể. Nếu người dùng nói "chiều tối" -> "17:00", "sáng" -> "08:00".`;
+
+      const messages: any[] = [
+        { role: 'system', content: systemPrompt }
+      ];
+
+      if (history && history.length > 0) {
+        const recentHistory = history.slice(-6);
+        for (const msg of recentHistory) {
+          messages.push({
+            role: msg.role === 'assistant' ? 'assistant' : 'user',
+            content: msg.content
+          });
+        }
+      }
+
+      messages.push({ role: 'user', content: prompt });
+
+      const completion = await openai.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      console.log('[AI suggest parser] RAW LLM response content:', completion.choices[0].message.content);
+      const parsed = JSON.parse(completion.choices[0].message.content || '{}');
+      intent = parsed.intent || 'unknown';
+      requestedSportType = parsed.sportType || undefined;
+      
+      const locationMap: Record<string, string> = {
+        'Thanh Khê': 'thanh khe',
+        'Hải Châu': 'hai chau',
+        'Ngũ Hành Sơn': 'ngu hanh son',
+        'Sơn Trà': 'son tra',
+        'Liên Chiểu': 'lien chieu',
+        'Cẩm Lệ': 'cam le',
+        'Hòa Vang': 'hoa vang',
+        'Hòa Xuân': 'hoa xuan',
+        'An Khê': 'an khe'
+      };
+
+      if (parsed.location) {
+        requestedLocation = locationMap[parsed.location] || normalizeText(parsed.location);
+      }
+      
+      requestedDateText = parsed.date || parsed.dateText || undefined;
+      aiExplanation = parsed.aiExplanation || '';
+
+      if (parsed.startTime) {
+        const [h, m] = parsed.startTime.split(':').map(Number);
+        requestedTime = h * 60 + (m || 0);
+      }
+      if (parsed.endTime) {
+        const [h, m] = parsed.endTime.split(':').map(Number);
+        requestedEndTime = h * 60 + (m || 0);
+      } else if (requestedTime != null) {
+        requestedEndTime = requestedTime + 60; // mặc định 1 tiếng
+      }
+
+      console.log('[AI suggest parser] parsed output:', { intent, requestedSportType, requestedLocation, requestedDateText, requestedTime, requestedEndTime });
+    } catch (err) {
+      console.warn('[AI suggest parser] LLM parser failed, falling back to regex rules:', err);
+      // Fallback
+      requestedSportType = detectSportType(prompt);
+      requestedLocation = detectDaNangDistrict(prompt);
+      const requestedTimeRange = parseTimeRange(prompt);
+      requestedTime = requestedTimeRange.start;
+      requestedEndTime = requestedTimeRange.end;
+      requestedDateText = detectDateText(prompt);
+      intent = detectIntent(prompt);
+    }
 
     try {
+      // Programmatic check: Missing date for search intent
+      if (intent === 'search' && !requestedDateText) {
+        return {
+          suggestions: [],
+          aiExplanation: "Bạn muốn đặt sân chơi vào hôm nay hay ngày nào khác ạ? Vui lòng bổ sung ngày chơi để mình kiểm tra lịch trống chính xác nhé!",
+          matchedCriteria: {
+            sportType: requestedSportType,
+            location: requestedLocation,
+          },
+        };
+      }
+
+      // Programmatic check: Past time today
+      if (requestedTime != null) {
+        const isToday = requestedDateText === currentDateDashStr || requestedDateText === 'hôm nay' || !requestedDateText;
+        if (isToday) {
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          if (requestedTime <= currentMinutes) {
+            requestedDateText = tomorrowDateStr;
+            tomorrowFallbackActive = true;
+          }
+        }
+      }
+
+      // Step 2: Handle non-search intents
       if (intent === 'greeting') {
         return {
           suggestions: [],
-          aiExplanation: 'Chào bạn, mình là EZSport AI. Bạn muốn tìm sân môn gì, ở khu vực nào và khoảng mấy giờ?',
+          aiExplanation: aiExplanation || 'Chào bạn, mình là EZSport AI. Bạn muốn tìm sân môn gì, ở khu vực nào và khoảng mấy giờ?',
           matchedCriteria: {},
         };
       }
@@ -373,7 +549,7 @@ export class CourtService {
       if (intent === 'identity') {
         return {
           suggestions: [],
-          aiExplanation: 'Mình là EZSport AI, trợ lý giúp bạn tìm sân thể thao ở Đà Nẵng. Bạn có thể nhắn kiểu: "cầu lông Thanh Khê 20h", "pickleball gần tôi", hoặc "sân bóng đá Hải Châu tối nay".',
+          aiExplanation: aiExplanation || 'Mình là EZSport AI, trợ lý giúp bạn tìm sân thể thao ở Đà Nẵng. Bạn có thể nhắn kiểu: "cầu lông Thanh Khê 20h", "pickleball gần tôi", hoặc "sân bóng đá Hải Châu tối nay".',
           matchedCriteria: {},
         };
       }
@@ -381,7 +557,7 @@ export class CourtService {
       if (intent === 'thanks') {
         return {
           suggestions: [],
-          aiExplanation: 'Không có gì. Khi cần tìm sân, bạn chỉ cần gửi môn thể thao, khu vực và giờ chơi là được.',
+          aiExplanation: aiExplanation || 'Không có gì. Khi cần tìm sân, bạn chỉ cần gửi môn thể thao, khu vực và giờ chơi là được.',
           matchedCriteria: {},
         };
       }
@@ -389,17 +565,18 @@ export class CourtService {
       if (intent === 'unknown') {
         return {
           suggestions: [],
-          aiExplanation: 'Mình chưa hiểu bạn muốn tìm sân nào. Bạn thử nhập theo mẫu: "cầu lông Thanh Khê 20h" hoặc "pickleball Ngũ Hành Sơn ngày mai" nhé.',
+          aiExplanation: aiExplanation || 'Mình chưa hiểu bạn muốn tìm sân nào. Bạn thử nhập theo mẫu: "cầu lông Thanh Khê 20h" hoặc "pickleball Ngũ Hành Sơn ngày mai" nhé.',
           matchedCriteria: {},
         };
       }
 
+      // Step 3: Fetch active courts and filter
       const allCourts = await Court.find({ isActive: true }).populate('venue');
 
       if (allCourts.length === 0) {
         return {
           suggestions: [],
-          aiExplanation: 'Hiện tại hệ thống chưa có sân khả dụng.',
+          aiExplanation: 'Hiện tại hệ thống chưa có sân khả dụng nào.',
           matchedCriteria: {},
         };
       }
@@ -422,66 +599,42 @@ export class CourtService {
 
       const candidateCourts = allCourts.filter((court: any) => {
         if (requestedSportType && !courtMatchesSport(court, requestedSportType)) return false;
-        // If location is requested, require court to have venue AND match location
         if (requestedLocation) {
-          if (!court.venue) return false; // No venue = can't match location
+          if (!court.venue) return false;
           if (!courtMatchesLocation(court, requestedLocation)) return false;
         }
         if (!isOpenForRange(court, requestedTime, requestedEndTime)) return false;
         return true;
       });
 
-      // Filter out courts with confirmed bookings in the requested time slot
-      const availableCourts = await filterCourtsByBookingAvailability(
+      // Filter by booking availability
+      let availableCourts = await filterCourtsByBookingAvailability(
         candidateCourts,
         requestedDateText || null,
         requestedTime ?? null,
         requestedEndTime ?? null
       );
 
-      if (availableCourts.length === 0) {
-        // Try again without location filter if originally requested location
-        if (requestedLocation) {
-          const courtsWithoutLocationFilter = allCourts.filter((court: any) => {
-            if (requestedSportType && !courtMatchesSport(court, requestedSportType)) return false;
-            if (!isOpenForRange(court, requestedTime, requestedEndTime)) return false;
-            return true;
-          });
-          
-          // Filter by booking availability
-          const availableWithoutLocation = await filterCourtsByBookingAvailability(
-            courtsWithoutLocationFilter,
-            requestedDateText || null,
-            requestedTime ?? null,
-            requestedEndTime ?? null
-          );
-          
-          if (availableWithoutLocation.length > 0) {
-            const shouldUseDistance = Boolean(userLat && userLng);
-            const rankedCourts = shouldUseDistance
-              ? applyDistance(availableWithoutLocation, userLat, userLng, maxDistance)
-              : availableWithoutLocation.map(toPlainCourt);
+      let usedLocationFallback = false;
+      if (availableCourts.length === 0 && requestedLocation) {
+        // Fallback: try finding courts without location filter
+        const courtsWithoutLocationFilter = allCourts.filter((court: any) => {
+          if (requestedSportType && !courtMatchesSport(court, requestedSportType)) return false;
+          if (!isOpenForRange(court, requestedTime, requestedEndTime)) return false;
+          return true;
+        });
 
-            const suggestions = rankedCourts.slice(0, limit);
-            
-            return {
-              suggestions,
-              aiExplanation: `Mình không tìm thấy sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} ở ${DISTRICT_LABELS[requestedLocation] || requestedLocation}, nhưng có ${suggestions.length} sân ${requestedSportType ? SPORT_LABELS[requestedSportType] : ''} khác còn trống. Bạn có thể xem các lựa chọn bên dưới nhé.`,
-              matchedCriteria: {
-                sportType: requestedSportType,
-              },
-            };
-          }
+        const availableWithoutLocation = await filterCourtsByBookingAvailability(
+          courtsWithoutLocationFilter,
+          requestedDateText || null,
+          requestedTime ?? null,
+          requestedEndTime ?? null
+        );
+
+        if (availableWithoutLocation.length > 0) {
+          availableCourts = availableWithoutLocation;
+          usedLocationFallback = true;
         }
-        
-        return {
-          suggestions: [],
-          aiExplanation: buildNoMatchMessage(requestedSportType, requestedLocation, requestedTime, requestedDateText),
-          matchedCriteria: {
-            sportType: requestedSportType,
-            location: requestedLocation,
-          },
-        };
       }
 
       const shouldUseDistance = Boolean(userLat && userLng && !requestedLocation);
@@ -491,10 +644,27 @@ export class CourtService {
 
       const suggestions = rankedCourts.slice(0, limit);
 
+      // Step 4: Generate rich dynamic conversational response using LLM
       if (suggestions.length === 0) {
+        try {
+          const apologyPrompt = `Bạn là trợ lý AI EZSport thân thiện. Khách hàng yêu cầu: "${prompt}".
+Rất tiếc là hệ thống hiện không tìm thấy sân nào trống phù hợp với yêu cầu này (về môn thể thao, thời gian chơi hoặc địa điểm).
+Hãy viết một lời phản hồi tự nhiên, lịch sự (2-3 câu) bằng tiếng Việt xin lỗi khách hàng và khuyên họ thử đổi giờ chơi khác hoặc chọn địa điểm khác nhé.`;
+          
+          const completion = await openai.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: apologyPrompt }],
+            temperature: 0.7,
+            max_tokens: 250,
+          });
+          aiExplanation = completion.choices[0].message.content || buildNoMatchMessage(requestedSportType, requestedLocation, requestedTime, requestedDateText);
+        } catch {
+          aiExplanation = buildNoMatchMessage(requestedSportType, requestedLocation, requestedTime, requestedDateText);
+        }
+
         return {
           suggestions: [],
-          aiExplanation: buildNoMatchMessage(requestedSportType, requestedLocation, requestedTime, requestedDateText),
+          aiExplanation,
           matchedCriteria: {
             sportType: requestedSportType,
             location: requestedLocation,
@@ -502,14 +672,83 @@ export class CourtService {
         };
       }
 
+      try {
+        const courtsInfo = suggestions.map((c, idx) => {
+          const venue = c.venue || {};
+          const priceStr = c.pricePerHour ? `${Number(c.pricePerHour).toLocaleString('vi-VN')} VNĐ/giờ` : 'Liên hệ';
+          return `${idx + 1}. ${c.name} tại địa chỉ ${venue.location || 'Đà Nẵng'} (Giá: ${priceStr})`;
+        }).join('\n');
+
+        let suggestPrompt = '';
+        if (tomorrowFallbackActive) {
+          suggestPrompt = `Bạn là trợ lý AI EZSport thân thiện. Khách hàng yêu cầu chơi ngày hôm nay (hoặc ngầm hiểu hôm nay), nhưng giờ chơi đó đã trôi qua so với giờ hiện tại.
+Chúng tôi đã tự động chuyển ngày chơi sang Ngày Mai và tìm thấy các sân trống phù hợp sau:
+${courtsInfo}
+
+Hãy viết một phản hồi ngắn gọn, tự nhiên và thân thiện (2-3 câu) bằng tiếng Việt giải thích khéo léo rằng giờ chơi hôm nay đã trôi qua rồi, nên hệ thống đề xuất các sân này vào Ngày Mai để họ tham khảo đặt sân bên dưới.`;
+        } else if (usedLocationFallback) {
+          suggestPrompt = `Bạn là trợ lý AI EZSport thân thiện. Khách hàng yêu cầu tìm sân ở khu vực cụ thể: "${prompt}".
+Tuy nhiên, các sân trống ở khu vực đó đã hết. Chúng tôi đã tìm thấy một số sân trống phù hợp ở các khu vực lân cận khác như sau:
+${courtsInfo}
+
+Hãy viết một phản hồi ngắn gọn, tự nhiên (2-3 câu) bằng tiếng Việt giải thích khéo léo rằng khu vực họ tìm hiện đã hết sân trống, và giới thiệu các sân ở khu vực lân cận này cho họ.`;
+        } else {
+          suggestPrompt = `Bạn là trợ lý AI EZSport thân thiện. Khách hàng yêu cầu: "${prompt}".
+Chúng tôi đã tìm thấy các sân trống phù hợp sau:
+${courtsInfo}
+
+Hãy viết một phản hồi ngắn gọn, thân thiện (2-3 câu) bằng tiếng Việt để giới thiệu các sân này và khuyến khích họ chọn đặt sân bên dưới.`;
+        }
+
+        const completion = await openai.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: suggestPrompt }],
+          temperature: 0.6,
+          max_tokens: 300,
+        });
+
+        aiExplanation = completion.choices[0].message.content || buildSuggestionMessage(suggestions, requestedSportType, requestedLocation, requestedTime, requestedDateText);
+      } catch (err) {
+        aiExplanation = buildSuggestionMessage(suggestions, requestedSportType, requestedLocation, requestedTime, requestedDateText);
+      }
+
+      let localDate = new Date();
+      if (requestedDateText) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(requestedDateText)) {
+          const [y, m, d] = requestedDateText.split('-').map(Number);
+          localDate = new Date(y, m - 1, d);
+        } else if (requestedDateText.includes('mai')) {
+          localDate.setDate(localDate.getDate() + 1);
+        }
+      }
+      const year = localDate.getFullYear();
+      const month = String(localDate.getMonth() + 1).padStart(2, '0');
+      const day = String(localDate.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
+      const formatMinutesToHHMM = (minutes: number) => {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      };
+
+      const parsedSlot = requestedTime != null ? {
+        date: formattedDate,
+        startTime: formatMinutesToHHMM(requestedTime),
+        endTime: formatMinutesToHHMM(requestedEndTime || (requestedTime + 60)),
+        duration: Math.max(1, ((requestedEndTime || (requestedTime + 60)) - requestedTime) / 60),
+      } : undefined;
+
       return {
         suggestions,
-        aiExplanation: buildSuggestionMessage(suggestions, requestedSportType, requestedLocation, requestedTime, requestedDateText),
+        aiExplanation,
         matchedCriteria: {
           sportType: requestedSportType,
           location: requestedLocation,
         },
+        parsedSlot,
       };
+
     } catch (error: any) {
       console.error('Error in suggestCourts:', error);
       return {

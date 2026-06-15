@@ -156,6 +156,14 @@ export const bookingService = {
   },
 
   /**
+   * Cancel booking by owner (admin/owner)
+   */
+  cancelBookingByOwner: async (bookingId: string): Promise<Booking> => {
+    const { data } = await api.patch(`/bookings/${bookingId}/cancel-owner`);
+    return data.data;
+  },
+
+  /**
    * Check-in booking (staff)
    */
   checkInBooking: async (bookingId: string): Promise<Booking> => {

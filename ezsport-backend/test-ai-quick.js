@@ -8,7 +8,7 @@
 
 const axios = require('axios');
 
-const API_BASE_URL = 'http://localhost:5000/courts';
+const API_BASE_URL = 'http://localhost:5000/api/courts';
 
 // Test cases
 const testCases = [

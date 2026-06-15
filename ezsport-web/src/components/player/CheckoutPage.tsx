@@ -17,7 +17,7 @@ interface CheckoutPageProps {
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { draft } = useBookingStore();
   const [venueData, setVenueData] = useState<Venue | null>(null);
   const [courtData, setCourtData] = useState<Court | null>(null);
@@ -29,9 +29,30 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   const [showVoucherModal, setShowVoucherModal] = useState<boolean>(false);
   const [validatingVoucher, setValidatingVoucher] = useState<boolean>(false);
   const [usePoints, setUsePoints] = useState<boolean>(false);
+  const [selectedPoints, setSelectedPoints] = useState<number>(500); // Points selected to use
   const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash'>('momo');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // User's available loyalty points
+  const userPoints = Number(user?.loyaltyPoints) || 0;
+  
+  // Available point options (100 points = 10,000đ)
+  const pointOptions = [100, 200, 300, 500, 1000];
+  const availablePointOptions = pointOptions.filter(p => p <= userPoints);
+  
+  const canUsePoints = userPoints >= selectedPoints;
+  const pointsDiscountValue = Math.floor(selectedPoints * 100); // 100 points = 10,000đ
+  
+  // Debug log
+  console.log('🎯 Points Debug:', { 
+    userPoints, 
+    selectedPoints,
+    pointsDiscountValue,
+    canUsePoints,
+    loyaltyPoints: user?.loyaltyPoints, 
+    user 
+  });
 
 
 
@@ -63,19 +84,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
       setIsLoadingBookingData(true);
       try {
+        // Step 1: Try to load court (using draft.courtId which is always the court's _id)
         const court = draft?.courtId
           ? await courtService.getCourtById(String(draft.courtId)).catch(() => null)
           : null;
 
-        let venue = await venueService.getVenueById(String(venueId)).catch(() => null);
-
-        if (!venue && court?.venue) {
+        // Step 2: Resolve real venueId — prefer court.venue (populated) to avoid using
+        // a stale/incorrect venueId prop (e.g. court ID passed from legacy chat history)
+        let resolvedVenueId: string | null = null;
+        if (court?.venue) {
           const courtVenue = court.venue as any;
-          const courtVenueId = typeof courtVenue === 'string' ? courtVenue : courtVenue._id;
-          if (courtVenueId) {
-            venue = await venueService.getVenueById(String(courtVenueId)).catch(() => null);
-          }
+          resolvedVenueId = typeof courtVenue === 'string' ? courtVenue : (courtVenue._id ?? null);
         }
+        // Fallback: use the prop venueId only if we couldn't get it from court
+        if (!resolvedVenueId) {
+          resolvedVenueId = String(venueId);
+        }
+
+        // Step 3: Fetch the venue using the resolved ID
+        const venue = await venueService.getVenueById(resolvedVenueId).catch(() => null);
 
         const resolvedCourt =
           court ??
@@ -140,7 +167,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         ? Math.min(Math.floor(subtotal * appliedVoucher.value / 100), appliedVoucher.maxDiscount || Infinity) 
         : appliedVoucher.value)
     : 0;
-  const pointsVal = usePoints ? 50000 : 0; // 500 points = 50,000đ
+  const pointsVal = usePoints && canUsePoints ? pointsDiscountValue : 0;
   const total = Math.max(0, subtotal + serviceFee - discountVal - pointsVal);
 
   const handleApplyVoucher = async (code: string) => {
@@ -200,7 +227,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         basePrice: subtotal,
         serviceFee: serviceFee,
         discount: discountVal,
-        pointsUsed: usePoints ? 500 : 0,
+        pointsUsed: usePoints && canUsePoints ? selectedPoints : 0,
         totalPrice: total,
         paymentMethod: paymentMethod,
         bookerName: bookerName,
@@ -211,6 +238,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
       };
 
       const createdBooking = await bookingService.createBooking(bookingPayload);
+
+      // Update user's loyalty points locally if points were used
+      if (usePoints && canUsePoints) {
+        const newPoints = Math.max(0, userPoints - selectedPoints);
+        updateUser({ loyaltyPoints: newPoints });
+      }
 
       // Sync final total back to store so BookingSuccessPage can display it
       useBookingStore.getState().setDraft({ totalPrice: total });
@@ -504,33 +537,123 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
                 {/* Points Reward Toggle switch */}
                 <div
-                  className="d-flex align-items-center justify-content-between p-3 rounded-4"
-                  style={{ background: '#f8fafc', border: '1px solid rgba(0,0,0,0.03)' }}
+                  className="p-3 rounded-4"
+                  style={{ 
+                    background: canUsePoints ? '#f8fafc' : '#fef3c7', 
+                    border: canUsePoints ? '1px solid rgba(0,0,0,0.03)' : '1px solid #fbbf24',
+                    opacity: userPoints > 0 ? 1 : 0.5
+                  }}
                 >
-                  <div className="d-flex align-items-center gap-2.5">
-                    <div
-                      className="rounded-circle d-flex align-items-center justify-content-center"
-                      style={{ width: '36px', height: '36px', background: '#dcfce7' }}
-                    >
-                      <span className="material-symbols-outlined text-success" style={{ color: '#16a34a' }}>add_circle</span>
+                  {/* Header with toggle */}
+                  <div className="d-flex align-items-center justify-content-between mb-3">
+                    <div className="d-flex align-items-center gap-2.5">
+                      <div
+                        className="rounded-circle d-flex align-items-center justify-content-center"
+                        style={{ 
+                          width: '36px', 
+                          height: '36px', 
+                          background: canUsePoints ? '#dcfce7' : '#fee2e2' 
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ color: canUsePoints ? '#16a34a' : '#dc2626' }}>
+                          {userPoints > 0 ? 'stars' : 'cancel'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="fw-bold text-dark d-block" style={{ fontSize: '14px' }}>
+                          Dùng điểm thưởng
+                        </span>
+                        <span className="text-muted small" style={{ fontSize: '12px' }}>
+                          Bạn có {userPoints.toLocaleString('vi-VN')} điểm
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="fw-bold text-dark d-block" style={{ fontSize: '14px' }}>
-                        Dùng 500 điểm thưởng
-                      </span>
-                      <span className="text-muted small" style={{ fontSize: '12px' }}>
-                        Tương đương 50.000đ
-                      </span>
-                    </div>
+                    <Form.Check
+                      type="switch"
+                      id="points-toggle"
+                      checked={usePoints}
+                      onChange={(e) => setUsePoints(e.target.checked)}
+                      disabled={userPoints === 0}
+                      className="custom-switch-success fs-4"
+                      style={{ cursor: userPoints > 0 ? 'pointer' : 'not-allowed' }}
+                    />
                   </div>
-                  <Form.Check
-                    type="switch"
-                    id="points-toggle"
-                    checked={usePoints}
-                    onChange={(e) => setUsePoints(e.target.checked)}
-                    className="custom-switch-success fs-4"
-                    style={{ cursor: 'pointer' }}
-                  />
+
+                  {/* Point selection dropdown (shown when toggle is on) */}
+                  {usePoints && userPoints > 0 && (
+                    <div className="mt-3 pt-3" style={{ borderTop: '1px solid #e2e8f0' }}>
+                      <label className="text-muted small d-block mb-2" style={{ fontSize: '12px', fontWeight: 600 }}>
+                        Chọn số điểm muốn dùng
+                      </label>
+                      <div className="d-flex gap-2 flex-wrap">
+                        {availablePointOptions.map(points => {
+                          const discount = points * 100;
+                          const isSelected = selectedPoints === points;
+                          return (
+                            <button
+                              key={points}
+                              type="button"
+                              onClick={() => setSelectedPoints(points)}
+                              style={{
+                                border: isSelected ? '2px solid #16a34a' : '1px solid #cbd5e1',
+                                borderRadius: '12px',
+                                background: isSelected ? '#dcfce7' : '#fff',
+                                color: isSelected ? '#0f3d22' : '#374151',
+                                padding: '10px 16px',
+                                cursor: 'pointer',
+                                fontWeight: isSelected ? 700 : 500,
+                                fontSize: '13px',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                minWidth: '90px'
+                              }}
+                            >
+                              <span style={{ fontSize: '14px', fontWeight: 800 }}>{points} điểm</span>
+                              <span style={{ fontSize: '11px', opacity: 0.8 }}>= {discount.toLocaleString('vi-VN')}đ</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Custom point input */}
+                      <div className="mt-3">
+                        <label className="text-muted small d-block mb-2" style={{ fontSize: '11px' }}>
+                          Hoặc nhập số điểm khác (tối đa {userPoints})
+                        </label>
+                        <div className="d-flex gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max={userPoints}
+                            value={selectedPoints}
+                            onChange={(e) => {
+                              const val = Math.min(Number(e.target.value) || 0, userPoints);
+                              setSelectedPoints(val);
+                            }}
+                            className="form-control form-control-sm"
+                            style={{ 
+                              maxWidth: '150px', 
+                              fontSize: '13px',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1'
+                            }}
+                          />
+                          <span className="d-flex align-items-center text-muted" style={{ fontSize: '13px' }}>
+                            = {pointsDiscountValue.toLocaleString('vi-VN')}đ
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Info message */}
+                      {!canUsePoints && (
+                        <div className="mt-2 p-2 rounded-3" style={{ background: '#fef3c7', fontSize: '12px', color: '#92400e' }}>
+                          ⚠️ Không đủ điểm. Vui lòng chọn số điểm nhỏ hơn.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </Card>
 

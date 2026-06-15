@@ -289,6 +289,27 @@ class BookingController {
   }
 
   /**
+   * Cancel/Reject booking by owner (admin/owner - PATCH /bookings/:id/cancel-owner)
+   */
+  async cancelBookingByOwner(req: Request, res: Response) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+      const booking = await bookingService.cancelBookingByOwner(id);
+
+      return res.status(200).json({
+        message: "Hủy đặt sân thành công",
+        data: booking,
+      });
+    } catch (err: any) {
+      return res.status(400).json({
+        message: err.message || "Lỗi hủy đặt sân",
+      });
+    }
+  }
+
+  /**
+
    * Check-in booking (staff - PATCH /bookings/:id/checkin)
    */
   async checkInBooking(req: Request, res: Response) {
@@ -350,7 +371,7 @@ class BookingController {
         signature,
       } = req.body;
 
-      const accessKey = process.env.MOMO_ACCESS_KEY || "F8BBA842ECF85";
+      const accessKey = process.env.MOMO_ACCESS_KEY || "klm05TvNBzhg7h7j";
 
       // Re-sign to verify authenticity
       const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&message=${message}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
@@ -361,7 +382,7 @@ class BookingController {
         return res.status(400).json({ message: "Signature verification failed" });
       }
 
-      const bookingId = orderId;
+      const bookingId = momoService.extractBookingId(orderId);
       if (resultCode === 0) {
         console.log(`[BookingController.handleMomoIPN] Payment SUCCESS for booking ${bookingId}`);
         await bookingService.updatePaymentStatus(bookingId, "CONFIRMED");
