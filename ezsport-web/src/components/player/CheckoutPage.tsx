@@ -160,7 +160,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   };
 
   // Live order calculations
-  const [comboType, setComboType] = useState<'week' | 'month' | undefined>(undefined);
+  const [comboType, setComboType] = useState<'week' | 'month' | undefined>(draft?.comboType);
 
   const getComboDates = () => {
     if (!draft?.slot?.date) return [];
