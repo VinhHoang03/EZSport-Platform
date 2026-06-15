@@ -25,6 +25,7 @@ export interface BookingDraft {
   bookerPhone: string;
   bookerEmail: string;
   notes: string;
+  comboType?: 'week' | 'month';
 }
 
 interface BookingState {
@@ -53,6 +54,7 @@ const defaultDraft = (): BookingDraft => ({
   bookerPhone: '',
   bookerEmail: '',
   notes: '',
+  comboType: undefined,
 });
 
 export const useBookingStore = create<BookingState>()(
