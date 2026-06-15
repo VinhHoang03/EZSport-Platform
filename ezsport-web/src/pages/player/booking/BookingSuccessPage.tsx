@@ -84,8 +84,9 @@ const BookingSuccessPage: React.FC = () => {
   const isPendingMomo = currentStatus === 'PENDING' && isMomo;
 
   return (
-    <Container className="py-5 d-flex flex-column align-items-center" style={{ maxWidth: '560px' }}>
+    <Container className="booking-success-page d-flex flex-column align-items-center" style={{ maxWidth: '560px' }}>
       <motion.div
+        className="booking-success-icon"
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
@@ -109,9 +110,9 @@ const BookingSuccessPage: React.FC = () => {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="text-center w-100"
+        className="booking-success-content text-center w-100"
       >
-        <h2 className="fw-bold mb-1" style={{ fontSize: '26px' }}>
+        <h2 className="booking-success-title fw-bold mb-1">
           {currentStatus === 'CANCELLED' 
             ? 'Đặt sân thất bại!' 
             : (isPendingMomo ? 'Chờ thanh toán MoMo...' : 'Đặt sân thành công!')}
@@ -125,10 +126,10 @@ const BookingSuccessPage: React.FC = () => {
         </p>
 
 
-        <Card className="border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
-          <Card.Body className="p-4 text-start">
+        <Card className="booking-success-card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
+          <Card.Body className="booking-success-card-body text-start">
             {/* Booking code */}
-            <div className="d-flex justify-content-between align-items-center mb-3 p-3 rounded-3" style={{ background: currentStatus === 'CANCELLED' ? '#fef2f2' : '#f0fdf4' }}>
+            <div className="booking-success-summary d-flex justify-content-between align-items-center mb-3 p-3 rounded-3" style={{ background: currentStatus === 'CANCELLED' ? '#fef2f2' : '#f0fdf4' }}>
               <div>
                 <p className="text-muted mb-0" style={{ fontSize: '12px' }}>Mã đặt sân</p>
                 <p className="fw-bold mb-0" style={{ fontSize: '16px', color: currentStatus === 'CANCELLED' ? '#ef4444' : '#16a34a' }}>
@@ -162,24 +163,24 @@ const BookingSuccessPage: React.FC = () => {
             {/* Details */}
             {bookingDate && (
               <div style={{ fontSize: '13px' }}>
-                <div className="d-flex justify-content-between mb-2">
+                <div className="booking-success-detail d-flex justify-content-between mb-2">
                   <span className="text-muted">Sân</span>
                   <span className="fw-semibold">{courtName}</span>
                 </div>
-                <div className="d-flex justify-content-between mb-2">
+                <div className="booking-success-detail d-flex justify-content-between mb-2">
                   <span className="text-muted">Môn</span>
                   <span className="fw-semibold text-uppercase">{sport}</span>
                 </div>
-                <div className="d-flex justify-content-between mb-2">
+                <div className="booking-success-detail d-flex justify-content-between mb-2">
                   <span className="text-muted">Ngày</span>
                   <span className="fw-semibold">{formatDate(bookingDate)}</span>
                 </div>
-                <div className="d-flex justify-content-between mb-2">
+                <div className="booking-success-detail d-flex justify-content-between mb-2">
                   <span className="text-muted">Giờ</span>
                   <span className="fw-semibold">{timeRange}</span>
                 </div>
                 {dbBooking?.comboId && (
-                  <div className="d-flex justify-content-between mb-2">
+                  <div className="booking-success-detail d-flex justify-content-between mb-2">
                     <span className="text-muted">Hình thức</span>
                     <span className="fw-semibold text-danger">
                       {dbBooking.comboType === 'month' ? 'Combo 1 tháng (4 buổi)' : 'Combo 1 tuần (2 buổi)'}
@@ -187,7 +188,7 @@ const BookingSuccessPage: React.FC = () => {
                   </div>
                 )}
                 <hr />
-                <div className="d-flex justify-content-between">
+                <div className="booking-success-detail d-flex justify-content-between">
                   <span className="text-muted">Tổng thanh toán</span>
                   <span className="fw-bold" style={{ color: currentStatus === 'CANCELLED' ? '#ef4444' : '#16a34a' }}>{totalPrice.toLocaleString('vi-VN')}đ</span>
                 </div>
@@ -196,7 +197,7 @@ const BookingSuccessPage: React.FC = () => {
           </Card.Body>
         </Card>
 
-        <div className="d-flex gap-2">
+        <div className="booking-success-actions d-flex gap-2">
           <Button
             variant="outline-success"
             className="flex-fill fw-semibold"

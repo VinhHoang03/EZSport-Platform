@@ -7,7 +7,7 @@ const PlayerLayout: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="d-flex flex-column min-vh-100">
+    <div className="player-layout d-flex flex-column">
       <Navigation
         onLogoClick={() => navigate(ROUTES.LANDING)}
         onLoginClick={() => navigate(ROUTES.LOGIN)}
@@ -23,7 +23,7 @@ const PlayerLayout: React.FC = () => {
           if (map[page]) navigate(map[page]);
         }}
       />
-      <main className="flex-grow-1 overflow-hidden" style={{ height: 'calc(100vh - 90px)' }}>
+      <main className="player-main flex-grow-1">
         <Outlet />
       </main>
     </div>
