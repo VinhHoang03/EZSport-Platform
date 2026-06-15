@@ -84,19 +84,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
       setIsLoadingBookingData(true);
       try {
+        // Step 1: Try to load court (using draft.courtId which is always the court's _id)
         const court = draft?.courtId
           ? await courtService.getCourtById(String(draft.courtId)).catch(() => null)
           : null;
 
-        let venue = await venueService.getVenueById(String(venueId)).catch(() => null);
-
-        if (!venue && court?.venue) {
+        // Step 2: Resolve real venueId — prefer court.venue (populated) to avoid using
+        // a stale/incorrect venueId prop (e.g. court ID passed from legacy chat history)
+        let resolvedVenueId: string | null = null;
+        if (court?.venue) {
           const courtVenue = court.venue as any;
-          const courtVenueId = typeof courtVenue === 'string' ? courtVenue : courtVenue._id;
-          if (courtVenueId) {
-            venue = await venueService.getVenueById(String(courtVenueId)).catch(() => null);
-          }
+          resolvedVenueId = typeof courtVenue === 'string' ? courtVenue : (courtVenue._id ?? null);
         }
+        // Fallback: use the prop venueId only if we couldn't get it from court
+        if (!resolvedVenueId) {
+          resolvedVenueId = String(venueId);
+        }
+
+        // Step 3: Fetch the venue using the resolved ID
+        const venue = await venueService.getVenueById(resolvedVenueId).catch(() => null);
 
         const resolvedCourt =
           court ??

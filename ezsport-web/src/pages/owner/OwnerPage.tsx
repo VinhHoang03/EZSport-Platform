@@ -28,7 +28,7 @@ interface Booking {
   duration: string;
   paymentMethod: string;
   amount: string;
-  status: 'confirmed' | 'pending_payment' | 'pending_confirm' | 'cancelled';
+  status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED';
   notes: string;
   top: number;
   height: number;
@@ -43,13 +43,14 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
   const [bookingsList, setBookingsList] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const [showCreateCourtModal, setShowCreateCourtModal] = useState(false);
   const [selectedVenueForCourt, setSelectedVenueForCourt] = useState<Venue | null>(null);
   const [creatingCourt, setCreatingCourt] = useState(false);
 
-  // Fetch real bookings for all courts owned by this owner
-  const fetchOwnerBookings = useCallback(async () => {
+  // Fetch real bookings for all courts owned by this owner, filtered by selectedDate
+  const fetchOwnerBookings = useCallback(async (date: Date) => {
     setLoadingBookings(true);
     try {
       const venues = await venueService.getMyVenues({ active: 'all' });
@@ -61,10 +62,19 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
         allCourts.push(...courts);
       }
 
+      // Build date range query for the selected day (local timezone safe)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateParam = `${year}-${month}-${day}`; // YYYY-MM-DD
+
+
       const allBookings: Booking[] = [];
       for (const court of allCourts) {
         try {
-          const res = await api.get(`/bookings/court/${court._id}/bookings?limit=100`);
+          const res = await api.get(
+            `/bookings/court/${court._id}/bookings?limit=200&startDate=${dateParam}&endDate=${dateParam}`
+          );
           const courtBookings: any[] = res.data.data || [];
           courtBookings.forEach((b: any) => {
             const [startH, startM] = (b.startTime || '06:00').split(':').map(Number);
@@ -72,24 +82,24 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
             const top = Math.max(0, (startH - 6) * 60 + startM);
             const height = Math.max(30, (endH - startH) * 60 + (endM - startM));
 
+            const bookerName = b.bookerName || b.userId?.name || 'Khách';
+            const bookerPhone = b.bookerPhone || b.userId?.phone || '';
+            const bookerEmail = b.bookerEmail || b.userId?.email || '';
+            const bookerAvatar = b.userId?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(bookerName)}&background=1a6b3c&color=fff`;
+
             allBookings.push({
               id: b._id,
-              name: b.bookerName || 'Khách',
-              phone: b.bookerPhone || '',
-              email: b.bookerEmail || '',
-              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(b.bookerName || 'K')}&background=1a6b3c&color=fff`,
+              name: bookerName,
+              phone: bookerPhone,
+              email: bookerEmail,
+              avatar: bookerAvatar,
               court: court.name,
               date: b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('vi-VN') : '',
               timeSlot: `${b.startTime} - ${b.endTime}`,
               duration: `${b.duration}h`,
               paymentMethod: b.paymentMethod || 'card',
               amount: `${(b.totalPrice || 0).toLocaleString('vi-VN')}đ`,
-              status:
-                b.status === 'CONFIRMED' || b.status === 'COMPLETED'
-                  ? 'confirmed'
-                  : b.status === 'CANCELLED'
-                  ? 'cancelled'
-                  : 'pending_confirm',
+              status: b.status,
               notes: b.notes || '',
               top,
               height,
@@ -111,9 +121,9 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
 
   useEffect(() => {
     if (activeMenu === 'bookings') {
-      fetchOwnerBookings();
+      fetchOwnerBookings(selectedDate);
     }
-  }, [activeMenu, fetchOwnerBookings]);
+  }, [activeMenu, selectedDate, fetchOwnerBookings]);
 
   const openCreateCourtModal = (venue: Venue) => {
     setSelectedVenueForCourt(venue);
@@ -140,24 +150,15 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
     }
   };
 
-  const handleCompleteBooking = (id: string) => {
+  const handleStatusUpdate = (id: string, newStatus: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED') => {
     setBookingsList(prev =>
-      prev.map(b => (b.id === id ? { ...b, status: 'confirmed' } : b))
+      prev.map(b => (b.id === id ? { ...b, status: newStatus } : b))
     );
     if (selectedBooking && selectedBooking.id === id) {
-      setSelectedBooking(prev => (prev ? { ...prev, status: 'confirmed' } : null));
+      setSelectedBooking(prev => (prev ? { ...prev, status: newStatus } : null));
     }
-    alert('🎉 Đã xác nhận hoàn thành và thanh toán booking thành công!');
   };
 
-  const handleCancelBooking = (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn hủy lịch đặt sân này không?')) {
-      setBookingsList(prev =>
-        prev.map(b => (b.id === id ? { ...b, status: 'cancelled' } : b))
-      );
-      setSelectedBooking(null);
-    }
-  };
 
   const menuItems = [
     { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
@@ -345,6 +346,11 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
                 bookingsList={bookingsList}
                 onSelectBooking={setSelectedBooking}
                 loading={loadingBookings}
+                selectedDate={selectedDate}
+                onDateChange={(date) => {
+                  setSelectedDate(date);
+                  setSelectedBooking(null);
+                }}
               />
             )}
 
@@ -359,13 +365,11 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
             {activeMenu === 'messages' && <OwnerMessage />}
           </div>
 
-          {/* ─── BOOKING DETAIL SIDE DRAWER ─── */}
           {activeMenu === 'bookings' && selectedBooking && (
             <BookingDetail
               booking={selectedBooking}
               onClose={() => setSelectedBooking(null)}
-              onComplete={handleCompleteBooking}
-              onCancel={handleCancelBooking}
+              onStatusUpdate={handleStatusUpdate}
             />
           )}
 

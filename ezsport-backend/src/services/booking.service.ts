@@ -24,6 +24,7 @@ class BookingService {
    * Create a new booking
    */
   async createBooking(userId: string, bookingData: any): Promise<IBooking> {
+    await this.cleanupStaleMomoBookings();
     // Check if user exists
     const user = await User.findById(userId);
     if (!user) throw new Error("Người dùng không tồn tại");
@@ -32,23 +33,59 @@ class BookingService {
     const court = await Court.findById(bookingData.courtId);
     if (!court) throw new Error("Sân không tồn tại");
 
+    // Validate if the slot is in the past
+    const bookingDateObj = new Date(bookingData.bookingDate);
+    const now = new Date();
+    
+    const targetDateStr = `${bookingDateObj.getFullYear()}-${String(bookingDateObj.getMonth() + 1).padStart(2, "0")}-${String(bookingDateObj.getDate()).padStart(2, "0")}`;
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    
+    const isPastDate = targetDateStr < todayStr;
+    const isToday = targetDateStr === todayStr;
+    
+    if (isPastDate) {
+      throw new Error("Không thể đặt sân trong quá khứ");
+    }
+    
+    if (isToday) {
+      const [slotHour, slotMinute] = bookingData.startTime.split(":").map(Number);
+      const currentHourNow = now.getHours();
+      const currentMinuteNow = now.getMinutes();
+      
+      if (slotHour < currentHourNow || (slotHour === currentHourNow && slotMinute <= currentMinuteNow)) {
+        throw new Error("Không thể đặt khung giờ đã trôi qua");
+      }
+    }
+
     // Check for booking conflicts
+    // Block if ANY active/pending booking overlaps (including PENDING to prevent double-booking
+    // before owner has a chance to confirm/reject)
     const existingBooking = await Booking.findOne({
       courtId: bookingData.courtId,
       bookingDate: {
         $gte: new Date(bookingData.bookingDate),
         $lt: new Date(new Date(bookingData.bookingDate).getTime() + 86400000), // same day
       },
-      $or: [
-        { startTime: bookingData.startTime },
-        { endTime: bookingData.endTime },
+      $and: [
         {
-          startTime: { $lt: bookingData.endTime },
-          endTime: { $gt: bookingData.startTime },
+          $or: [
+            { startTime: bookingData.startTime },
+            { endTime: bookingData.endTime },
+            {
+              startTime: { $lt: bookingData.endTime },
+              endTime: { $gt: bookingData.startTime },
+            },
+          ]
         },
-      ],
-      status: { $in: ["CONFIRMED", "CHECKED_IN"] },
+        {
+          $or: [
+            { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
+            { status: "PENDING", paymentMethod: { $ne: "momo" } }
+          ]
+        }
+      ]
     });
+
 
     if (existingBooking) {
       throw new Error("Sân đã được đặt trong khung giờ này");
@@ -159,6 +196,7 @@ class BookingService {
       limit?: number;
     }
   ): Promise<{ bookings: IBooking[]; total: number }> {
+    await this.cleanupStaleMomoBookings();
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
@@ -166,7 +204,20 @@ class BookingService {
     const query: any = { userId };
 
     if (filters?.status) {
-      query.status = filters.status;
+      if (filters.status === "PENDING") {
+        query.$and = [
+          { status: "PENDING" },
+          { paymentMethod: { $ne: "momo" } }
+        ];
+      } else {
+        query.status = filters.status;
+      }
+    } else {
+      // By default, exclude unpaid MoMo bookings
+      query.$or = [
+        { status: { $ne: "PENDING" } },
+        { status: "PENDING", paymentMethod: { $ne: "momo" } }
+      ];
     }
 
     if (filters?.startDate || filters?.endDate) {
@@ -247,6 +298,10 @@ class BookingService {
       { new: true }
     ).populate("userId courtId");
 
+    if (updated) {
+      await this.refundBookingResources(updated);
+    }
+
     return updated;
   }
 
@@ -258,18 +313,31 @@ class BookingService {
     bookingDate: Date,
     slotDuration: number = 1 // in hours
   ): Promise<{ time: string; available: boolean; price?: number }[]> {
+    await this.cleanupStaleMomoBookings();
     const court = await Court.findById(courtId);
     if (!court) throw new Error("Sân không tồn tại");
 
-    // Get all confirmed bookings for this court on the date
+    // Get all active bookings (excluding unpaid MoMo bookings) for this court on the date
     const bookings = await Booking.find({
       courtId,
       bookingDate: {
         $gte: new Date(bookingDate),
         $lt: new Date(new Date(bookingDate).getTime() + 86400000),
       },
-      status: { $in: ["CONFIRMED", "CHECKED_IN"] },
+      $or: [
+        { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
+        { status: "PENDING", paymentMethod: { $ne: "momo" } }
+      ]
     });
+
+
+    const now = new Date();
+    const targetDate = new Date(bookingDate);
+    const targetDateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`;
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+    const isToday = targetDateStr === todayStr;
+    const isPastDate = targetDateStr < todayStr;
 
     const slots: { time: string; available: boolean; price?: number }[] = [];
     // Default hours: 06:00 - 24:00 (to allow 23:00 slot for bookings)
@@ -299,9 +367,20 @@ class BookingService {
         return slotStart < bookingEnd && slotEnd > bookingStart;
       });
 
+      let available = !conflictingBooking;
+      if (isPastDate) {
+        available = false;
+      } else if (isToday) {
+        const currentHourNow = now.getHours();
+        const currentMinuteNow = now.getMinutes();
+        if (currentHour < currentHourNow || (currentHour === currentHourNow && currentMin < currentMinuteNow)) {
+          available = false;
+        }
+      }
+
       slots.push({
         time: timeStr,
-        available: !conflictingBooking,
+        available,
         price: getCourtPriceForTime(court, timeStr),
       });
 
@@ -329,6 +408,7 @@ class BookingService {
       limit?: number;
     }
   ): Promise<{ bookings: IBooking[]; total: number }> {
+    await this.cleanupStaleMomoBookings();
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
@@ -336,7 +416,20 @@ class BookingService {
     const query: any = { courtId };
 
     if (filters?.status) {
-      query.status = filters.status;
+      if (filters.status === "PENDING") {
+        query.$and = [
+          { status: "PENDING" },
+          { paymentMethod: { $ne: "momo" } }
+        ];
+      } else {
+        query.status = filters.status;
+      }
+    } else {
+      // By default, exclude unpaid MoMo bookings
+      query.$or = [
+        { status: { $ne: "PENDING" } },
+        { status: "PENDING", paymentMethod: { $ne: "momo" } }
+      ];
     }
 
     if (filters?.startDate || filters?.endDate) {
@@ -377,6 +470,30 @@ class BookingService {
       { status: "CONFIRMED" },
       { new: true }
     ).populate("userId courtId");
+
+    return updated;
+  }
+
+  /**
+   * Cancel/Reject booking by owner (admin/owner only)
+   */
+  async cancelBookingByOwner(bookingId: string): Promise<IBooking | null> {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new Error("Đặt sân không tồn tại");
+
+    if (["COMPLETED", "CANCELLED"].includes(booking.status)) {
+      throw new Error("Không thể hủy đặt sân đã hoàn thành hoặc đã hủy");
+    }
+
+    const updated = await Booking.findByIdAndUpdate(
+      bookingId,
+      { status: "CANCELLED" },
+      { new: true }
+    ).populate("userId courtId");
+
+    if (updated) {
+      await this.refundBookingResources(updated);
+    }
 
     return updated;
   }
@@ -434,7 +551,67 @@ class BookingService {
       { new: true }
     ).populate("userId courtId");
 
+    if (status === "CANCELLED" && booking.status !== "CANCELLED" && updated) {
+      await this.refundBookingResources(updated);
+    }
+
     return updated;
+  }
+
+  /**
+   * Automatically cancel stale unpaid MoMo bookings (older than 10 minutes)
+   */
+  async cleanupStaleMomoBookings(): Promise<void> {
+    try {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const staleBookings = await Booking.find({
+        paymentMethod: "momo",
+        status: "PENDING",
+        createdAt: { $lt: tenMinutesAgo }
+      });
+
+      for (const booking of staleBookings) {
+        booking.status = "CANCELLED";
+        await booking.save();
+        await this.refundBookingResources(booking);
+        console.log(`[BookingService.cleanupStaleMomoBookings] Stale unpaid MoMo booking ${booking._id} has been automatically cancelled.`);
+      }
+    } catch (err) {
+      console.error("[BookingService.cleanupStaleMomoBookings] Error cleaning up stale bookings:", err);
+    }
+  }
+
+  /**
+   * Refund points and restore voucher when a booking is cancelled
+   */
+  async refundBookingResources(booking: IBooking): Promise<void> {
+    try {
+      // 1. Restore loyalty points
+      if (booking.pointsUsed && booking.pointsUsed > 0) {
+        await User.findByIdAndUpdate(booking.userId, {
+          $inc: { loyaltyPoints: booking.pointsUsed }
+        });
+        console.log(`[BookingService] Restored ${booking.pointsUsed} loyalty points to user ${booking.userId}`);
+      }
+
+      // 2. Restore voucher
+      if (booking.voucherCode) {
+        // Decrement voucher use count
+        await Voucher.findOneAndUpdate(
+          { code: booking.voucherCode },
+          { $inc: { usedCount: -1 } }
+        );
+
+        // Update UserVoucher status back to 'available'
+        await UserVoucher.findOneAndUpdate(
+          { userId: booking.userId, code: booking.voucherCode, status: "used" },
+          { status: "available", $unset: { usedBookingId: 1, usedAt: 1 } }
+        );
+        console.log(`[BookingService] Restored voucher ${booking.voucherCode} for user ${booking.userId}`);
+      }
+    } catch (err) {
+      console.error("[BookingService] Error refunding resources:", err);
+    }
   }
 }
 

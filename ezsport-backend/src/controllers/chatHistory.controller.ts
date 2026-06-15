@@ -47,6 +47,7 @@ export const saveChatMessages = async (req: Request, res: Response) => {
                 text: aiMessage.text,
                 timestamp: new Date(),
                 recommendations: aiMessage.recommendations || [],
+                parsedSlot: aiMessage.parsedSlot,
               },
             ],
           },

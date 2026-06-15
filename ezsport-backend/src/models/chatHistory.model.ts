@@ -6,6 +6,7 @@ export interface IChatMessage {
   timestamp: Date;
   recommendations?: Array<{
     _id: string;
+    venueId?: string;
     name: string;
     location: string;
     price: string;
@@ -17,6 +18,12 @@ export interface IChatMessage {
     lng: number;
     distance?: number;
   }>;
+  parsedSlot?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+  };
 }
 
 export interface IChatHistory extends Document {
@@ -34,6 +41,7 @@ const ChatMessageSchema = new Schema<IChatMessage>(
     recommendations: [
       {
         _id: { type: String },
+        venueId: { type: String },
         name: { type: String },
         location: { type: String },
         price: { type: String },
@@ -46,6 +54,12 @@ const ChatMessageSchema = new Schema<IChatMessage>(
         distance: { type: Number },
       },
     ],
+    parsedSlot: {
+      date: { type: String },
+      startTime: { type: String },
+      endTime: { type: String },
+      duration: { type: Number },
+    },
   },
   { _id: false }
 );
