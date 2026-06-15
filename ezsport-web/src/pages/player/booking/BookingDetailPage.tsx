@@ -183,11 +183,42 @@ const BookingDetailPage: React.FC = () => {
       <Card className="border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
         <Card.Body className="p-4">
           <h6 className="fw-bold mb-3">Thanh toán</h6>
-          <InfoRow label="Giá sân" value={`${booking.basePrice.toLocaleString('vi-VN')}đ`} />
-          {booking.serviceFee && <InfoRow label="Phí dịch vụ" value={`${booking.serviceFee.toLocaleString('vi-VN')}đ`} />}
-          {booking.discount && booking.discount > 0 && <InfoRow label="Giảm giá" value={`-${booking.discount.toLocaleString('vi-VN')}đ`} color="#16a34a" />}
-          <hr />
-          <InfoRow label="Tổng cộng" value={`${booking.totalPrice.toLocaleString('vi-VN')}đ`} bold color="#16a34a" />
+          {booking.comboId ? (
+            booking.totalPrice > 0 ? (
+              // Primary combo booking where payment is collected
+              <>
+                <InfoRow 
+                  label={`Giá sân (${booking.comboType === 'month' ? 4 : 2} buổi)`} 
+                  value={`${(booking.basePrice * (booking.comboType === 'month' ? 4 : 2)).toLocaleString('vi-VN')}đ`} 
+                />
+                {booking.serviceFee ? <InfoRow label="Phí dịch vụ" value={`${booking.serviceFee.toLocaleString('vi-VN')}đ`} /> : null}
+                {booking.discount && booking.discount > 0 ? (
+                  <InfoRow label="Giảm giá (đã gồm giảm combo)" value={`-${booking.discount.toLocaleString('vi-VN')}đ`} color="#16a34a" />
+                ) : null}
+                <hr />
+                <InfoRow label="Tổng cộng (Trọn gói combo)" value={`${booking.totalPrice.toLocaleString('vi-VN')}đ`} bold color="#16a34a" />
+              </>
+            ) : (
+              // Subsequent session of combo
+              <>
+                <InfoRow label="Giá sân (buổi lẻ)" value={`${booking.basePrice.toLocaleString('vi-VN')}đ`} />
+                <InfoRow label="Trạng thái thanh toán" value="Đã thanh toán (Nằm trong gói combo)" color="#16a34a" bold />
+                <hr />
+                <InfoRow label="Tổng thanh toán buổi này" value="0đ" bold color="#16a34a" />
+              </>
+            )
+          ) : (
+            // Normal booking
+            <>
+              <InfoRow label="Giá sân" value={`${booking.basePrice.toLocaleString('vi-VN')}đ`} />
+              {booking.serviceFee ? <InfoRow label="Phí dịch vụ" value={`${booking.serviceFee.toLocaleString('vi-VN')}đ`} /> : null}
+              {booking.discount && booking.discount > 0 ? (
+                <InfoRow label="Giảm giá" value={`-${booking.discount.toLocaleString('vi-VN')}đ`} color="#16a34a" />
+              ) : null}
+              <hr />
+              <InfoRow label="Tổng cộng" value={`${booking.totalPrice.toLocaleString('vi-VN')}đ`} bold color="#16a34a" />
+            </>
+          )}
         </Card.Body>
       </Card>
 
