@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { G } from '../../utils/theme';
 
-const BlurText: React.FC<{ text: string; style?: React.CSSProperties; greenWords?: string[] }> = ({ text, style, greenWords = [] }) => {
+const BlurText: React.FC<{ text: string; className?: string; style?: React.CSSProperties; greenWords?: string[] }> = ({ text, className, style, greenWords = [] }) => {
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -11,7 +11,7 @@ const BlurText: React.FC<{ text: string; style?: React.CSSProperties; greenWords
     return () => obs.disconnect();
   }, []);
   return (
-    <div ref={ref} style={{ display: 'flex', flexWrap: 'wrap', gap: '0 0.25em', ...style }}>
+    <div ref={ref} className={className} style={{ display: 'flex', flexWrap: 'wrap', gap: '0 0.25em', ...style }}>
       {text.split(' ').map((w, i) => (
         <motion.span key={i}
           initial={{ filter: 'blur(12px)', opacity: 0, y: 40 }}

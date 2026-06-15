@@ -80,6 +80,460 @@ body {
   overflow-x: hidden;
 }
 
+.player-layout {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.player-main {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.booking-success-page {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.booking-success-title {
+  font-size: 26px;
+}
+
+.booking-success-card-body {
+  padding: 1.5rem;
+}
+
+.booking-success-detail > :last-child {
+  max-width: 70%;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+@media (max-width: 767.98px) {
+  .main-navigation {
+    padding: 0.625rem 0.75rem !important;
+  }
+
+  .main-navigation .container-fluid {
+    padding: 0 !important;
+  }
+
+  .navigation-logo {
+    width: 112px !important;
+    height: 44px !important;
+  }
+
+  .navigation-logo-image {
+    height: 44px !important;
+    transform: scale(2.65) !important;
+  }
+
+  .navigation-actions {
+    display: none !important;
+  }
+
+  .booking-success-page {
+    max-width: 100% !important;
+    padding: 1.5rem 1rem 2rem;
+  }
+
+  .booking-success-icon {
+    width: 60px !important;
+    height: 60px !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .booking-success-icon .material-symbols-outlined {
+    font-size: 30px !important;
+  }
+
+  .booking-success-title {
+    font-size: 22px;
+  }
+
+  .booking-success-card-body {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .navigation-user-name {
+    display: none;
+  }
+
+  .booking-success-summary {
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+
+  .booking-success-summary > div {
+    min-width: 0;
+  }
+
+  .booking-success-detail {
+    gap: 1rem;
+  }
+
+  .booking-success-actions {
+    flex-direction: column;
+  }
+
+  .booking-success-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 359.98px) {
+  .navigation-logo {
+    width: 92px !important;
+  }
+
+  .booking-success-page {
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+  }
+
+  .booking-success-summary {
+    flex-direction: column;
+  }
+
+  .booking-success-summary .text-end {
+    text-align: left !important;
+  }
+
+  .booking-success-detail {
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .booking-success-detail > :last-child {
+    max-width: 100%;
+    text-align: left;
+  }
+}
+
+/* Public authentication pages */
+.auth-mobile-logo {
+  display: none;
+}
+
+@media (max-width: 1199.98px) {
+  .auth-layout {
+    grid-template-columns: 38% 62% !important;
+  }
+
+  .auth-layout-aside {
+    padding: 2.5rem !important;
+  }
+
+  .auth-layout-main {
+    padding: 2.5rem !important;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .auth-layout {
+    display: block !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+  }
+
+  .auth-layout-aside {
+    display: none !important;
+  }
+
+  .auth-layout-main {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 2rem !important;
+    overflow: visible !important;
+  }
+
+  .auth-mobile-logo {
+    align-items: center;
+    align-self: flex-start;
+    cursor: pointer;
+    display: flex;
+    height: 48px;
+    position: relative;
+    width: 130px;
+    z-index: 10;
+  }
+
+  .auth-mobile-logo img {
+    height: 44px;
+    object-fit: contain;
+    transform: scale(2.6);
+    transform-origin: left center;
+    width: auto;
+  }
+
+  .auth-layout-card {
+    max-width: 560px !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .auth-layout-main {
+    justify-content: flex-start !important;
+    padding: 1rem !important;
+  }
+
+  .auth-layout-top-link {
+    justify-content: center !important;
+    padding: 0.5rem 0 1.25rem;
+    text-align: center;
+  }
+
+  .auth-layout-card {
+    margin: 0 auto !important;
+    padding: 1.25rem !important;
+    border-radius: 16px !important;
+  }
+
+  .auth-layout-footer {
+    align-items: center;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .auth-form-heading {
+    margin-bottom: 1.5rem !important;
+  }
+
+  .auth-form-heading h2 {
+    font-size: 26px !important;
+  }
+
+  .auth-social-grid,
+  .register-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .auth-form-options {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .register-stepper {
+    margin-bottom: 2rem !important;
+  }
+
+  .register-account-option {
+    gap: 0.75rem;
+    padding: 1rem !important;
+    transform: none !important;
+  }
+
+  .register-account-option > div:first-child {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 359.98px) {
+  .register-action-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Public landing page */
+@media (max-width: 1199.98px) {
+  .landing-nav {
+    padding: 0 2rem !important;
+  }
+
+  .landing-nav-links {
+    gap: 1.5rem !important;
+  }
+
+  .landing-feature-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .landing-nav {
+    height: 74px !important;
+    padding: 0 1.5rem !important;
+  }
+
+  .landing-nav-logo img {
+    height: 48px !important;
+    transform: scale(2.8) !important;
+  }
+
+  .landing-nav-links {
+    display: none !important;
+  }
+
+  .landing-hero {
+    min-height: 100svh !important;
+  }
+
+  .landing-hero-content {
+    max-width: 760px !important;
+    padding: 7rem 2rem 4rem !important;
+  }
+
+  .landing-hero-title {
+    font-size: 48px !important;
+    letter-spacing: -2px !important;
+  }
+
+  .landing-stats > div {
+    padding: 1rem 1.5rem !important;
+  }
+
+  .landing-section {
+    padding: 4.5rem 2rem !important;
+  }
+
+  .landing-promo-section {
+    padding-top: 1rem !important;
+  }
+
+  .landing-venue-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .landing-promo {
+    padding: 3rem !important;
+  }
+
+  .landing-promo-icon {
+    display: none !important;
+  }
+
+  .landing-cta-title {
+    font-size: 44px !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .landing-nav {
+    height: 66px !important;
+    padding: 0 1rem !important;
+  }
+
+  .landing-nav-logo img {
+    height: 42px !important;
+    transform: scale(2.45) !important;
+    margin-left: 0 !important;
+  }
+
+  .landing-nav-actions {
+    gap: 0.5rem !important;
+  }
+
+  .landing-nav-actions > button:first-child {
+    display: none !important;
+  }
+
+  .landing-nav-actions button {
+    padding: 0.625rem 1rem !important;
+    font-size: 13px !important;
+  }
+
+  .landing-nav-actions [data-user-menu] > div > div:nth-child(2) {
+    display: none !important;
+  }
+
+  .landing-hero-content {
+    padding: 6rem 1rem 3rem !important;
+  }
+
+  .landing-hero-title {
+    font-size: 36px !important;
+    letter-spacing: -1.5px !important;
+  }
+
+  .landing-hero-content > p {
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+  }
+
+  .landing-hero-actions,
+  .landing-cta-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: min(100%, 360px);
+  }
+
+  .landing-hero-actions button,
+  .landing-cta-actions button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .landing-stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    width: min(100%, 420px);
+  }
+
+  .landing-stats > div {
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    padding: 0.875rem !important;
+  }
+
+  .landing-section {
+    padding: 3.5rem 1rem !important;
+  }
+
+  .landing-section-heading {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-bottom: 2rem !important;
+  }
+
+  .landing-section-heading h2,
+  .landing-section h2:not(.landing-cta-title) {
+    font-size: 34px !important;
+    letter-spacing: -1px !important;
+  }
+
+  .landing-venue-grid,
+  .landing-feature-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-promo {
+    padding: 2rem 1.25rem 3.5rem !important;
+    border-radius: 22px !important;
+  }
+
+  .landing-promo h2 {
+    font-size: 30px !important;
+    letter-spacing: -1px !important;
+  }
+
+  .landing-promo p {
+    font-size: 15px !important;
+  }
+
+  .landing-cta-title {
+    font-size: 36px !important;
+  }
+}
+
+@media (max-width: 359.98px) {
+  .landing-nav-logo img {
+    transform: scale(2.1) !important;
+  }
+
+  .landing-hero-title {
+    font-size: 31px !important;
+  }
+
+  .landing-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
 h1, h2, h3, h4, h5, .font-headline {
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
