@@ -29,6 +29,8 @@ export interface IBooking extends Document {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  comboId?: mongoose.Types.ObjectId;
+  comboType?: 'week' | 'month';
 }
 
 const bookingSchema = new Schema<IBooking>(
@@ -120,6 +122,14 @@ const bookingSchema = new Schema<IBooking>(
     },
     bookerEmail: String,
     notes: String,
+    comboId: {
+      type: Schema.Types.ObjectId,
+      index: true,
+    },
+    comboType: {
+      type: String,
+      enum: ["week", "month"],
+    },
   },
   { timestamps: true }
 );

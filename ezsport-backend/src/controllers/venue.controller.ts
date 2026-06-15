@@ -121,6 +121,12 @@ export const updateVenue = async (req: Request, res: Response) => {
   try {
     const body = { ...req.body };
 
+    // Prevent non-admins from changing combo discounts
+    if (req.role !== "admin") {
+      delete body.comboWeeklyDiscount;
+      delete body.comboMonthlyDiscount;
+    }
+
     if (req.file?.path) body.image = req.file.path;
 
     if (body.sportTypes || body.sportType) {

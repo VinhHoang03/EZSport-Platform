@@ -18,7 +18,7 @@ router.get("/", getVenues);
 router.get("/owner/me", verifyToken, authorizeRoles("owner"), getMyVenues);
 router.get("/:id", getVenueById);
 router.post("/", verifyToken, authorizeRoles("owner"), upload.single("image"), createVenue);
-router.put("/:id", verifyToken, authorizeRoles("owner"), upload.single("image"), updateVenue);
+router.put("/:id", verifyToken, authorizeRoles("owner", "admin"), upload.single("image"), updateVenue);
 router.delete("/:id", verifyToken, authorizeRoles("owner"), deleteVenue);
 
 router.post("/:id/check-in", verifyToken as any, checkIn as any);
