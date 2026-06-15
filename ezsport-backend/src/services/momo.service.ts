@@ -15,15 +15,15 @@ export interface MomoPaymentResponse {
 
 class MomoService {
   private get accessKey(): string {
-    return process.env.MOMO_ACCESS_KEY || "F8BBA842ECF85";
+    return process.env.MOMO_ACCESS_KEY || "klm05TvNBzhg7h7j";
   }
 
   private get secretKey(): string {
-    return process.env.MOMO_SECRET_KEY || "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+    return process.env.MOMO_SECRET_KEY || "at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa";
   }
 
   private get partnerCode(): string {
-    return process.env.MOMO_PARTNER_CODE || "MOMO";
+    return process.env.MOMO_PARTNER_CODE || "MOMOBKUN20180529";
   }
 
   private get redirectUrl(): string {
@@ -35,19 +35,38 @@ class MomoService {
   }
 
   /**
+   * Extract original bookingId from a MoMo orderId.
+   * orderId format: <bookingIdHex><timestamp>
+   * MongoDB ObjectId is always 24 hex chars.
+   */
+  extractBookingId(momoOrderId: string): string {
+    // orderId = safeBookingId (24 chars) + timestamp suffix
+    return momoOrderId.substring(0, 24);
+  }
+
+  /**
    * Create a new payment request to MoMo gateway
    */
-  async createPayment(orderId: string, amount: number, orderInfo: string): Promise<MomoPaymentResponse> {
-    const requestId = orderId;
+  async createPayment(bookingId: string, amount: number, orderInfo: string): Promise<MomoPaymentResponse> {
+    // MoMo requires orderId/requestId to be alphanumeric only, max 50 chars
+    // Append timestamp to make orderId unique per payment attempt
+    // (prevents "transaction already exists" on retry)
+    const safeBase = bookingId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 24);
+    const ts = Date.now().toString();
+    const orderId = (safeBase + ts).substring(0, 50);       // unique per attempt
+    const requestId = orderId; // Must be identical for MoMo Sandbox bank redirect to work
+    const safeAmount = Math.floor(amount); // MoMo requires integer
     const extraData = "";
     const requestType = "payWithMethod";
     const autoCapture = true;
     const lang = "vi";
 
-    // Build raw signature string matching MoMo's guidelines
-    const rawSignature = `accessKey=${this.accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${this.ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${this.partnerCode}&redirectUrl=${this.redirectUrl}&requestId=${requestId}&requestType=${requestType}`;
+    // Build raw signature string — field order is CRITICAL for MoMo HMAC
+    const rawSignature = `accessKey=${this.accessKey}&amount=${safeAmount}&extraData=${extraData}&ipnUrl=${this.ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${this.partnerCode}&redirectUrl=${this.redirectUrl}&requestId=${requestId}&requestType=${requestType}`;
 
-    console.log("[MomoService] Raw Signature:", rawSignature);
+    console.log("[MomoService] orderId:", orderId);
+    console.log("[MomoService] requestId:", requestId);
+    console.log("[MomoService] amount:", safeAmount);
 
     const signature = crypto
       .createHmac("sha256", this.secretKey)
@@ -59,7 +78,7 @@ class MomoService {
       partnerName: "EZSport Platform",
       storeId: "EZSportStore",
       requestId,
-      amount: amount.toString(),
+      amount: safeAmount,
       orderId,
       orderInfo,
       redirectUrl: this.redirectUrl,

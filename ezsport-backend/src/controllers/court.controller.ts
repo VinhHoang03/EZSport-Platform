@@ -190,10 +190,11 @@ export const suggestCourts = async (req: Request, res: Response) => {
       });
     }
 
-    const { prompt, userLat, userLng, maxDistance, limit } = req.body;
+    const { prompt, history, userLat, userLng, maxDistance, limit } = req.body;
 
     const result = await CourtService.suggestCourts({
       prompt: prompt.trim(),
+      history,
       userLat: userLat ? parseFloat(userLat) : undefined,
       userLng: userLng ? parseFloat(userLng) : undefined,
       maxDistance: maxDistance ? parseFloat(maxDistance) : 10,

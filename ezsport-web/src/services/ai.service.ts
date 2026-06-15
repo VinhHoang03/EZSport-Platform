@@ -2,6 +2,7 @@ import api from '../api/api';
 
 export interface CourtSuggestionRequest {
   prompt: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
   userLat?: number;
   userLng?: number;
   maxDistance?: number;
@@ -35,6 +36,12 @@ export interface CourtSuggestionResponse {
   suggestions: Court[];
   aiExplanation: string;
   matchedCriteria: MatchedCriteria;
+  parsedSlot?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+  };
 }
 
 export const aiService = {

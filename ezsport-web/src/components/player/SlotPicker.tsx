@@ -13,6 +13,8 @@ interface SlotPickerProps {
   onSlotSelect: (slot: { date: string; startTime: string; endTime: string; duration: number; basePrice: number }) => void;
   selectedDate?: string;
   selectedStartTime?: string;
+  openTime?: string;
+  closeTime?: string;
 }
 
 const DURATIONS = [1, 2, 3];
@@ -24,16 +26,25 @@ const getNextDays = () => {
   for (let i = 0; i < 7; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
     days.push({
       label: `${d.getDate()}/${d.getMonth() + 1}`,
       dayName: dayNames[d.getDay()],
-      value: d.toISOString().split('T')[0],
+      value: `${year}-${month}-${day}`,
     });
   }
   return days;
+
 };
 
-const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selectedDate, selectedStartTime }) => {
+const toMinutes = (time: string) => {
+  const [hour = 0, minute = 0] = String(time || '00:00').split(':').map(Number);
+  return hour * 60 + minute;
+};
+
+const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selectedDate, selectedStartTime, openTime = '06:00', closeTime = '22:00' }) => {
   const days = getNextDays();
   const [activeDate, setActiveDate] = useState(selectedDate || days[0].value);
   const [activeTime, setActiveTime] = useState(selectedStartTime || '');
@@ -55,33 +66,16 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
           }))
         );
       })
-      .catch(() => {
-        // fallback mock slots
-        setSlots([
-          { time: '07:00', available: false, price: 150000 },
-          { time: '08:00', available: true, price: 150000 },
-          { time: '09:00', available: true, price: 150000 },
-          { time: '10:00', available: false, price: 150000 },
-          { time: '11:00', available: true, price: 180000 },
-          { time: '13:00', available: true, price: 180000 },
-          { time: '14:00', available: true, price: 180000 },
-          { time: '15:00', available: true, price: 180000 },
-          { time: '16:00', available: false, price: 200000 },
-          { time: '17:00', available: true, price: 200000 },
-          { time: '18:00', available: true, price: 200000 },
-          { time: '19:00', available: true, price: 200000 },
-          { time: '20:00', available: false, price: 200000 },
-          { time: '21:00', available: true, price: 150000 },
-          { time: '22:00', available: true, price: 150000 },
-        ]);
+      .catch((err) => {
+        console.error('[SlotPicker] Failed to load slots:', err?.message);
+        setSlots([]); // Trả về rỗng thay vì mock - tránh hiển thị slot giả
       })
       .finally(() => setLoading(false));
   }, [courtId, activeDate]);
 
   const calcEndTime = (start: string, dur: number) => {
-    const [h, m] = start.split(':').map(Number);
-    const totalMin = h * 60 + m + dur * 60;
-    const eh = Math.floor(totalMin / 60) % 24;
+    const totalMin = toMinutes(start) + dur * 60;
+    const eh = Math.floor(totalMin / 60);
     const em = totalMin % 60;
     return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
   };
@@ -90,6 +84,12 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
   const isSlotAvailableForDuration = (startTime: string, dur: number): boolean => {
     const startIdx = slots.findIndex(s => s.time === startTime);
     if (startIdx === -1) return false;
+
+    const startMinutes = toMinutes(startTime);
+    const endMinutes = startMinutes + dur * 60;
+    const openMinutes = toMinutes(openTime);
+    const closeMinutes = toMinutes(closeTime);
+    if (startMinutes < openMinutes || endMinutes > closeMinutes) return false;
 
     // Check if start slot is available
     if (!slots[startIdx].available) return false;

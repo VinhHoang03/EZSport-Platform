@@ -23,6 +23,7 @@ router.delete("/:id", bookingController.cancelBooking.bind(bookingController));
 // Admin/Owner routes (for managing court bookings)
 router.get("/court/:courtId/bookings", bookingController.getCourtBookings.bind(bookingController));
 router.patch("/:id/confirm", bookingController.confirmBooking.bind(bookingController));
+router.patch("/:id/cancel-owner", bookingController.cancelBookingByOwner.bind(bookingController));
 router.patch("/:id/checkin", bookingController.checkInBooking.bind(bookingController));
 router.patch("/:id/complete", bookingController.completeBooking.bind(bookingController));
 
