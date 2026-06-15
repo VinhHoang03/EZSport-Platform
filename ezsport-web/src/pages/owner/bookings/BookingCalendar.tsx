@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Spinner, Button, Dropdown } from 'react-bootstrap';
+import { Spinner, Button } from 'react-bootstrap';
 import { W, TX, TX2 } from '../../../utils/theme';
 import { venueService, courtService, type Venue, type Court } from '../../../services/venue.service';
 
@@ -15,7 +15,7 @@ interface Booking {
   duration: string;
   paymentMethod: string;
   amount: string;
-  status: 'confirmed' | 'pending_payment' | 'pending_confirm' | 'cancelled';
+  status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED';
   notes: string;
   top: number;
   height: number;
@@ -26,14 +26,46 @@ interface BookingCalendarProps {
   bookingsList: Booking[];
   onSelectBooking: (booking: Booking) => void;
   loading?: boolean;
+  selectedDate?: Date;
+  onDateChange?: (date: Date) => void;
 }
 
-export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, onSelectBooking, loading = false }) => {
+export const BookingCalendar: React.FC<BookingCalendarProps> = ({
+  bookingsList,
+  onSelectBooking,
+  loading = false,
+  selectedDate = new Date(),
+  onDateChange,
+}) => {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string>('');
   const [courts, setCourts] = useState<Court[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(true);
   const [loadingCourts, setLoadingCourts] = useState(false);
+
+  const formatDateVN = (d: Date) =>
+    d.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const toInputValue = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }; // YYYY-MM-DD
+
+
+  const isToday = (d: Date) => {
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+  };
+
+  const changeDate = (offset: number) => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + offset);
+    onDateChange?.(next);
+  };
 
   // Load venues on mount
   useEffect(() => {
@@ -93,60 +125,191 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
     return `${hr.toString().padStart(2, '0')}:00`;
   });
 
-  const BookingCard = ({ booking }: { booking: Booking }) => (
-    <div
-      key={booking.id}
-      onClick={() => onSelectBooking(booking)}
-      style={{
-        position: 'absolute', top: `${booking.top}px`, height: `${booking.height}px`,
-        left: '8px', right: '8px', borderRadius: '12px',
-        background: booking.status === 'confirmed' ? '#ecfdf5' : '#fffbeb',
-        border: booking.status === 'confirmed' ? '1.5px solid #10b981' : '1.5px dashed #f59e0b',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.02)',
-        padding: '12px', cursor: 'pointer', zIndex: 3,
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-        transition: 'all 0.2s',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
-    >
-      <div>
-        <div style={{ fontSize: '13px', fontWeight: 800, color: TX }}>{booking.name}</div>
-        <span style={{ fontSize: '11px', color: TX2, fontWeight: 600 }}>{booking.timeSlot}</span>
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'CONFIRMED':
+        return {
+          bg: '#ecfdf5',
+          border: '1.5px solid #10b981',
+          color: '#047857',
+          badgeBg: '#dcfce7',
+          badgeColor: '#15803d',
+          label: '● Đã TT'
+        };
+      case 'CHECKED_IN':
+        return {
+          bg: '#f3e8ff',
+          border: '1.5px solid #8b5cf6',
+          color: '#6d28d9',
+          badgeBg: '#faf5ff',
+          badgeColor: '#7c3aed',
+          label: '● Đã Check-in'
+        };
+      case 'COMPLETED':
+        return {
+          bg: '#f3f4f6',
+          border: '1.5px solid #9ca3af',
+          color: '#4b5563',
+          badgeBg: '#e5e7eb',
+          badgeColor: '#374151',
+          label: '● Hoàn thành'
+        };
+      case 'CANCELLED':
+        return {
+          bg: '#fef2f2',
+          border: '1.5px solid #ef4444',
+          color: '#b91c1c',
+          badgeBg: '#fee2e2',
+          badgeColor: '#991b1b',
+          label: '● Đã hủy'
+        };
+      case 'PENDING':
+      default:
+        return {
+          bg: '#fffbeb',
+          border: '1.5px dashed #f59e0b',
+          color: '#b45309',
+          badgeBg: '#fef3c7',
+          badgeColor: '#a16207',
+          label: '● Chờ duyệt'
+        };
+    }
+  };
+
+  const BookingCard = ({ booking }: { booking: Booking }) => {
+    const style = getStatusStyle(booking.status);
+    return (
+      <div
+        key={booking.id}
+        onClick={() => onSelectBooking(booking)}
+        style={{
+          position: 'absolute', top: `${booking.top}px`, height: `${booking.height}px`,
+          left: '8px', right: '8px', borderRadius: '12px',
+          background: style.bg,
+          border: style.border,
+          boxShadow: '0 4px 10px rgba(0,0,0,0.02)',
+          padding: '12px', cursor: 'pointer', zIndex: 3,
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+        onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+      >
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: TX }}>{booking.name}</div>
+          <span style={{ fontSize: '11px', color: TX2, fontWeight: 600 }}>{booking.timeSlot}</span>
+        </div>
+        <div className="d-flex justify-content-between align-items-center">
+          <span style={{ fontSize: '10px', fontWeight: 700, color: style.color }}>
+            {style.label}
+          </span>
+          <span style={{ display: 'inline-block', background: style.badgeBg, color: style.badgeColor, border: 'none', padding: '4px 8px', borderRadius: '20px', fontSize: '9px', fontWeight: 700 }}>
+            {booking.duration}
+          </span>
+        </div>
       </div>
-      <div className="d-flex justify-content-between align-items-center">
-        <span style={{ fontSize: '10px', fontWeight: 700, color: booking.status === 'confirmed' ? '#047857' : '#b45309' }}>
-          {booking.status === 'confirmed' ? '● Đã TT' : '● Chờ duyệt'}
-        </span>
-        <span style={{ display: 'inline-block', background: booking.status === 'confirmed' ? '#dcfce7' : '#fef3c7', color: booking.status === 'confirmed' ? '#15803d' : '#a16207', border: 'none', padding: '4px 8px', borderRadius: '20px', fontSize: '9px', fontWeight: 700 }}>
-          {booking.duration}
-        </span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div style={{ background: W, borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', padding: '24px', overflowX: 'auto', minWidth: '900px' }}>
       {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4" style={{ flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h4 style={{ fontSize: '18px', fontWeight: 800, color: TX, margin: '0 0 4px 0' }}>Trang chủ / Lịch đặt sân</h4>
-          <span style={{ fontSize: '13px', color: TX2 }}>Hệ thống quản lý lịch đặt theo thời gian thực</span>
+          <h4 style={{ fontSize: '18px', fontWeight: 800, color: TX, margin: '0 0 4px 0' }}>Lịch đặt sân</h4>
+          <span style={{ fontSize: '13px', color: TX2 }}>Quản lý lịch đặt theo ngày</span>
         </div>
-        <div className="d-flex gap-2">
-          <Button variant="outline-success" size="sm" className="rounded-pill px-3 fw-bold border-success border-opacity-50 text-success bg-white" style={{ fontSize: '13px' }}>
-            Hôm nay
-          </Button>
-          <Dropdown>
-            <Dropdown.Toggle variant="light" size="sm" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '20px', fontSize: '13px', fontWeight: 700, color: TX, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Lịch tuần
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
-              <Dropdown.Item>Lịch ngày</Dropdown.Item>
-              <Dropdown.Item>Lịch tuần</Dropdown.Item>
-              <Dropdown.Item>Lịch tháng</Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
+
+        {/* ── Date Navigator ── */}
+        <div className="d-flex align-items-center gap-2" style={{ flexWrap: 'wrap' }}>
+          {/* Prev day */}
+          <button
+            onClick={() => changeDate(-1)}
+            style={{
+              width: '34px', height: '34px', borderRadius: '10px',
+              border: '1px solid #e2e8f0', background: '#f8fafc',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}
+            title="Ngày trước"
+            onMouseEnter={e => (e.currentTarget.style.background = '#e2e8f0')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#f8fafc')}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: TX }}>chevron_left</span>
+          </button>
+
+          {/* Date label + input */}
+          <div style={{ position: 'relative' }}>
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: isToday(selectedDate)
+                  ? 'linear-gradient(135deg, #0f3d22, #166534)'
+                  : 'linear-gradient(135deg, #1e40af, #1d4ed8)',
+                color: '#fff',
+                borderRadius: '12px', padding: '7px 16px',
+                fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                whiteSpace: 'nowrap',
+              }}
+              onClick={() => (document.getElementById('bk-date-input') as HTMLInputElement)?.showPicker?.()}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>calendar_today</span>
+              {isToday(selectedDate) ? '📅 Hôm nay · ' : ''}{formatDateVN(selectedDate)}
+            </div>
+            <input
+              id="bk-date-input"
+              type="date"
+              value={toInputValue(selectedDate)}
+              onChange={e => {
+                if (e.target.value) onDateChange?.(new Date(e.target.value + 'T00:00:00'));
+              }}
+              style={{
+                position: 'absolute', opacity: 0, pointerEvents: 'none',
+                top: 0, left: 0, width: '1px', height: '1px',
+              }}
+            />
+          </div>
+
+          {/* Next day */}
+          <button
+            onClick={() => changeDate(1)}
+            style={{
+              width: '34px', height: '34px', borderRadius: '10px',
+              border: '1px solid #e2e8f0', background: '#f8fafc',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'all 0.2s',
+            }}
+            title="Ngày sau"
+            onMouseEnter={e => (e.currentTarget.style.background = '#e2e8f0')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#f8fafc')}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: TX }}>chevron_right</span>
+          </button>
+
+          {/* Today shortcut */}
+          {!isToday(selectedDate) && (
+            <Button
+              variant="outline-success"
+              size="sm"
+              className="rounded-pill px-3 fw-bold"
+              style={{ fontSize: '12px', borderColor: '#22c55e', color: '#15803d' }}
+              onClick={() => onDateChange?.(new Date())}
+            >
+              Hôm nay
+            </Button>
+          )}
+
+          {/* Booking count badge */}
+          <div style={{
+            background: bookingsList.length > 0 ? '#dcfce7' : '#f1f5f9',
+            color: bookingsList.length > 0 ? '#15803d' : '#64748b',
+            borderRadius: '20px', padding: '6px 14px',
+            fontSize: '12px', fontWeight: 700,
+            border: bookingsList.length > 0 ? '1px solid #86efac' : '1px solid #e2e8f0',
+          }}>
+            {bookingsList.filter(b => b.status !== 'CANCELLED').length} lịch hôm nay
+          </div>
         </div>
       </div>
 
@@ -442,7 +605,7 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookingsList, 
                         // Nếu không có courtId (mock data cũ), bỏ qua
                         const bookingCourtId = (b as any).courtId;
                         if (bookingCourtId) {
-                          return bookingCourtId === court._id && b.status !== 'cancelled';
+                          return bookingCourtId === court._id && b.status !== 'CANCELLED';
                         }
                         // Fallback: nếu không có courtId, không hiển thị gì
                         return false;

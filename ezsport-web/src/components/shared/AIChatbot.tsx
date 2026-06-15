@@ -63,6 +63,12 @@ interface Message {
   timestamp: Date;
   recommendations?: CourtRecommendation[];
   isLocationScan?: boolean;
+  parsedSlot?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+  };
 }
 
 const normalizePromptText = (value: string): string =>
@@ -195,6 +201,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
         recommendations: msg.recommendations?.length > 0
           ? msg.recommendations.map(normalizeRecommendation)
           : undefined,
+        parsedSlot: msg.parsedSlot || undefined,
       }));
 
       if (historyMessages.length > 0) {
@@ -243,7 +250,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   }, [messages, isTyping]);
 
   // Lưu cặp message vào DB (chỉ khi đã login)
-  const saveToHistory = async (userText: string, aiText: string, recommendations?: CourtRecommendation[]) => {
+  const saveToHistory = async (userText: string, aiText: string, recommendations?: CourtRecommendation[], parsedSlot?: any) => {
     if (!isAuthenticated) return;
     try {
       await api.post('/chat-history', {
@@ -264,6 +271,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
             lat: r.lat,
             lng: r.lng,
           })) || [],
+          parsedSlot,
         },
       });
     } catch (err) {
@@ -336,7 +344,15 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
         }
       }
 
+      const historyForApi = messages
+        .filter(msg => msg.id !== 'welcome')
+        .map(msg => ({
+          role: msg.sender === 'user' ? ('user' as const) : ('assistant' as const),
+          content: msg.text
+        }));
+
       const result = await aiService.suggestCourts({
+        history: historyForApi,
         prompt: promptForApi,
         userLat,
         userLng,
@@ -353,14 +369,15 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
         text: result.aiExplanation,
         timestamp: new Date(),
         recommendations: recommendations.length > 0 ? recommendations : undefined,
-        isLocationScan: false
+        isLocationScan: false,
+        parsedSlot: result.parsedSlot
       };
 
       setMessages(prev => [...prev, aiMessage]);
       setIsTyping(false);
 
       // 3. Lưu vào database (nếu đã login)
-      saveToHistory(query, result.aiExplanation, recommendations.length > 0 ? recommendations : undefined);
+      saveToHistory(query, result.aiExplanation, recommendations.length > 0 ? recommendations : undefined, result.parsedSlot);
 
       if (userLat && userLng && onLocationFound) {
         onLocationFound(userLat, userLng);
@@ -401,12 +418,15 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
     }
   };
 
-  const handleBooking = (rec: CourtRecommendation) => {
+  const handleBooking = (rec: CourtRecommendation, msgParsedSlot?: any) => {
     const checkoutVenueId = rec.venueId || rec.id;
-    const latestSearchText = [...messages]
-      .reverse()
-      .find((msg) => msg.sender === 'user' && hasSearchContext(msg.text))?.text || '';
-    const slot = parseSlotFromPrompt(latestSearchText);
+    let slot = msgParsedSlot;
+    if (!slot) {
+      const latestSearchText = [...messages]
+        .reverse()
+        .find((msg) => msg.sender === 'user' && hasSearchContext(msg.text))?.text || '';
+      slot = parseSlotFromPrompt(latestSearchText);
+    }
     const duration = slot?.duration || 1;
     const pricePerHour = rec.pricePerHour || parsePriceValue(rec.price);
     const basePrice = pricePerHour * duration;
@@ -720,7 +740,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleBooking(rec);
+                                  handleBooking(rec, msg.parsedSlot);
                                 }}
                                 className="btn btn-sm btn-success fw-bold px-3 py-1.5 rounded-pill d-flex align-items-center gap-1 border-0"
                                 style={{ fontSize: '11.5px', background: '#15803d' }}
