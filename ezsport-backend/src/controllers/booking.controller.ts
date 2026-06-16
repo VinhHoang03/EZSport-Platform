@@ -131,6 +131,43 @@ class BookingController {
   async getBookingById(req: Request, res: Response) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      
+      // If MoMo redirect query params are present, verify signature and update status on-the-fly
+      const { resultCode, signature, partnerCode, requestId, amount } = req.query;
+      if (resultCode !== undefined && signature !== undefined) {
+        console.log("[BookingController.getBookingById] Found MoMo redirect query params, verifying...");
+        const cleanId = id.length > 24 ? id.substring(0, 24) : id;
+        const booking = await bookingService.getBookingById(cleanId);
+        if (booking && booking.status === "PENDING" && booking.paymentMethod === "momo") {
+          const {
+            orderId,
+            orderInfo,
+            orderType,
+            transId,
+            message,
+            payType,
+            responseTime,
+            extraData,
+          } = req.query;
+          
+          const accessKey = process.env.MOMO_ACCESS_KEY || "klm05TvNBzhg7h7j";
+          const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData || ""}&message=${message}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
+          
+          const isValid = momoService.verifySignature(signature as string, rawSignature);
+          if (isValid) {
+            if (Number(resultCode) === 0) {
+              console.log(`[BookingController.getBookingById] MoMo redirect signature valid. Confirming booking ${cleanId}`);
+              await bookingService.updatePaymentStatus(cleanId, "CONFIRMED");
+            } else {
+              console.log(`[BookingController.getBookingById] MoMo redirect signature valid but resultCode is ${resultCode}. Cancelling booking ${cleanId}`);
+              await bookingService.updatePaymentStatus(cleanId, "CANCELLED");
+            }
+          } else {
+            console.warn("[BookingController.getBookingById] MoMo redirect signature verification failed!");
+          }
+        }
+      }
+
       const booking = await bookingService.getBookingById(id);
 
       if (!booking) {
@@ -197,6 +234,45 @@ class BookingController {
     } catch (err: any) {
       return res.status(400).json({
         message: err.message || "Lỗi hủy đặt sân",
+      });
+    }
+  }
+
+  /**
+   * Delete booking history record (DELETE /bookings/:id/remove)
+   */
+  async deleteBookingHistory(req: Request, res: Response) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const userId = (req as any).user?.id || (req as any).id;
+
+      await bookingService.deleteBookingHistory(id, userId);
+
+      return res.status(200).json({
+        message: "Xóa lịch sử đặt sân thành công",
+      });
+    } catch (err: any) {
+      return res.status(400).json({
+        message: err.message || "Lỗi xóa lịch sử đặt sân",
+      });
+    }
+  }
+
+  /**
+   * Delete all booking history records (DELETE /bookings/remove-all)
+   */
+  async deleteAllBookingHistory(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id || (req as any).id;
+
+      await bookingService.deleteAllBookingHistory(userId);
+
+      return res.status(200).json({
+        message: "Xóa tất cả lịch sử đặt sân thành công",
+      });
+    } catch (err: any) {
+      return res.status(400).json({
+        message: err.message || "Lỗi xóa tất cả lịch sử đặt sân",
       });
     }
   }

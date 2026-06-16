@@ -31,10 +31,15 @@ export interface IBooking extends Document {
   updatedAt: Date;
   comboId?: mongoose.Types.ObjectId;
   comboType?: 'week' | 'month';
+  deletedByUser?: boolean;
 }
 
 const bookingSchema = new Schema<IBooking>(
   {
+    deletedByUser: {
+      type: Boolean,
+      default: false,
+    },
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",

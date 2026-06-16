@@ -10,16 +10,41 @@ export const OwnerRevenue: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [days] = useState(7); // setDays not used yet
 
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [txTotal, setTxTotal] = useState(0);
+  const [txTotalRevenue, setTxTotalRevenue] = useState(0);
+  const [txPage, setTxPage] = useState(1);
+  const [txLimit] = useState(5); // Show 5 per page
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [txLoading, setTxLoading] = useState(false);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [search]);
+
+  // Load everything on initial mount or when debounced search query changes
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [chartData, courtsData] = await Promise.all([
+        const [chartData, courtsData, txData] = await Promise.all([
           analyticsService.getRevenueChart(days),
           analyticsService.getTopCourts(5),
+          analyticsService.getOwnerTransactions(1, txLimit, debouncedSearch),
         ]);
         setRevenueChart(chartData);
         setTopCourts(courtsData);
+        setTransactions(txData.bookings);
+        setTxTotal(txData.total);
+        setTxTotalRevenue(txData.totalRevenue);
+        setTxPage(1);
         setError(null);
       } catch (err: any) {
         console.error('Error fetching revenue data:', err);
@@ -30,7 +55,27 @@ export const OwnerRevenue: React.FC = () => {
     };
 
     fetchData();
-  }, [days]);
+  }, [days, debouncedSearch]);
+
+  // Load transaction page updates
+  useEffect(() => {
+    if (loading) return;
+    const fetchPageData = async () => {
+      try {
+        setTxLoading(true);
+        const txData = await analyticsService.getOwnerTransactions(txPage, txLimit, debouncedSearch);
+        setTransactions(txData.bookings);
+        setTxTotal(txData.total);
+        setTxTotalRevenue(txData.totalRevenue);
+      } catch (err: any) {
+        console.error('Error fetching page data:', err);
+      } finally {
+        setTxLoading(false);
+      }
+    };
+
+    fetchPageData();
+  }, [txPage]);
 
   if (loading) {
     return (
@@ -291,8 +336,21 @@ export const OwnerRevenue: React.FC = () => {
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h5 style={{ fontSize: '16px', fontWeight: 800, color: TX, margin: 0 }}>Lịch sử giao dịch</h5>
             <div className="d-flex align-items-center bg-light border rounded-pill px-3 py-1 gap-2" style={{ fontSize: '13px' }}>
-              <span className="material-symbols-outlined fs-5 text-muted">search</span>
-              <input type="text" placeholder="Tìm kiếm hóa đơn..." style={{ border: 'none', background: 'transparent', outline: 'none', width: '220px' }} />
+              {txLoading ? (
+                <Spinner size="sm" animation="border" variant="success" style={{ width: '14px', height: '14px' }} />
+              ) : (
+                <span className="material-symbols-outlined fs-5 text-muted">search</span>
+              )}
+              <input
+                type="text"
+                placeholder="Tìm kiếm hóa đơn..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setTxPage(1); // Reset page on new search
+                }}
+                style={{ border: 'none', background: 'transparent', outline: 'none', width: '220px' }}
+              />
             </div>
           </div>
           <div className="table-responsive">
@@ -310,57 +368,129 @@ export const OwnerRevenue: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { id: '#BK889025', name: 'Nguyễn Văn Nam', court: 'Sân A1', date: '18/05/2026', courtFee: '320.000đ', serviceFee: '+30.000đ', total: '350.000đ', status: 'confirmed' },
-                  { id: '#BK889026', name: 'Trần Thị Hồng', court: 'Sân A2', date: '18/05/2026', courtFee: '320.000đ', serviceFee: '+0đ', total: '320.000đ', status: 'confirmed' },
-                  { id: '#BK889027', name: 'Lê Hoàng Long', court: 'Sân B1', date: '18/05/2026', courtFee: '150.000đ', serviceFee: '+20.000đ', total: '170.000đ', status: 'pending' },
-                  { id: '#BK889028', name: 'Phạm Minh Đức', court: 'Sân A1', date: '17/05/2026', courtFee: '400.000đ', serviceFee: '+50.000đ', total: '450.000đ', status: 'confirmed' },
-                  { id: '#BK889029', name: 'Hoàng Thùy Linh', court: 'Sân A2', date: '17/05/2026', courtFee: '300.000đ', serviceFee: '+15.000đ', total: '315.000đ', status: 'confirmed' },
-                ].map((row, idx) => (
-                  <tr key={idx} style={{ background: '#f8fafc', borderRadius: '12px' }}>
-                    <td style={{ border: 'none', padding: '16px', fontWeight: 700, color: TX }}>{row.id}</td>
-                    <td style={{ border: 'none', padding: '16px' }}>
-                      <div className="d-flex align-items-center gap-2">
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0f3d22', color: W, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
-                          {row.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
-                        </div>
-                        <span style={{ fontWeight: 600, color: TX }}>{row.name}</span>
-                      </div>
-                    </td>
-                    <td style={{ border: 'none', padding: '16px', fontWeight: 600 }}>{row.court}</td>
-                    <td style={{ border: 'none', padding: '16px', color: TX2 }}>{row.date}</td>
-                    <td style={{ border: 'none', padding: '16px', color: TX }}>{row.courtFee}</td>
-                    <td style={{ border: 'none', padding: '16px', color: '#f97316', fontWeight: 600 }}>{row.serviceFee}</td>
-                    <td style={{ border: 'none', padding: '16px', fontWeight: 800, color: '#15803d' }}>{row.total}</td>
-                    <td style={{ border: 'none', padding: '16px' }}>
-                      <span style={{ display: 'inline-block', background: row.status === 'confirmed' ? '#dcfce7' : '#fffbeb', color: row.status === 'confirmed' ? '#15803d' : '#d97706', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 700, fontSize: '12px' }}>
-                        {row.status === 'confirmed' ? 'Đã thanh toán' : 'Chờ duyệt'}
-                      </span>
+                {transactions.length > 0 ? (
+                  transactions.map((row) => {
+                    const dateText = new Date(row.bookingDate).toLocaleDateString('vi-VN');
+                    const idText = `#BK${row._id.slice(-8).toUpperCase()}`;
+                    const initial = row.bookerName
+                      ? row.bookerName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+                      : 'KH';
+                    const serviceFeeVal = row.serviceFee || 0;
+                    
+                    // Status styling mapping
+                    let statusLabel = row.status;
+                    let statusBg = '#f1f5f9';
+                    let statusColor = '#475569';
+                    
+                    if (row.status === 'CONFIRMED' || row.status === 'COMPLETED') {
+                      statusLabel = 'Đã thanh toán';
+                      statusBg = '#dcfce7';
+                      statusColor = '#15803d';
+                    } else if (row.status === 'CHECKED_IN') {
+                      statusLabel = 'Đã check-in';
+                      statusBg = '#eff6ff';
+                      statusColor = '#3b82f6';
+                    } else if (row.status === 'PENDING') {
+                      statusLabel = 'Chờ duyệt';
+                      statusBg = '#fffbeb';
+                      statusColor = '#d97706';
+                    } else if (row.status === 'CANCELLED') {
+                      statusLabel = 'Đã hủy';
+                      statusBg = '#fee2e2';
+                      statusColor = '#dc2626';
+                    }
+
+                    return (
+                      <tr key={row._id} style={{ background: '#f8fafc', borderRadius: '12px' }}>
+                        <td style={{ border: 'none', padding: '16px', fontWeight: 700, color: TX }}>{idText}</td>
+                        <td style={{ border: 'none', padding: '16px' }}>
+                          <div className="d-flex align-items-center gap-2">
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0f3d22', color: W, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
+                              {initial}
+                            </div>
+                            <span style={{ fontWeight: 600, color: TX }}>{row.bookerName}</span>
+                          </div>
+                        </td>
+                        <td style={{ border: 'none', padding: '16px', fontWeight: 600 }}>{row.courtId?.name || 'Sân EZSport'}</td>
+                        <td style={{ border: 'none', padding: '16px', color: TX2 }}>{dateText}</td>
+                        <td style={{ border: 'none', padding: '16px', color: TX }}>{formatVND(row.basePrice)}</td>
+                        <td style={{ border: 'none', padding: '16px', color: '#f97316', fontWeight: 600 }}>
+                          {serviceFeeVal > 0 ? `+${formatVND(serviceFeeVal)}` : '+0đ'}
+                        </td>
+                        <td style={{ border: 'none', padding: '16px', fontWeight: 800, color: '#15803d' }}>{formatVND(row.totalPrice)}</td>
+                        <td style={{ border: 'none', padding: '16px' }}>
+                          <span style={{ display: 'inline-block', background: statusBg, color: statusColor, border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 700, fontSize: '12px' }}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="text-center py-4 text-muted">
+                      {txLoading ? <Spinner size="sm" animation="border" variant="success" /> : 'Không có giao dịch nào'}
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
               <tfoot>
                 <tr style={{ background: '#f1f5f9', fontWeight: 800 }}>
                   <td colSpan={6} style={{ border: 'none', padding: '16px', textAlign: 'right', fontSize: '15px' }}>Tổng cộng:</td>
-                  <td colSpan={2} style={{ border: 'none', padding: '16px', color: '#15803d', fontSize: '16px' }}>18,500,000đ</td>
+                  <td colSpan={2} style={{ border: 'none', padding: '16px', color: '#15803d', fontSize: '16px' }}>{formatVND(txTotalRevenue)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
           <div className="d-flex justify-content-between align-items-center mt-4" style={{ fontSize: '13px' }}>
-            <span className="text-muted">Hiển thị 1 - 5 của 350 giao dịch</span>
-            <div className="d-flex gap-1">
-              <Button variant="light" size="sm" className="rounded-circle border p-1" style={{ width: '32px', height: '32px' }}>
-                <span className="material-symbols-outlined fs-5">chevron_left</span>
-              </Button>
-              <Button variant="success" size="sm" className="rounded-circle p-1 border-0" style={{ width: '32px', height: '32px', background: '#0f3d22', color: W }}>1</Button>
-              <Button variant="light" size="sm" className="rounded-circle border p-1" style={{ width: '32px', height: '32px' }}>2</Button>
-              <Button variant="light" size="sm" className="rounded-circle border p-1" style={{ width: '32px', height: '32px' }}>3</Button>
-              <Button variant="light" size="sm" className="rounded-circle border p-1" style={{ width: '32px', height: '32px' }}>
-                <span className="material-symbols-outlined fs-5">chevron_right</span>
-              </Button>
-            </div>
+            <span className="text-muted">
+              Hiển thị {txTotal > 0 ? (txPage - 1) * txLimit + 1 : 0} - {Math.min(txPage * txLimit, txTotal)} của {txTotal} giao dịch
+            </span>
+            {Math.ceil(txTotal / txLimit) > 1 && (
+              <div className="d-flex gap-1">
+                <Button
+                  variant="light"
+                  size="sm"
+                  className="rounded-circle border p-1"
+                  style={{ width: '32px', height: '32px' }}
+                  disabled={txPage === 1}
+                  onClick={() => setTxPage(prev => prev - 1)}
+                >
+                  <span className="material-symbols-outlined fs-5">chevron_left</span>
+                </Button>
+                {Array.from({ length: Math.ceil(txTotal / txLimit) }).map((_, idx) => {
+                  const p = idx + 1;
+                  const isCurrent = p === txPage;
+                  return (
+                    <Button
+                      key={p}
+                      variant={isCurrent ? 'success' : 'light'}
+                      size="sm"
+                      className={`rounded-circle p-1 ${isCurrent ? 'border-0' : 'border'}`}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        background: isCurrent ? '#0f3d22' : undefined,
+                        color: isCurrent ? W : undefined,
+                      }}
+                      onClick={() => setTxPage(p)}
+                    >
+                      {p}
+                    </Button>
+                  );
+                })}
+                <Button
+                  variant="light"
+                  size="sm"
+                  className="rounded-circle border p-1"
+                  style={{ width: '32px', height: '32px' }}
+                  disabled={txPage === Math.ceil(txTotal / txLimit)}
+                  onClick={() => setTxPage(prev => prev + 1)}
+                >
+                  <span className="material-symbols-outlined fs-5">chevron_right</span>
+                </Button>
+              </div>
+            )}
           </div>
         </Card.Body>
       </Card>
