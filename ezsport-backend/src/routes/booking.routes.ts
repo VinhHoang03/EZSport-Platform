@@ -18,7 +18,9 @@ router.post("/", bookingController.createBooking.bind(bookingController));
 router.get("/", bookingController.getUserBookings.bind(bookingController));
 router.get("/:id", bookingController.getBookingById.bind(bookingController));
 router.patch("/:id", bookingController.updateBooking.bind(bookingController));
+router.delete("/remove-all", bookingController.deleteAllBookingHistory.bind(bookingController));
 router.delete("/:id", bookingController.cancelBooking.bind(bookingController));
+router.delete("/:id/remove", bookingController.deleteBookingHistory.bind(bookingController));
 
 // Admin/Owner routes (for managing court bookings)
 router.get("/court/:courtId/bookings", bookingController.getCourtBookings.bind(bookingController));

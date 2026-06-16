@@ -258,3 +258,109 @@ export const getTopCourts = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }
 };
+
+/**
+ * Lấy lịch sử giao dịch/đặt sân cho owner
+ */
+export const getOwnerTransactions = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const skip = (page - 1) * limit;
+    const search = (req.query.search as string) || "";
+
+    // Lấy tất cả venues của owner
+    const venues = await Venue.find({ owner: userId });
+    const venueIds = venues.map(v => v._id);
+
+    // Lấy tất cả courts của owner
+    const courts = await Court.find({ venue: { $in: venueIds } });
+    const courtIds = courts.map(c => c._id);
+
+    // Xây dựng query tìm kiếm
+    const query: any = {
+      courtId: { $in: courtIds }
+    };
+
+    // Nếu tìm kiếm
+    if (search) {
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);
+      const searchConditions: any[] = [
+        { bookerName: { $regex: search, $options: "i" } },
+        { bookerPhone: { $regex: search, $options: "i" } },
+        { sport: { $regex: search, $options: "i" } }
+      ];
+
+      if (isObjectId) {
+        searchConditions.push({ _id: search });
+      } else if (search.length >= 4) {
+        // Hỗ trợ tìm kiếm theo đuôi ID (Mã GD)
+        searchConditions.push({
+          $expr: {
+            $regexMatch: {
+              input: { $toString: "$_id" },
+              regex: search,
+              options: "i"
+            }
+          }
+        });
+      }
+
+      // Tìm các sân khớp với tên sân
+      const matchingCourts = courts.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+      if (matchingCourts.length > 0) {
+        searchConditions.push({ courtId: { $in: matchingCourts.map(c => c._id) } });
+      }
+
+      query.$or = searchConditions;
+    }
+
+    // Lấy tổng số lượng và tổng cộng tiền cho toàn bộ danh sách khớp query (không phân trang)
+    const statsResult = await Booking.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalCount: { $sum: 1 },
+          totalRevenue: { $sum: "$totalPrice" }
+        }
+      }
+    ]);
+
+    const totalCount = statsResult[0]?.totalCount || 0;
+    const totalRevenue = statsResult[0]?.totalRevenue || 0;
+
+    // Lấy danh sách bookings có phân trang
+    const bookings = await Booking.find(query)
+      .populate("userId", "name email avatar")
+      .populate({
+        path: "courtId",
+        populate: {
+          path: "venue",
+          select: "name"
+        }
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      message: "Lấy lịch sử giao dịch thành công",
+      data: {
+        bookings,
+        total: totalCount,
+        totalRevenue,
+        page,
+        limit
+      }
+    });
+  } catch (error: any) {
+    console.error("Error getting owner transactions:", error);
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};

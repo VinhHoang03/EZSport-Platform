@@ -84,8 +84,9 @@ export const bookingService = {
   /**
    * Get booking by ID
    */
-  getBookingById: async (bookingId: string): Promise<Booking> => {
-    const { data } = await api.get(`/bookings/${bookingId}`);
+  getBookingById: async (bookingId: string, queryParams?: string): Promise<Booking> => {
+    const url = `/bookings/${bookingId}${queryParams || ''}`;
+    const { data } = await api.get(url);
     return data.data;
   },
 
@@ -103,6 +104,22 @@ export const bookingService = {
   cancelBooking: async (bookingId: string): Promise<Booking> => {
     const { data } = await api.delete(`/bookings/${bookingId}`);
     return data.data;
+  },
+
+  /**
+   * Hard delete/remove a booking from user history
+   */
+  deleteBookingHistory: async (bookingId: string): Promise<any> => {
+    const { data } = await api.delete(`/bookings/${bookingId}/remove`);
+    return data;
+  },
+
+  /**
+   * Hard delete/remove all deletable bookings from user history
+   */
+  deleteAllBookingHistory: async (): Promise<any> => {
+    const { data } = await api.delete('/bookings/remove-all');
+    return data;
   },
 
   /**
