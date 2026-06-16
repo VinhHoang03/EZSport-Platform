@@ -243,7 +243,7 @@ class BookingService {
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
 
-    const query: any = { userId };
+    const query: any = { userId, deletedByUser: { $ne: true } };
 
     if (filters?.status) {
       if (filters.status === "PENDING") {
@@ -294,7 +294,8 @@ class BookingService {
    * Get booking by ID
    */
   async getBookingById(bookingId: string): Promise<IBooking | null> {
-    return await Booking.findById(bookingId)
+    const cleanId = bookingId && bookingId.length > 24 ? bookingId.substring(0, 24) : bookingId;
+    return await Booking.findById(cleanId)
       .populate("userId")
       .populate({
         path: "courtId",
@@ -750,6 +751,43 @@ class BookingService {
     } catch (err) {
       console.error("[BookingService] Error refunding resources:", err);
     }
+  }
+
+  /**
+   * Hide/remove a booking from user history (soft delete for user only)
+   */
+  async deleteBookingHistory(bookingId: string, userId: string): Promise<void> {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new Error("Đặt sân không tồn tại");
+
+    // Check ownership
+    if (booking.userId.toString() !== userId) {
+      throw new Error("Bạn không có quyền xóa lịch sử đặt sân này");
+    }
+
+    // Only allow deleting cancelled bookings
+    if (booking.status !== "CANCELLED") {
+      throw new Error("Chỉ có thể xóa lịch sử đặt sân đã hủy");
+    }
+
+    booking.deletedByUser = true;
+    await booking.save();
+  }
+
+  /**
+   * Hide/remove all cancelled bookings from user history (soft delete for user only)
+   */
+  async deleteAllBookingHistory(userId: string): Promise<void> {
+    await Booking.updateMany(
+      {
+        userId,
+        status: "CANCELLED",
+        deletedByUser: { $ne: true }
+      },
+      {
+        $set: { deletedByUser: true }
+      }
+    );
   }
 }
 

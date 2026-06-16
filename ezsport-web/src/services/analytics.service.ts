@@ -64,4 +64,17 @@ export const analyticsService = {
       throw new Error(error.response?.data?.message || 'Không thể lấy top sân');
     }
   },
+
+  /**
+   * Lấy lịch sử giao dịch/đặt sân cho owner
+   */
+  async getOwnerTransactions(page: number = 1, limit: number = 10, search: string = ""): Promise<{ bookings: any[]; total: number; totalRevenue: number }> {
+    try {
+      const response = await api.get(`/analytics/owner/transactions?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      return response.data.data;
+    } catch (error: any) {
+      console.error('Error getting owner transactions:', error);
+      throw new Error(error.response?.data?.message || 'Không thể lấy lịch sử giao dịch');
+    }
+  },
 };

@@ -13,7 +13,10 @@ const BookingSuccessPage: React.FC = () => {
 
   // Extract orderId from search parameters (MoMo redirect callback returns ?orderId=...)
   const queryBookingId = searchParams.get('orderId');
-  const bookingId = paramBookingId || queryBookingId;
+  let bookingId = paramBookingId || queryBookingId;
+  if (bookingId && bookingId.length > 24) {
+    bookingId = bookingId.substring(0, 24);
+  }
 
   const [dbBooking, setDbBooking] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(!!bookingId);
@@ -29,7 +32,8 @@ const BookingSuccessPage: React.FC = () => {
   useEffect(() => {
     if (bookingId) {
       setLoading(true);
-      bookingService.getBookingById(bookingId)
+      const queryParams = window.location.search;
+      bookingService.getBookingById(bookingId, queryParams)
         .then((data) => {
           console.log('[BookingSuccessPage] Fetched booking details:', data);
           setDbBooking(data);
