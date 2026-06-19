@@ -14,7 +14,7 @@ export interface CreateBookingPayload {
   pointsUsed?: number;
   voucherCode?: string;
   totalPrice: number;
-  paymentMethod?: 'momo' | 'cash' | 'bank';
+  paymentMethod?: 'payos' | 'cash';
   bookerName: string;
   bookerPhone: string;
   bookerEmail?: string;

@@ -192,7 +192,7 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   // Show loading spinner while fetching
   if (loading) {
     return (
-      <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="h-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <Spinner variant="success" />
         </div>
@@ -263,7 +263,7 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   };
 
   return (
-    <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="h-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Main Content Area */}
       <div className="overflow-auto flex-grow-1 py-4">
         <Container>

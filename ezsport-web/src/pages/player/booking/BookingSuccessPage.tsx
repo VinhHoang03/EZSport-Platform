@@ -11,10 +11,11 @@ const BookingSuccessPage: React.FC = () => {
   const navigate = useNavigate();
   const { draft, clearBooking } = useBookingStore();
 
-  // Extract orderId from search parameters (MoMo redirect callback returns ?orderId=...)
+  // Extract booking/order identifiers from query params (MoMo uses orderId, PayOS uses orderCode)
+  const queryOrderCode = searchParams.get('orderCode');
   const queryBookingId = searchParams.get('orderId');
-  let bookingId = paramBookingId || queryBookingId;
-  if (bookingId && bookingId.length > 24) {
+  let bookingId = paramBookingId || queryOrderCode || queryBookingId;
+  if (bookingId && bookingId.length > 24 && !/^\d+$/.test(bookingId)) {
     bookingId = bookingId.substring(0, 24);
   }
 
@@ -69,12 +70,12 @@ const BookingSuccessPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Container className="min-vh-100 d-flex align-items-center justify-content-center">
+      <div className="h-100 w-100 d-flex align-items-center justify-content-center bg-light">
         <div className="text-center">
           <Spinner animation="border" variant="success" className="mb-2" />
           <p className="text-muted small">Đang đồng bộ trạng thái đặt sân...</p>
         </div>
-      </Container>
+      </div>
     );
   }
 
@@ -84,11 +85,12 @@ const BookingSuccessPage: React.FC = () => {
   const timeRange = dbBooking ? `${dbBooking.startTime} – ${dbBooking.endTime}` : (draft?.slot ? `${draft.slot.startTime} – ${draft.slot.endTime}` : '');
   const totalPrice = dbBooking?.totalPrice ?? draft?.totalPrice ?? 0;
   const currentStatus = dbBooking?.status || 'PENDING';
-  const isMomo = dbBooking?.paymentMethod === 'momo';
-  const isPendingMomo = currentStatus === 'PENDING' && isMomo;
+  const isPayOS = dbBooking?.paymentMethod === 'payos' || dbBooking?.paymentMethod === 'momo';
+  const isPendingPayOS = currentStatus === 'PENDING' && isPayOS;
 
   return (
-    <Container className="py-5 d-flex flex-column align-items-center" style={{ maxWidth: '560px' }}>
+    <div className="h-100 w-100 overflow-auto bg-light">
+      <Container className="py-5 d-flex flex-column align-items-center" style={{ maxWidth: '560px' }}>
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -97,7 +99,7 @@ const BookingSuccessPage: React.FC = () => {
           width: '72px', height: '72px', borderRadius: '50%',
           background: currentStatus === 'CANCELLED' 
             ? '#ef4444' 
-            : (isPendingMomo ? '#f59e0b' : '#16a34a'), 
+            : (isPendingPayOS ? '#f59e0b' : '#16a34a'), 
           display: 'flex', alignItems: 'center',
           justifyContent: 'center', marginBottom: '24px',
         }}
@@ -105,7 +107,7 @@ const BookingSuccessPage: React.FC = () => {
         <span className="material-symbols-outlined" style={{ color: '#fff', fontSize: '36px', fontWeight: 700 }}>
           {currentStatus === 'CANCELLED' 
             ? 'close' 
-            : (isPendingMomo ? 'pending' : 'check')}
+            : (isPendingPayOS ? 'pending' : 'check')}
         </span>
       </motion.div>
 
@@ -118,13 +120,13 @@ const BookingSuccessPage: React.FC = () => {
         <h2 className="fw-bold mb-1" style={{ fontSize: '26px' }}>
           {currentStatus === 'CANCELLED' 
             ? 'Đặt sân thất bại!' 
-            : (isPendingMomo ? 'Chờ thanh toán MoMo...' : 'Đặt sân thành công!')}
+            : (isPendingPayOS ? 'Chờ thanh toán qua PayOS...' : 'Đặt sân thành công!')}
         </h2>
         <p className="text-muted mb-4" style={{ fontSize: '14px' }}>
           {currentStatus === 'CANCELLED' 
             ? 'Thanh toán của bạn đã bị hủy hoặc gặp lỗi.' 
-            : (isPendingMomo 
-                ? 'Đơn đặt sân chưa được thanh toán thành công qua MoMo.' 
+            : (isPendingPayOS 
+                ? 'Đơn đặt sân chưa được thanh toán thành công qua PayOS.' 
                 : 'Xác nhận và mã check-in đã được đồng bộ hóa thành công.')}
         </p>
 
@@ -152,11 +154,11 @@ const BookingSuccessPage: React.FC = () => {
                 style={{ height: '160px', background: '#f9fafb', border: '2px dashed #e5e7eb' }}
               >
                 <div className="text-center">
-                  <span className="material-symbols-outlined d-block mb-1" style={{ fontSize: '40px', color: isPendingMomo ? '#f59e0b' : '#9ca3af' }}>
-                    {isPendingMomo ? 'hourglass_empty' : 'qr_code_2'}
+                  <span className="material-symbols-outlined d-block mb-1" style={{ fontSize: '40px', color: isPendingPayOS ? '#f59e0b' : '#9ca3af' }}>
+                    {isPendingPayOS ? 'hourglass_empty' : 'qr_code_2'}
                   </span>
                   <p className="text-muted mb-0" style={{ fontSize: '12px' }}>
-                    {isPendingMomo ? 'QR check-in: Chờ thanh toán hoàn tất' : 'QR check-in: Sẵn sàng sử dụng'}
+                    {isPendingPayOS ? 'QR check-in: Chờ thanh toán hoàn tất' : 'QR check-in: Sẵn sàng sử dụng'}
                   </p>
                 </div>
               </div>
@@ -219,7 +221,8 @@ const BookingSuccessPage: React.FC = () => {
           </Button>
         </div>
       </motion.div>
-    </Container>
+      </Container>
+    </div>
   );
 };
 
