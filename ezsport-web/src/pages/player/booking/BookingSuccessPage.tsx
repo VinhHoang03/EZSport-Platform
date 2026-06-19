@@ -89,7 +89,7 @@ const BookingSuccessPage: React.FC = () => {
   const isPendingPayOS = currentStatus === 'PENDING' && isPayOS;
 
   return (
-    <div className="h-100 w-100 overflow-auto bg-light">
+    <div className="booking-success-page h-100 w-100 overflow-auto bg-light">
       <Container className="py-5 d-flex flex-column align-items-center" style={{ maxWidth: '560px' }}>
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
