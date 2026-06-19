@@ -26,7 +26,7 @@ class BookingService {
    * Create a new booking
    */
   async createBooking(userId: string, bookingData: any): Promise<IBooking> {
-    await this.cleanupStaleMomoBookings();
+    await this.cleanupStalePayOSBookings();
     const user = await User.findById(userId);
     if (!user) throw new Error("Người dùng không tồn tại");
 
@@ -94,7 +94,7 @@ class BookingService {
           {
             $or: [
               { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
-              { status: "PENDING", paymentMethod: { $ne: "momo" } }
+              { status: "PENDING", paymentMethod: { $nin: ["momo", "payos"] } }
             ]
           }
         ]
@@ -246,7 +246,7 @@ class BookingService {
       limit?: number;
     }
   ): Promise<{ bookings: IBooking[]; total: number }> {
-    await this.cleanupStaleMomoBookings();
+    await this.cleanupStalePayOSBookings();
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
@@ -257,16 +257,16 @@ class BookingService {
       if (filters.status === "PENDING") {
         query.$and = [
           { status: "PENDING" },
-          { paymentMethod: { $ne: "momo" } }
+          { paymentMethod: { $nin: ["momo", "payos"] } }
         ];
       } else {
         query.status = filters.status;
       }
     } else {
-      // By default, exclude unpaid MoMo bookings
+      // By default, exclude unpaid MoMo & PayOS bookings
       query.$or = [
         { status: { $ne: "PENDING" } },
-        { status: "PENDING", paymentMethod: { $ne: "momo" } }
+        { status: "PENDING", paymentMethod: { $nin: ["momo", "payos"] } }
       ];
     }
 
@@ -302,7 +302,22 @@ class BookingService {
    * Get booking by ID
    */
   async getBookingById(bookingId: string): Promise<IBooking | null> {
+    const isNumeric = /^\d+$/.test(bookingId);
+    if (isNumeric) {
+      return await Booking.findOne({ payosOrderCode: Number(bookingId) })
+        .populate("userId")
+        .populate({
+          path: "courtId",
+          populate: {
+            path: "venue",
+          },
+        });
+    }
+
     const cleanId = bookingId && bookingId.length > 24 ? bookingId.substring(0, 24) : bookingId;
+    const mongoose = require("mongoose");
+    if (!mongoose.Types.ObjectId.isValid(cleanId)) return null;
+
     return await Booking.findById(cleanId)
       .populate("userId")
       .populate({
@@ -384,13 +399,13 @@ class BookingService {
     bookingDate: Date,
     slotDuration: number = 1 // in hours
   ): Promise<{ time: string; available: boolean; price?: number }[]> {
-    await this.cleanupStaleMomoBookings();
+    await this.cleanupStalePayOSBookings();
     const court = await Court.findById(courtId);
     if (!court) throw new Error("Sân không tồn tại");
     const venue = await Venue.findById(court.venue);
     if (!venue) throw new Error("Dia diem khong ton tai");
 
-    // Get all active bookings (excluding unpaid MoMo bookings) for this court on the date
+    // Get all active bookings (excluding unpaid MoMo/PayOS bookings) for this court on the date
     const bookings = await Booking.find({
       courtId,
       bookingDate: {
@@ -399,7 +414,7 @@ class BookingService {
       },
       $or: [
         { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
-        { status: "PENDING", paymentMethod: { $ne: "momo" } }
+        { status: "PENDING", paymentMethod: { $nin: ["momo", "payos"] } }
       ]
     });
 
@@ -469,7 +484,7 @@ class BookingService {
       limit?: number;
     }
   ): Promise<{ bookings: IBooking[]; total: number }> {
-    await this.cleanupStaleMomoBookings();
+    await this.cleanupStalePayOSBookings();
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
@@ -480,16 +495,16 @@ class BookingService {
       if (filters.status === "PENDING") {
         query.$and = [
           { status: "PENDING" },
-          { paymentMethod: { $ne: "momo" } }
+          { paymentMethod: { $nin: ["momo", "payos"] } }
         ];
       } else {
         query.status = filters.status;
       }
     } else {
-      // By default, exclude unpaid MoMo bookings
+      // By default, exclude unpaid MoMo & PayOS bookings
       query.$or = [
         { status: { $ne: "PENDING" } },
-        { status: "PENDING", paymentMethod: { $ne: "momo" } }
+        { status: "PENDING", paymentMethod: { $nin: ["momo", "payos"] } }
       ];
     }
 
@@ -696,13 +711,13 @@ class BookingService {
   }
 
   /**
-   * Automatically cancel stale unpaid MoMo bookings (older than 10 minutes)
+   * Automatically cancel stale unpaid PayOS bookings (older than 10 minutes)
    */
-  async cleanupStaleMomoBookings(): Promise<void> {
+  async cleanupStalePayOSBookings(): Promise<void> {
     try {
       const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
       const staleBookings = await Booking.find({
-        paymentMethod: "momo",
+        paymentMethod: "payos",
         status: "PENDING",
         createdAt: { $lt: tenMinutesAgo }
       });
@@ -711,10 +726,10 @@ class BookingService {
         booking.status = "CANCELLED";
         await booking.save();
         await this.refundBookingResources(booking);
-        console.log(`[BookingService.cleanupStaleMomoBookings] Stale unpaid MoMo booking ${booking._id} has been automatically cancelled.`);
+        console.log(`[BookingService.cleanupStalePayOSBookings] Stale unpaid PayOS booking ${booking._id} has been automatically cancelled.`);
       }
     } catch (err) {
-      console.error("[BookingService.cleanupStaleMomoBookings] Error cleaning up stale bookings:", err);
+      console.error("[BookingService.cleanupStalePayOSBookings] Error cleaning up stale bookings:", err);
     }
   }
 

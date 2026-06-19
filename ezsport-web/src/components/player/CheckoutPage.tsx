@@ -30,7 +30,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   const [validatingVoucher, setValidatingVoucher] = useState<boolean>(false);
   const [usePoints, setUsePoints] = useState<boolean>(false);
   const [selectedPoints, setSelectedPoints] = useState<number>(500); // Points selected to use
-  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash'>('momo');
+  const [paymentMethod, setPaymentMethod] = useState<'payos' | 'cash'>('payos');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -276,8 +276,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
       useBookingStore.getState().setDraft({ totalPrice: total });
       useBookingStore.getState().setConfirmedBookingId(createdBooking._id);
 
-      if (paymentMethod === 'momo' && createdBooking.payUrl) {
-        console.log('Redirecting to MoMo payment page:', createdBooking.payUrl);
+      if (paymentMethod === 'payos' && createdBooking.payUrl) {
+        console.log('Redirecting to PayOS payment page:', createdBooking.payUrl);
         window.location.href = createdBooking.payUrl;
       } else {
         navigate(`/booking/success/${createdBooking._id}`);
@@ -292,14 +292,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
   if (isLoadingBookingData) {
     return (
-      <div className="vh-100 w-100 d-flex align-items-center justify-content-center bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="h-100 w-100 d-flex align-items-center justify-content-center bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
         <Spinner variant="success" />
       </div>
     );
   }
 
   return (
-    <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="h-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Main Content Area */}
       <div className="overflow-auto flex-grow-1 py-4">
         <Container>
@@ -775,13 +775,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
                 <div className="d-flex flex-column gap-3">
 
-                  {/* Option 1: MoMo */}
+                  {/* Option 1: PayOS */}
                   <div
-                    onClick={() => setPaymentMethod('momo')}
+                    onClick={() => setPaymentMethod('payos')}
                     className="p-3 d-flex align-items-center justify-content-between rounded-4"
                     style={{
-                      border: paymentMethod === 'momo' ? '2px solid #1a6b3c' : '1px solid #cbd5e1',
-                      background: paymentMethod === 'momo' ? '#f0fdf4' : '#ffffff',
+                      border: paymentMethod === 'payos' ? '2px solid #1a6b3c' : '1px solid #cbd5e1',
+                      background: paymentMethod === 'payos' ? '#f0fdf4' : '#ffffff',
                       transition: 'all 0.2s ease',
                       cursor: 'pointer'
                     }}
@@ -789,23 +789,23 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     <div className="d-flex align-items-center gap-3">
                       <Form.Check
                         type="radio"
-                        checked={paymentMethod === 'momo'}
-                        onChange={() => setPaymentMethod('momo')}
+                        checked={paymentMethod === 'payos'}
+                        onChange={() => setPaymentMethod('payos')}
                         style={{ cursor: 'pointer' }}
                       />
-                      <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', background: '#a50064', flexShrink: 0 }}>
+                      <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '76px', height: '44px', background: '#ffffff', border: '1px solid #cbd5e1', flexShrink: 0 }}>
                         <img
-                          src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
-                          alt="MoMo"
-                          style={{ width: '75%', height: '75%', objectFit: 'contain' }}
+                          src="https://img.vietqr.io/image/vietqr_logo.png"
+                          alt="PayOS"
+                          style={{ width: '90%', height: '90%', objectFit: 'contain' }}
                         />
                       </div>
                       <div>
-                        <span className="fw-bold text-dark d-block" style={{ fontSize: '14.5px' }}>Ví điện tử MoMo</span>
-                        <span className="text-muted" style={{ fontSize: '11px' }}>Thanh toán nhanh qua ví MoMo</span>
+                        <span className="fw-bold text-dark d-block" style={{ fontSize: '14.5px' }}>Cổng thanh toán PayOS (QR Ngân hàng)</span>
+                        <span className="text-muted" style={{ fontSize: '11px' }}>Thanh toán qua mã QR Ngân hàng (PayOS)</span>
                       </div>
                     </div>
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#1a6b3c' }}>bolt</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#1a6b3c' }}>qr_code_2</span>
                   </div>
 
                   {/* Option 2: Tiền mặt */}

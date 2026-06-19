@@ -10,6 +10,8 @@ import conversationRoutes from "./conversation.routes";
 import analyticsRoutes from "./analytics.routes";
 import reviewRoutes from "./review.routes";
 import voucherRoutes from "./voucher.routes";
+import playmateRoutes from "./playmate.routes";
+import userRatingRoutes from "./userRating.routes";
 
 export default function route(app: Application): void {
     app.use("/api/auth", authRoutes);
@@ -24,4 +26,6 @@ export default function route(app: Application): void {
     app.use("/api/analytics", analyticsRoutes);
     app.use("/api/reviews", reviewRoutes);
     app.use("/api/vouchers", voucherRoutes);
+    app.use("/api/playmates", playmateRoutes);
+    app.use("/api/user-ratings", userRatingRoutes);
 }

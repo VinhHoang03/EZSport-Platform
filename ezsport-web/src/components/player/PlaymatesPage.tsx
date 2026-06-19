@@ -1,92 +1,37 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Badge, Form, Modal, ProgressBar, Toast, ToastContainer } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Card, Button, Badge, Form, Modal, ProgressBar, Toast, ToastContainer, Alert, Spinner } from 'react-bootstrap';
 import Footer from '../shared/Footer';
+import { useAuth } from '../../context/AuthContext';
+import { playmateService, type Playmate } from '../../services/playmate.service';
+import { conversationService } from '../../services/conversation.service';
+import { venueService } from '../../services/venue.service';
+import type { Venue } from '../../services/venue.service';
+import { userRatingService } from '../../services/userRating.service';
+import type { UserRating, UserRatingStats } from '../../services/userRating.service';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../constants';
+
+const mapPlaymateSportToVenueSport = (playmateSport: string): string => {
+  const normalized = playmateSport.toLowerCase();
+  if (normalized.includes('pickleball')) return 'pickleball';
+  if (normalized.includes('cầu lông') || normalized.includes('badminton')) return 'badminton';
+  if (normalized.includes('bóng đá') || normalized.includes('soccer') || normalized.includes('football')) return 'soccer';
+  if (normalized.includes('tennis')) return 'tennis';
+  return playmateSport.toLowerCase();
+};
 
 interface PlaymatesPageProps {
   onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;
   onLogoClick?: () => void;
 }
 
-interface MatchRequest {
-  id: string;
-  creatorName: string;
-  creatorAvatar: string;
-  creatorLevel: 'Mới chơi' | 'Trung bình' | 'Khá / Pro';
-  sport: 'Pickleball' | 'Cầu lông' | 'Bóng đá' | 'Tennis';
-  title: string;
-  description: string;
-  venueName: string;
-  timeSlot: string;
-  dateStr: string;
-  slotsTotal: number;
-  slotsFilled: number;
-  hasJoined: boolean;
-}
-
 export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
-  // State for matchmaking requests
-  const [requests, setRequests] = useState<MatchRequest[]>([
-    {
-      id: '1',
-      creatorName: 'Nguyễn Hoàng Nam',
-      creatorAvatar: 'https://i.pravatar.cc/150?img=33',
-      creatorLevel: 'Trung bình',
-      sport: 'Pickleball',
-      title: 'Tìm 2 bạn đánh đôi Pickleball tối thứ 3',
-      description: 'Đã đặt sẵn sân 2 giờ, tìm 2 bạn trình độ trung bình vào giao lưu cọ xát vui vẻ, share tiền nước trà đá sau trận.',
-      venueName: 'EZSport Arena Central - Sân số 3',
-      timeSlot: '18:00 - 20:00',
-      dateStr: 'Thứ 3, 19/05/2026',
-      slotsTotal: 4,
-      slotsFilled: 2,
-      hasJoined: false
-    },
-    {
-      id: '2',
-      creatorName: 'Trần Thị Mai',
-      creatorAvatar: 'https://i.pravatar.cc/150?img=47',
-      creatorLevel: 'Mới chơi',
-      sport: 'Cầu lông',
-      title: 'Giao lưu cầu lông sáng sớm giữ dáng',
-      description: 'Tìm 1 bạn nữ đánh đôi hoặc đánh đơn sáng sớm rèn luyện sức khỏe. Sân trong nhà mát mẻ, đã chuẩn bị sẵn cầu.',
-      venueName: 'CLB Cầu Lông Sông Hàn',
-      timeSlot: '06:00 - 08:00',
-      dateStr: 'Thứ 4, 20/05/2026',
-      slotsTotal: 2,
-      slotsFilled: 1,
-      hasJoined: false
-    },
-    {
-      id: '3',
-      creatorName: 'Lê Minh Quân',
-      creatorAvatar: 'https://i.pravatar.cc/150?img=12',
-      creatorLevel: 'Khá / Pro',
-      sport: 'Bóng đá',
-      title: 'Cần 3 chân sút đá phủi sân 7 người',
-      description: 'Đội văn phòng thiếu người cho trận đá tối. Yêu cầu trình độ khá, chạy nhiệt tình, bóng đá sạch sẽ không va chạm mạnh.',
-      venueName: 'Tuyên Sơn Sport Complex - Sân 7B',
-      timeSlot: '20:00 - 21:30',
-      dateStr: 'Thứ 5, 21/05/2026',
-      slotsTotal: 7,
-      slotsFilled: 4,
-      hasJoined: false
-    },
-    {
-      id: '4',
-      creatorName: 'Hoàng Anh Tuấn',
-      creatorAvatar: 'https://i.pravatar.cc/150?img=15',
-      creatorLevel: 'Trung bình',
-      sport: 'Tennis',
-      title: 'Tìm đối thủ giao hữu Tennis tối cuối tuần',
-      description: 'Tìm bác nào rảnh tối thứ 7 làm vài sét Tennis giao lưu. Mình chơi được khoảng 1 năm, lối chơi cởi mở.',
-      venueName: 'Sân Tennis Chi Lăng',
-      timeSlot: '17:00 - 19:00',
-      dateStr: 'Thứ Bảy, 23/05/2026',
-      slotsTotal: 2,
-      slotsFilled: 1,
-      hasJoined: false
-    }
-  ]);
+  const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
+
+  const [requests, setRequests] = useState<Playmate[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Filtering states
   const [selectedSport, setSelectedSport] = useState<string>('Tất cả');
@@ -105,81 +50,234 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
   const [newSlots, setNewSlots] = useState<number>(4);
   const [newLevel, setNewLevel] = useState<'Mới chơi' | 'Trung bình' | 'Khá / Pro'>('Trung bình');
 
+  // Venue-related states
+  const [verifiedVenues, setVerifiedVenues] = useState<Venue[]>([]);
+  const [isCustomVenue, setIsCustomVenue] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchVenues = async () => {
+      try {
+        const venues = await venueService.getVenues({ active: 'all' });
+        const verified = venues.filter(v => v.isVerified && v.isActive);
+        setVerifiedVenues(verified);
+      } catch (err) {
+        console.error('Failed to fetch venues:', err);
+      }
+    };
+    fetchVenues();
+  }, []);
+
+  // Update default venue when newSport or verifiedVenues changes
+  useEffect(() => {
+    const key = mapPlaymateSportToVenueSport(newSport);
+    const filtered = verifiedVenues.filter(v => v.sportTypes.some(s => s.toLowerCase() === key));
+    if (filtered.length > 0) {
+      setNewVenue(filtered[0].name);
+      setIsCustomVenue(false);
+    } else {
+      setNewVenue('');
+      setIsCustomVenue(true);
+    }
+  }, [newSport, verifiedVenues]);
+
   // Toast notification states
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
 
-  // Filter requests
-  const filteredRequests = requests.filter(req => {
-    const matchSport = selectedSport === 'Tất cả' || req.sport === selectedSport;
-    const matchLevel = selectedLevel === 'Tất cả' || req.creatorLevel === selectedLevel;
-    const matchSearch = req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.venueName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchSport && matchLevel && matchSearch;
-  });
+  // Player Rating Modal states
+  const [showRateModal, setShowRateModal] = useState<boolean>(false);
+  const [ratingTargetPlayer, setRatingTargetPlayer] = useState<any | null>(null);
+  const [ratingScore, setRatingScore] = useState<number>(5);
+  const [ratingComment, setRatingComment] = useState<string>('');
+  const [playerRatings, setPlayerRatings] = useState<UserRating[]>([]);
+  const [playerStats, setPlayerStats] = useState<UserRatingStats | null>(null);
+  const [loadingRatings, setLoadingRatings] = useState<boolean>(false);
+  const [submittingRating, setSubmittingRating] = useState<boolean>(false);
 
-  // Handle join request
-  const handleJoin = (id: string) => {
-    setRequests(prev => prev.map(req => {
-      if (req.id === id) {
-        if (req.hasJoined) {
-          // Leave
-          setToastMessage(`Đã rút khỏi nhóm: "${req.title}"`);
-          setShowToast(true);
-          return { ...req, slotsFilled: req.slotsFilled - 1, hasJoined: false };
-        } else {
-          // Join
-          if (req.slotsFilled >= req.slotsTotal) {
-            alert('Rất tiếc! Nhóm đấu này đã đủ người tham gia.');
-            return req;
-          }
-          setToastMessage(`Chúc mừng! Bạn đã tham gia thành công trận đấu: "${req.title}"`);
-          setShowToast(true);
-          return { ...req, slotsFilled: req.slotsFilled + 1, hasJoined: true };
-        }
+  const fetchPlayerRatings = async (targetId: string) => {
+    try {
+      setLoadingRatings(true);
+      const [ratingsData, statsData] = await Promise.all([
+        userRatingService.getUserRatings(targetId),
+        userRatingService.getUserRatingStats(targetId),
+      ]);
+      setPlayerRatings(ratingsData);
+      setPlayerStats(statsData);
+      
+      const myRating = ratingsData.find(r => {
+        const reviewerId = typeof r.reviewer === 'object' ? r.reviewer._id : r.reviewer;
+        return currentUser && reviewerId === currentUser.id;
+      });
+      if (myRating) {
+        setRatingScore(myRating.rating);
+        setRatingComment(myRating.comment || '');
+      } else {
+        setRatingScore(5);
+        setRatingComment('');
       }
-      return req;
-    }));
+    } catch (err) {
+      console.error('Failed to fetch player ratings:', err);
+    } finally {
+      setLoadingRatings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (ratingTargetPlayer) {
+      fetchPlayerRatings(ratingTargetPlayer._id);
+    }
+  }, [ratingTargetPlayer]);
+
+  const handleRateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) {
+      alert('Vui lòng đăng nhập để đánh giá người chơi!');
+      return;
+    }
+    if (!ratingTargetPlayer) return;
+
+    try {
+      setSubmittingRating(true);
+      await userRatingService.createOrUpdateRating({
+        revieweeId: ratingTargetPlayer._id,
+        rating: ratingScore,
+        comment: ratingComment.trim(),
+      });
+      setToastMessage(`Đã gửi đánh giá cho ${ratingTargetPlayer.fullName}!`);
+      setShowToast(true);
+      fetchPlayerRatings(ratingTargetPlayer._id);
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.message || 'Gửi đánh giá thất bại');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const fetchPlaymates = async () => {
+    try {
+      setLoading(true);
+      const data = await playmateService.getPlaymates({
+        sport: selectedSport,
+        level: selectedLevel,
+        search: searchQuery,
+      });
+      setRequests(data);
+    } catch (err: any) {
+      console.error('Failed to fetch playmates:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlaymates();
+  }, [selectedSport, selectedLevel, searchQuery]);
+
+  // Handle join/leave request
+  const handleJoin = async (req: Playmate) => {
+    if (!currentUser) {
+      alert('Vui lòng đăng nhập để tham gia nhóm chơi!');
+      return;
+    }
+    const hasJoined = req.participants.some(p => p._id === currentUser.id);
+    try {
+      if (hasJoined) {
+        // Leave
+        await playmateService.leavePlaymate(req._id);
+        setToastMessage(`Đã rút khỏi nhóm: "${req.title}"`);
+        setShowToast(true);
+      } else {
+        // Join
+        if (req.participants.length >= req.slotsTotal) {
+          alert('Rất tiếc! Nhóm đấu này đã đủ người tham gia.');
+          return;
+        }
+        await playmateService.joinPlaymate(req._id);
+        setToastMessage(`Chúc mừng! Bạn đã tham gia thành công trận đấu: "${req.title}"`);
+        setShowToast(true);
+      }
+      fetchPlaymates();
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.message || 'Thao tác thất bại');
+    }
+  };
+
+  // Handle delete request
+  const handleDelete = async (id: string, title: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn hủy tin đăng "${title}" không?`)) {
+      return;
+    }
+    try {
+      await playmateService.deletePlaymate(id);
+      setToastMessage(`Đã hủy tin đăng: "${title}"`);
+      setShowToast(true);
+      fetchPlaymates();
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.message || 'Xóa tin thất bại');
+    }
+  };
+
+  // Handle chat with creator
+  const handleChatWithCreator = async (creatorId: string) => {
+    if (!currentUser) {
+      alert('Vui lòng đăng nhập để nhắn tin!');
+      return;
+    }
+    if (currentUser.id === creatorId) {
+      alert('Bạn không thể tự nhắn tin cho chính mình!');
+      return;
+    }
+    try {
+      const conversation = await conversationService.createOrGetConversation({
+        otherUserId: creatorId,
+      });
+      navigate(ROUTES.MESSAGES, { state: { conversationId: conversation._id } });
+    } catch (err: any) {
+      console.error('Error creating conversation:', err);
+      alert(err.message || 'Không thể tạo hội thoại');
+    }
   };
 
   // Handle submit new request
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
     if (!newTitle.trim() || !newVenue.trim()) {
-      alert('Vui lòng nhập đầy đủ các thông tin bắt buộc.');
+      setValidationError('Vui lòng nhập đầy đủ các thông tin bắt buộc.');
       return;
     }
 
-    const newReq: MatchRequest = {
-      id: Date.now().toString(),
-      creatorName: 'Nguyễn Sư Minh Nhật', // current logged in player
-      creatorAvatar: 'https://i.pravatar.cc/150?img=11',
-      creatorLevel: newLevel,
-      sport: newSport,
-      title: newTitle,
-      description: newDesc || 'Tìm bạn chơi cùng giao lưu thể thao lành mạnh!',
-      venueName: newVenue,
-      timeSlot: newTime,
-      dateStr: newDate,
-      slotsTotal: newSlots,
-      slotsFilled: 1, // creator is the first one
-      hasJoined: true
-    };
+    try {
+      await playmateService.createPlaymate({
+        sport: newSport,
+        creatorLevel: newLevel,
+        title: newTitle,
+        description: newDesc,
+        venueName: newVenue,
+        timeSlot: newTime,
+        dateStr: newDate,
+        slotsTotal: newSlots,
+      });
 
-    setRequests(prev => [newReq, ...prev]);
-    setShowCreateModal(false);
-    setToastMessage('Đã đăng yêu cầu tìm bạn chơi thành công!');
-    setShowToast(true);
+      setShowCreateModal(false);
+      setIsQuickPostExpanded(false);
+      setToastMessage('Đã đăng yêu cầu tìm bạn chơi thành công!');
+      setShowToast(true);
 
-    // Reset Form
-    setNewTitle('');
-    setNewDesc('');
-    setNewVenue('');
+      // Reset Form
+      setNewTitle('');
+      setNewDesc('');
+      setNewVenue('');
+      setValidationError(null);
+      fetchPlaymates();
+    } catch (err: any) {
+      const errMsg = err.response?.data?.message || err.message || 'Đăng tin thất bại';
+      setValidationError(errMsg);
+    }
   };
 
   return (
-    <div className="vh-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="h-100 w-100 d-flex flex-column bg-light" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Main Container */}
       <div className="flex-grow-1 overflow-auto py-4">
         {/* Banner Section */}
@@ -328,7 +426,7 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                     style={{ transition: 'all 0.2s' }}
                   >
                     <img
-                      src="https://i.pravatar.cc/150?img=11"
+                      src={currentUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.fullName || 'User')}&background=1a6b3c&color=fff`}
                       alt="User"
                       style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
                     />
@@ -363,15 +461,20 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsQuickPostExpanded(false);
+                          setValidationError(null);
                         }}
                       >
                         <span className="material-symbols-outlined fs-5">close</span>
                       </Button>
                     </div>
-                    <Form onSubmit={(e) => {
-                      handleCreateSubmit(e);
-                      setIsQuickPostExpanded(false); // collapse on submit!
-                    }}>
+
+                    {validationError && (
+                      <Alert variant="danger" className="py-2 px-3 border-0 rounded-3 small mb-3" onClose={() => setValidationError(null)} dismissible>
+                        {validationError}
+                      </Alert>
+                    )}
+
+                    <Form onSubmit={handleCreateSubmit}>
                       <Row className="g-3">
                         <Col md={3}>
                           <Form.Group>
@@ -437,15 +540,59 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                         <Col md={4}>
                           <Form.Group>
                             <Form.Label className="fw-semibold text-secondary small" style={{ fontSize: '11px' }}>ĐỊA ĐIỂM / TÊN SÂN *</Form.Label>
-                            <Form.Control
-                              type="text"
-                              placeholder="VD: Sân EZSport Arena..."
-                              value={newVenue}
-                              onChange={e => setNewVenue(e.target.value)}
-                              required
-                              className="py-2 border-0 bg-light rounded-3"
-                              style={{ fontSize: '13px' }}
-                            />
+                            {(() => {
+                              const key = mapPlaymateSportToVenueSport(newSport);
+                              const filtered = verifiedVenues.filter(v => v.sportTypes.some(s => s.toLowerCase() === key));
+                              if (filtered.length > 0) {
+                                return (
+                                  <div className="d-flex flex-column gap-2">
+                                    <Form.Select
+                                      value={isCustomVenue ? 'custom' : newVenue}
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        if (val === 'custom') {
+                                          setIsCustomVenue(true);
+                                          setNewVenue('');
+                                        } else {
+                                          setIsCustomVenue(false);
+                                          setNewVenue(val);
+                                        }
+                                      }}
+                                      className="py-2 border-0 bg-light rounded-3"
+                                      style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}
+                                    >
+                                      {filtered.map(v => (
+                                        <option key={v._id} value={v.name}>{v.name}</option>
+                                      ))}
+                                      <option value="custom">Tự nhập địa điểm khác...</option>
+                                    </Form.Select>
+                                    {isCustomVenue && (
+                                      <Form.Control
+                                        type="text"
+                                        placeholder="Nhập tên sân chơi..."
+                                        value={newVenue}
+                                        onChange={e => setNewVenue(e.target.value)}
+                                        required
+                                        className="py-2 border-0 bg-light rounded-3"
+                                        style={{ fontSize: '13px' }}
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              } else {
+                                return (
+                                  <Form.Control
+                                    type="text"
+                                    placeholder="Nhập tên sân chơi..."
+                                    value={newVenue}
+                                    onChange={e => setNewVenue(e.target.value)}
+                                    required
+                                    className="py-2 border-0 bg-light rounded-3"
+                                    style={{ fontSize: '13px' }}
+                                  />
+                                );
+                              }
+                            })()}
                           </Form.Group>
                         </Col>
                         <Col md={3}>
@@ -503,14 +650,23 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                 )}
               </Card>
 
-              {filteredRequests.length > 0 ? (
+              {loading ? (
+                <div className="text-center py-5">
+                  <Spinner animation="border" variant="success" className="mb-2" />
+                  <p className="text-muted small">Đang tải danh sách tin tìm bạn chơi...</p>
+                </div>
+              ) : requests.length > 0 ? (
                 <Row className="g-4">
-                  {filteredRequests.map(req => {
-                    const progress = (req.slotsFilled / req.slotsTotal) * 100;
-                    const isFull = req.slotsFilled >= req.slotsTotal;
+                  {requests.map(req => {
+                    const progress = (req.participants.length / req.slotsTotal) * 100;
+                    const isFull = req.participants.length >= req.slotsTotal;
+                    const hasJoined = currentUser ? req.participants.some(p => p._id === currentUser.id) : false;
+                    const isCreator = currentUser ? (req.creator?._id === currentUser.id) : false;
+                    const creatorName = req.creator?.fullName || 'Người chơi';
+                    const creatorAvatar = req.creator?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(creatorName)}&background=1a6b3c&color=fff`;
 
                     return (
-                      <Col md={6} key={req.id}>
+                      <Col md={6} key={req._id}>
                         <Card className="border-0 shadow-sm rounded-4 h-100 card-hover-effect overflow-hidden">
                           {/* Card Top Border Accent */}
                           <div
@@ -526,13 +682,13 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                             <div className="d-flex align-items-center justify-content-between mb-3">
                               <div className="d-flex align-items-center gap-3">
                                 <img
-                                  src={req.creatorAvatar}
-                                  alt={req.creatorName}
+                                  src={creatorAvatar}
+                                  alt={creatorName}
                                   style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }}
                                 />
                                 <div>
-                                  <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '15px' }}>{req.creatorName}</h6>
-                                  <span style={{ fontSize: '11px', color: '#64748b' }}>Người tạo</span>
+                                  <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '15px' }}>{creatorName}</h6>
+                                  <span style={{ fontSize: '11px', color: '#64748b' }}>{isCreator ? 'Chủ phòng (Bạn)' : 'Người đăng'}</span>
                                 </div>
                               </div>
                               <Badge
@@ -589,10 +745,10 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                             </div>
 
                             {/* Slots Progress Bar */}
-                            <div className="mb-4">
+                            <div className="mb-3">
                               <div className="d-flex justify-content-between align-items-center mb-1" style={{ fontSize: '12px' }}>
                                 <span className="text-muted fw-medium">Tiến độ tuyển thành viên</span>
-                                <span className="fw-bold text-dark">{req.slotsFilled}/{req.slotsTotal} Slots</span>
+                                <span className="fw-bold text-dark">{req.participants.length}/{req.slotsTotal} Slots</span>
                               </div>
                               <ProgressBar
                                 now={progress}
@@ -601,41 +757,96 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                               />
                             </div>
 
+                            {/* Participants List */}
+                            <div className="mb-4">
+                              <span className="text-muted d-block small mb-2 fw-semibold" style={{ fontSize: '11.5px', letterSpacing: '0.3px', textTransform: 'uppercase' }}>Thành viên ({req.participants.length}):</span>
+                              <div className="d-flex flex-wrap gap-2 align-items-center">
+                                {req.participants.map(p => {
+                                  const isMe = currentUser && p._id === currentUser.id;
+                                  const name = p.fullName || 'Người chơi';
+                                  const avatar = p.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=16a34a&color=fff`;
+                                  return (
+                                    <div
+                                      key={p._id}
+                                      className="d-flex align-items-center gap-1 bg-white border px-2 py-1 rounded-pill cursor-pointer hover-bg-gray position-relative shadow-sm"
+                                      style={{ fontSize: '12px', transition: 'all 0.15s', border: '1px solid #e2e8f0' }}
+                                      onClick={() => {
+                                        if (isMe) {
+                                          alert("Bạn không thể tự đánh giá chính mình.");
+                                        } else {
+                                          setRatingTargetPlayer(p);
+                                          setShowRateModal(true);
+                                        }
+                                      }}
+                                      title={isMe ? `${name} (Bạn)` : `Click để xem thông tin & đánh giá ${name}`}
+                                    >
+                                      <img
+                                        src={avatar}
+                                        alt={name}
+                                        style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }}
+                                      />
+                                      <span className="fw-bold" style={{ color: '#334155' }}>
+                                        {isMe ? 'Bạn' : name.split(' ').pop()}
+                                      </span>
+                                      {!isMe && (
+                                        <span className="material-symbols-outlined text-warning" style={{ fontSize: '14px', marginLeft: '2px' }}>
+                                          star
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
                             {/* Action Buttons */}
                             <div className="d-flex gap-2">
-                              <Button
-                                onClick={() => handleJoin(req.id)}
-                                variant={req.hasJoined ? "success" : isFull ? "secondary" : "outline-success"}
-                                className="flex-grow-1 fw-bold rounded-3 py-2 d-flex align-items-center justify-content-center gap-2"
-                                style={{
-                                  fontSize: '14px',
-                                  background: req.hasJoined ? '#0f3d22' : '',
-                                  borderColor: req.hasJoined ? '#0f3d22' : '',
-                                }}
-                                disabled={isFull && !req.hasJoined}
-                              >
-                                {req.hasJoined ? (
-                                  <>
-                                    <span className="material-symbols-outlined fs-5">task_alt</span>
-                                    Đã tham gia
-                                  </>
-                                ) : isFull ? (
-                                  'Đã đủ người'
-                                ) : (
-                                  <>
-                                    <span className="material-symbols-outlined fs-5">add</span>
-                                    Tham gia ngay
-                                  </>
-                                )}
-                              </Button>
+                              {isCreator ? (
+                                <Button
+                                  onClick={() => handleDelete(req._id, req.title)}
+                                  variant="danger"
+                                  className="flex-grow-1 fw-bold rounded-3 py-2 d-flex align-items-center justify-content-center gap-2"
+                                  style={{ fontSize: '14px' }}
+                                >
+                                  <span className="material-symbols-outlined fs-5">delete</span>
+                                  Hủy tin đăng
+                                </Button>
+                              ) : (
+                                <Button
+                                  onClick={() => handleJoin(req)}
+                                  variant={hasJoined ? "success" : isFull ? "secondary" : "outline-success"}
+                                  className="flex-grow-1 fw-bold rounded-3 py-2 d-flex align-items-center justify-content-center gap-2"
+                                  style={{
+                                    fontSize: '14px',
+                                    background: hasJoined ? '#0f3d22' : '',
+                                    borderColor: hasJoined ? '#0f3d22' : '',
+                                  }}
+                                  disabled={isFull && !hasJoined}
+                                >
+                                  {hasJoined ? (
+                                    <>
+                                      <span className="material-symbols-outlined fs-5">task_alt</span>
+                                      Đã tham gia
+                                    </>
+                                  ) : isFull ? (
+                                    'Đã đủ người'
+                                  ) : (
+                                    <>
+                                      <span className="material-symbols-outlined fs-5">add</span>
+                                      Tham gia ngay
+                                    </>
+                                  )}
+                                </Button>
+                              )}
 
                               <Button
                                 variant="light"
                                 className="border rounded-3 p-2 d-flex align-items-center justify-content-center"
                                 style={{ width: '42px', height: '42px' }}
-                                onClick={() => alert(`Tính năng nhắn tin nhanh tới ${req.creatorName} đang được kết nối!`)}
+                                onClick={() => handleChatWithCreator(req.creator?._id)}
+                                disabled={isCreator}
                               >
-                                <span className="material-symbols-outlined text-success">chat</span>
+                                <span className="material-symbols-outlined text-success" style={{ color: isCreator ? '#cbd5e1' : '#16a34a' }}>chat</span>
                               </Button>
                             </div>
                           </Card.Body>
@@ -661,7 +872,7 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                   </Button>
                 </div>
               )}
-            </Col>
+                        </Col>
           </Row>
         </Container>
 
@@ -742,14 +953,56 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
               <Col md={12}>
                 <Form.Group>
                   <Form.Label className="fw-semibold text-secondary small">ĐỊA ĐIỂM / TÊN SÂN *</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="VD: Sân EZSport Arena Central - Sân số 3"
-                    value={newVenue}
-                    onChange={e => setNewVenue(e.target.value)}
-                    required
-                    className="py-2 border"
-                  />
+                  {(() => {
+                    const key = mapPlaymateSportToVenueSport(newSport);
+                    const filtered = verifiedVenues.filter(v => v.sportTypes.some(s => s.toLowerCase() === key));
+                    if (filtered.length > 0) {
+                      return (
+                        <div className="d-flex flex-column gap-2">
+                          <Form.Select
+                            value={isCustomVenue ? 'custom' : newVenue}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === 'custom') {
+                                setIsCustomVenue(true);
+                                setNewVenue('');
+                              } else {
+                                setIsCustomVenue(false);
+                                setNewVenue(val);
+                              }
+                            }}
+                            className="py-2 border"
+                          >
+                            {filtered.map(v => (
+                              <option key={v._id} value={v.name}>{v.name}</option>
+                            ))}
+                            <option value="custom">Tự nhập địa điểm khác...</option>
+                          </Form.Select>
+                          {isCustomVenue && (
+                            <Form.Control
+                              type="text"
+                              placeholder="VD: Sân EZSport Arena Central - Sân số 3"
+                              value={newVenue}
+                              onChange={e => setNewVenue(e.target.value)}
+                              required
+                              className="py-2 border"
+                            />
+                          )}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <Form.Control
+                          type="text"
+                          placeholder="VD: Sân EZSport Arena Central - Sân số 3"
+                          value={newVenue}
+                          onChange={e => setNewVenue(e.target.value)}
+                          required
+                          className="py-2 border"
+                        />
+                      );
+                    }
+                  })()}
                 </Form.Group>
               </Col>
 
@@ -820,6 +1073,133 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
             </Button>
           </Modal.Footer>
         </Form>
+      </Modal>
+
+      {/* Player Rating Modal */}
+      <Modal show={showRateModal} onHide={() => { setShowRateModal(false); setRatingTargetPlayer(null); }} centered>
+        <Modal.Header closeButton className="border-0 px-4 pt-4">
+          <Modal.Title className="fw-bold text-dark d-flex align-items-center gap-2">
+            <span className="material-symbols-outlined text-warning" style={{ fontSize: '28px' }}>star</span>
+            Đánh giá người chơi
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="px-4 pb-4">
+          {ratingTargetPlayer && (
+            <div>
+              {/* Target Player Info */}
+              <div className="d-flex align-items-center gap-3 p-3 bg-light rounded-3 mb-4">
+                <img
+                  src={ratingTargetPlayer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(ratingTargetPlayer.fullName)}&background=16a34a&color=fff`}
+                  alt={ratingTargetPlayer.fullName}
+                  style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover' }}
+                />
+                <div>
+                  <h5 className="fw-bold text-dark mb-1">{ratingTargetPlayer.fullName}</h5>
+                  {loadingRatings ? (
+                    <Spinner size="sm" animation="border" variant="warning" />
+                  ) : (
+                    <div className="d-flex align-items-center gap-2 text-warning fw-bold" style={{ fontSize: '14.5px' }}>
+                      <span className="material-symbols-outlined text-warning" style={{ fontSize: '18px' }}>star</span>
+                      <span>{playerStats?.averageRating || 0} / 5</span>
+                      <span className="text-secondary fw-normal">({playerStats?.totalRatings || 0} lượt đánh giá)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Review History */}
+              <h6 className="fw-bold text-dark mb-3">Nhận xét từ cộng đồng</h6>
+              <div className="mb-4 overflow-auto" style={{ maxHeight: '200px' }}>
+                {loadingRatings ? (
+                  <div className="text-center py-3">
+                    <Spinner animation="border" variant="success" size="sm" />
+                  </div>
+                ) : playerRatings.length > 0 ? (
+                  <div className="d-flex flex-column gap-3">
+                    {playerRatings.map(r => {
+                      const reviewerName = r.reviewer && typeof r.reviewer === 'object' ? r.reviewer.fullName : 'Thành viên';
+                      const reviewerAvatar = r.reviewer && typeof r.reviewer === 'object' && r.reviewer.avatar ? r.reviewer.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(reviewerName)}&background=1a6b3c&color=fff`;
+                      const ratingDate = new Date(r.createdAt).toLocaleDateString('vi-VN');
+                      return (
+                        <div key={r._id} className="border-bottom pb-2">
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <div className="d-flex align-items-center gap-2">
+                              <img
+                                src={reviewerAvatar}
+                                alt={reviewerName}
+                                style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                              />
+                              <span className="fw-bold text-dark" style={{ fontSize: '13px' }}>{reviewerName}</span>
+                            </div>
+                            <div className="d-flex align-items-center gap-1 text-warning">
+                              {[...Array(5)].map((_, i) => (
+                                <span key={i} className="material-symbols-outlined" style={{ fontSize: '12.5px', color: i < r.rating ? '#eab308' : '#cbd5e1' }}>star</span>
+                              ))}
+                              <span className="text-muted small ms-1" style={{ fontSize: '11px' }}>{ratingDate}</span>
+                            </div>
+                          </div>
+                          {r.comment && <p className="text-secondary small mb-0 px-4">{r.comment}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-center text-muted small py-3">Chưa có nhận xét nào dành cho người chơi này.</p>
+                )}
+              </div>
+
+              {/* Add/Edit Review Form */}
+              <hr />
+              <Form onSubmit={handleRateSubmit}>
+                <h6 className="fw-bold text-dark mb-3">Đánh giá của bạn</h6>
+                
+                {/* Stars selector */}
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-semibold text-secondary small d-block">SỐ SAO *</Form.Label>
+                  <div className="d-flex gap-2">
+                    {[1, 2, 3, 4, 5].map(star => {
+                      const active = star <= ratingScore;
+                      return (
+                        <span
+                          key={star}
+                          className="material-symbols-outlined cursor-pointer text-warning"
+                          style={{ fontSize: '32px', color: active ? '#eab308' : '#cbd5e1', transition: 'color 0.15s' }}
+                          onClick={() => setRatingScore(star)}
+                        >
+                          star
+                        </span>
+                      );
+                    })}
+                  </div>
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-semibold text-secondary small">Ý KIẾN / BÌNH LUẬN</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    placeholder="Nhập ý kiến nhận xét của bạn về thái độ chơi, trình độ..."
+                    value={ratingComment}
+                    onChange={e => setRatingComment(e.target.value)}
+                    className="border"
+                  />
+                </Form.Group>
+
+                <div className="d-flex justify-content-end gap-2 mt-4">
+                  <Button variant="light" onClick={() => { setShowRateModal(false); setRatingTargetPlayer(null); }} className="px-4 py-2 border">Hủy</Button>
+                  <Button
+                    type="submit"
+                    disabled={submittingRating}
+                    style={{ background: '#0f3d22', border: 'none', fontWeight: 700 }}
+                    className="px-4 py-2"
+                  >
+                    {submittingRating ? <Spinner size="sm" /> : 'Gửi Đánh Giá'}
+                  </Button>
+                </div>
+              </Form>
+            </div>
+          )}
+        </Modal.Body>
       </Modal>
 
       {/* Dynamic Toast Success Popup */}
