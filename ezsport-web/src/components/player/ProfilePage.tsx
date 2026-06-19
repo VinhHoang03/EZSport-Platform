@@ -287,10 +287,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
                 {[
                   { icon: 'emoji_events', label: 'Thành viên', value: tier.label, color: tier.color, bg: tier.bg },
                   { icon: 'stars', label: 'Điểm tích lũy', value: pts.toLocaleString('vi-VN'), color: '#16a34a', bg: '#f0fdf4' },
+                  { icon: 'where_to_vote', label: 'Lượt Check-in', value: `${profile?.checkInCount ?? 0} lần`, color: '#ea580c', bg: '#fff7ed' },
+                  { icon: 'groups', label: 'Tham gia Playmate', value: `${profile?.playmateCount ?? 0} lần`, color: '#0f766e', bg: '#f0fdfa' },
                   { icon: 'verified_user', label: 'Trạng thái TK', value: 'Đang hoạt động', color: '#2563eb', bg: '#eff6ff' },
                 ].map(stat => (
-                  <Col md={4} key={stat.label}>
-                    <Card style={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                  <Col xs={12} sm={6} md={4} key={stat.label}>
+                    <Card className="h-100" style={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'none' }}>
                       <Card.Body className="p-4 d-flex align-items-center gap-3">
                         <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <span className="material-symbols-outlined" style={{ color: stat.color, fontSize: '24px' }}>{stat.icon}</span>
@@ -327,6 +329,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
                       { label: 'Số điện thoại', value: profile?.phone, icon: 'phone' },
                       { label: 'Vai trò', value: profile?.role === 'player' ? 'Người chơi' : profile?.role, icon: 'manage_accounts' },
                       { label: 'Thành viên từ', value: memberSince, icon: 'calendar_today' },
+                      { label: 'Số lượt check-in', value: `${profile?.checkInCount ?? 0} lần`, icon: 'where_to_vote' },
+                      { label: 'Số trận Playmate', value: `${profile?.playmateCount ?? 0} lần`, icon: 'groups' },
                     ].map(field => (
                       <Col md={6} key={field.label}>
                         <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px 16px' }}>
