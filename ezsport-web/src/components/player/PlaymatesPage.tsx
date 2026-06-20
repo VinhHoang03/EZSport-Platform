@@ -128,6 +128,12 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
     }
   }, [ratingTargetPlayer]);
 
+  useEffect(() => {
+    if (!showCreateModal) {
+      setValidationError(null);
+    }
+  }, [showCreateModal]);
+
   const handleRateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
@@ -905,6 +911,11 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
         </Modal.Header>
         <Form onSubmit={handleCreateSubmit}>
           <Modal.Body className="px-4 pb-4">
+            {validationError && (
+              <Alert variant="danger" className="py-2 px-3 border-0 rounded-3 small mb-3" onClose={() => setValidationError(null)} dismissible>
+                {validationError}
+              </Alert>
+            )}
             <Row className="g-3">
               <Col md={6}>
                 <Form.Group>

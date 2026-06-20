@@ -68,6 +68,12 @@ export const register = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
+    if (error.name === "ZodError" || error.issues) {
+      return res.status(400).json({
+        message: error.issues?.[0]?.message || "Dữ liệu đăng ký không hợp lệ",
+        errors: error.issues,
+      });
+    }
     res.status(400).json({
       message: error.message
     });
