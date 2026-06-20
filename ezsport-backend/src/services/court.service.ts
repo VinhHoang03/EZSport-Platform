@@ -30,7 +30,7 @@ interface CourtSuggestionResponse {
   };
 }
 
-type Intent = 'greeting' | 'identity' | 'thanks' | 'search' | 'unknown';
+type Intent = 'greeting' | 'identity' | 'thanks' | 'search' | 'faq' | 'support' | 'unknown';
 
 const SPORT_LABELS: Record<string, string> = {
   badminton: 'cầu lông',
@@ -417,40 +417,100 @@ export class CourtService {
 
     // Step 1: LLM Parsing of User Intent and Parameters
     try {
-      const systemPrompt = `Bạn là trợ lý AI phân tích cú pháp tìm sân thể thao tại Đà Nẵng cho hệ thống EZSport.
+      const ezsportKnowledge = `
+=== KIẾN THỨC VỀ EZSPORT ===
+
+EZSport là nền tảng đặt sân thể thao trực tuyến tại Đà Nẵng, hỗ trợ các môn: cầu lông, pickleball, bóng đá, tennis, bóng rổ.
+
+QUY TRÌNH ĐẶT SÂN:
+- Người dùng tìm sân qua AI chat hoặc trang bản đồ/danh sách sân.
+- Chọn sân → chọn giờ → thanh toán → nhận mã check-in.
+- Phương thức thanh toán: Tiền mặt (cash) hoặc PayOS (chuyển khoản ngân hàng online).
+
+HỦY SÂN & CHÍNH SÁCH:
+- Người dùng có thể hủy đặt sân trong trang "Lịch sử đặt sân" (My Bookings).
+- Chỉ hủy được các booking ở trạng thái PENDING hoặc CONFIRMED (chưa check-in).
+- Booking đã CHECKED_IN hoặc COMPLETED không thể hủy.
+
+CHECK-IN:
+- Sau khi đặt sân thành công, người dùng nhận được mã check-in (QR hoặc code).
+- Chủ sân xác nhận check-in tại quầy lễ tân.
+- Số lần check-in được ghi nhận trong hồ sơ người dùng.
+
+COMBO:
+- Combo tuần (week): đặt 2 buổi trong 1 tuần, được giảm giá.
+- Combo tháng (month): đặt 4 buổi trong 1 tháng, được giảm giá nhiều hơn.
+- Mức giảm giá combo do chủ sân cấu hình riêng cho từng sân.
+
+PLAYMATE - TÌM NGƯỜI CHƠI CÙNG:
+- Tính năng Playmate giúp người dùng tìm bạn chơi thể thao cùng.
+- Đăng bài tìm đồng đội: chọn môn, ngày, giờ, số người cần thêm, địa điểm, mức độ kỹ năng.
+- Người khác có thể xem và tham gia (join) các bài đăng playmate.
+- Số lần tham gia playmate được ghi nhận trong hồ sơ.
+
+ĐÁNH GIÁ NGƯỜI DÙNG:
+- Sau khi chơi cùng qua Playmate, người dùng có thể đánh giá nhau (1-5 sao + nhận xét).
+- Điểm đánh giá trung bình hiển thị trên hồ sơ cá nhân.
+
+ĐÁNH GIÁ SÂN:
+- Người dùng có thể đánh giá sân sau khi sử dụng.
+- Điểm rating ảnh hưởng đến thứ tự hiển thị sân trong kết quả tìm kiếm.
+
+DASHBOARD NGƯỜI DÙNG:
+- Xem lịch sử đặt sân, số lần check-in, số lần tham gia playmate.
+- Chỉnh sửa thông tin cá nhân, ảnh đại diện.
+
+DASHBOARD CHỦ SÂN (OWNER):
+- Quản lý sân, lịch đặt, doanh thu theo thời gian thực.
+- Xác nhận/hủy booking, xem thống kê.
+
+ADMIN:
+- Quản lý toàn bộ người dùng, sân, voucher khuyến mãi.
+
+=== HẾT KIẾN THỨC ===
+`;
+
+      const systemPrompt = `Bạn là trợ lý AI thân thiện của EZSport - nền tảng đặt sân thể thao tại Đà Nẵng.
 Thời gian thực tế hiện tại của hệ thống là: ${currentTimeStr} ngày ${currentDayOfWeek} (${currentDateStr}).
 
-Hãy phân tích câu nhập mới nhất của người dùng kết hợp với lịch sử trò chuyện được cung cấp để suy luận đầy đủ thông tin tìm sân.
+${ezsportKnowledge}
+
+Hãy phân tích câu nhập mới nhất của người dùng kết hợp với lịch sử trò chuyện được cung cấp để suy luận đầy đủ thông tin.
 Hãy trả về một đối tượng JSON duy nhất (không có markdown, không có chữ thừa) với các trường sau:
 {
-  "intent": "greeting" | "identity" | "thanks" | "search" | "unknown",
+  "intent": "greeting" | "identity" | "thanks" | "search" | "faq" | "support" | "unknown",
   "sportType": "badminton" | "pickleball" | "soccer" | "tennis" | "basketball" | null,
   "location": "Thanh Khê" | "Hải Châu" | "Ngũ Hành Sơn" | "Sơn Trà" | "Liên Chiểu" | "Cẩm Lệ" | "Hòa Vang" | "Hòa Xuân" | "An Khê" | null,
-  "date": "YYYY-MM-DD" (ví dụ nếu người dùng nói ngày mai thì chuyển thành "${tomorrowDateStr}", nếu ngày 17 thì chuyển thành "2026-06-17", nếu hôm nay/tối nay thì chuyển thành "${currentDateDashStr}") hoặc null nếu không nhắc tới ngày nào cụ thể,
-  "startTime": "HH:mm" (ví dụ "18:00") hoặc null,
-  "endTime": "HH:mm" (ví dụ "20:00") hoặc null,
+  "date": "YYYY-MM-DD" hoặc null,
+  "startTime": "HH:mm" hoặc null,
+  "endTime": "HH:mm" hoặc null,
   "comboType": "week" | "month" | null,
-  "aiExplanation": "Chuỗi phản hồi tiếng Việt thân thiện tương ứng nếu intent không phải là search, hoặc nếu intent là search nhưng thiếu thông tin cần thiết hoặc sai thời gian chơi."
+  "aiExplanation": "Câu trả lời tiếng Việt thân thiện, đầy đủ, chính xác dựa trên kiến thức EZSport ở trên."
 }
 
-Quy tắc đặc biệt quan trọng:
-1. Yêu cầu đặt sân nhưng thiếu Ngày Chơi: Nếu người dùng muốn tìm/đặt sân (search) nhưng KHÔNG hề nói rõ ngày chơi (như hôm nay, ngày mai, thứ hai, ngày 20/06, v.v.), hãy bắt buộc thiết lập:
-   - "intent": "unknown"
-   - "aiExplanation": "Bạn muốn đặt sân chơi vào hôm nay hay ngày nào khác ạ? Vui lòng bổ sung ngày chơi để mình kiểm tra lịch trống chính xác nhé!"
+PHÂN LOẠI INTENT:
+- "greeting": Chào hỏi (xin chào, hello, hi, alo...)
+- "identity": Hỏi về bản thân AI (bạn là ai, làm được gì, hướng dẫn...)
+- "thanks": Cảm ơn, ổn rồi, được rồi...
+- "search": Tìm/đặt sân thể thao (cần sportType hoặc location hoặc time)
+- "faq": Câu hỏi về quy trình, chính sách, tính năng EZSport (hủy sân, combo, check-in, playmate, đánh giá, thanh toán, điểm tích lũy...)
+- "support": Báo lỗi, khiếu nại, cần hỗ trợ kỹ thuật
+- "unknown": Không xác định được
 
-Quy tắc phân tích thông thường:
-- sportType: cầu lông/badminton -> "badminton", bóng đá/đá banh -> "soccer", tennis/quần vợt -> "tennis", bóng rổ -> "basketball", pickleball -> "pickleball".
-- location: dịch quận huyện ở Đà Nẵng sang tên tiếng Việt chuẩn có dấu.
-- date: hãy tính toán chính xác ngày dương lịch tương ứng dựa trên ngày hiện tại là ${currentDateStr} và điền dưới dạng YYYY-MM-DD.
-- startTime/endTime: nhận diện giờ đặt sân cụ thể. Nếu người dùng nói "chiều tối" -> "17:00", "sáng" -> "08:00".
-- comboType: nếu người dùng muốn đặt sân theo combo 1 tuần, combo tuần, đặt tuần thì điền "week"; nếu muốn đặt combo 1 tháng, combo tháng, đặt tháng thì điền "month". Các trường hợp thông thường không nhắc đến combo thì điền null.`;
+QUY TẮC QUAN TRỌNG:
+1. Nếu intent là "faq" hoặc "support": Hãy điền "aiExplanation" với câu trả lời ĐẦY ĐỦ, CHÍNH XÁC dựa trên kiến thức EZSport ở trên. Đây là quan trọng nhất - người dùng cần được trả lời cụ thể.
+2. Nếu intent là "search" nhưng KHÔNG có ngày chơi → chuyển thành "unknown" với aiExplanation yêu cầu bổ sung ngày.
+3. sportType: cầu lông/badminton → "badminton", bóng đá → "soccer", tennis → "tennis", bóng rổ → "basketball", pickleball → "pickleball".
+4. date: Tính chính xác từ ngày hiện tại ${currentDateStr}. Ngày mai → "${tomorrowDateStr}". Hôm nay/tối nay → "${currentDateDashStr}".
+5. startTime/endTime: "chiều tối" → "17:00", "buổi sáng" → "08:00", "tối" → "19:00".
+6. comboType: "combo tuần/1 tuần" → "week", "combo tháng/1 tháng" → "month", không đề cập → null.`;
 
       const messages: any[] = [
         { role: 'system', content: systemPrompt }
       ];
 
       if (history && history.length > 0) {
-        const recentHistory = history.slice(-6);
+        const recentHistory = history.slice(-10);
         for (const msg of recentHistory) {
           messages.push({
             role: msg.role === 'assistant' ? 'assistant' : 'user',
@@ -570,7 +630,25 @@ Quy tắc phân tích thông thường:
       if (intent === 'thanks') {
         return {
           suggestions: [],
-          aiExplanation: aiExplanation || 'Không có gì. Khi cần tìm sân, bạn chỉ cần gửi môn thể thao, khu vực và giờ chơi là được.',
+          aiExplanation: aiExplanation || 'Không có gì! 😊 Khi cần tìm sân, bạn chỉ cần nhắn môn thể thao, khu vực và giờ chơi là mình sẽ tìm ngay cho bạn.',
+          matchedCriteria: {},
+        };
+      }
+
+      // FAQ: Câu hỏi về quy trình, chính sách, tính năng EZSport
+      if (intent === 'faq') {
+        return {
+          suggestions: [],
+          aiExplanation: aiExplanation || 'Bạn muốn hỏi gì về EZSport? Mình có thể giải đáp về quy trình đặt sân, hủy sân, combo, check-in, playmate, đánh giá và thanh toán.',
+          matchedCriteria: {},
+        };
+      }
+
+      // Support: Báo lỗi hoặc cần hỗ trợ kỹ thuật
+      if (intent === 'support') {
+        return {
+          suggestions: [],
+          aiExplanation: aiExplanation || 'Mình xin lỗi vì sự bất tiện này! 🙏 Để được hỗ trợ kỹ thuật nhanh nhất, bạn vui lòng liên hệ qua email hỗ trợ hoặc fanpage EZSport. Mình sẽ ghi nhận và chuyển vấn đề của bạn đến đội ngũ kỹ thuật ngay.',
           matchedCriteria: {},
         };
       }
@@ -578,7 +656,7 @@ Quy tắc phân tích thông thường:
       if (intent === 'unknown') {
         return {
           suggestions: [],
-          aiExplanation: aiExplanation || 'Mình chưa hiểu bạn muốn tìm sân nào. Bạn thử nhập theo mẫu: "cầu lông Thanh Khê 20h" hoặc "pickleball Ngũ Hành Sơn ngày mai" nhé.',
+          aiExplanation: aiExplanation || 'Mình có thể giúp bạn:\n• 🏸 Tìm sân thể thao: "cầu lông Thanh Khê 20h hôm nay"\n• ❓ Giải đáp thắc mắc: "hủy sân như thế nào?", "combo là gì?"\n• 🤝 Tìm bạn chơi cùng: "tìm người chơi cầu lông"\n\nBạn muốn làm gì ạ?',
           matchedCriteria: {},
         };
       }
