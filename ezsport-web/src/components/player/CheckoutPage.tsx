@@ -22,7 +22,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   const [venueData, setVenueData] = useState<Venue | null>(null);
   const [courtData, setCourtData] = useState<Court | null>(null);
   const [isLoadingBookingData, setIsLoadingBookingData] = useState<boolean>(true);
-  
+
   const [voucherCode, setVoucherCode] = useState<string>('');
   const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
   const [myVouchers, setMyVouchers] = useState<any[]>([]);
@@ -36,22 +36,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
   // User's available loyalty points
   const userPoints = Number(user?.loyaltyPoints) || 0;
-  
+
   // Available point options (100 points = 10,000đ)
   const pointOptions = [100, 200, 300, 500, 1000];
   const availablePointOptions = pointOptions.filter(p => p <= userPoints);
-  
+
   const canUsePoints = userPoints >= selectedPoints;
   const pointsDiscountValue = Math.floor(selectedPoints * 100); // 100 points = 10,000đ
-  
+
   // Debug log
-  console.log('🎯 Points Debug:', { 
-    userPoints, 
+  console.log('🎯 Points Debug:', {
+    userPoints,
     selectedPoints,
     pointsDiscountValue,
     canUsePoints,
-    loyaltyPoints: user?.loyaltyPoints, 
-    user 
+    loyaltyPoints: user?.loyaltyPoints,
+    user
   });
 
 
@@ -108,9 +108,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
           court ??
           (venue
             ? await courtService
-                .getCourts({ venue: String(venue._id), active: 'true' })
-                .then((courts) => courts[0] ?? null)
-                .catch(() => null)
+              .getCourts({ venue: String(venue._id), active: 'true' })
+              .then((courts) => courts[0] ?? null)
+              .catch(() => null)
             : null);
 
         if (!venue) {
@@ -183,15 +183,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   const weeklyRate = venueData?.comboWeeklyDiscount !== undefined ? venueData.comboWeeklyDiscount : 5;
   const monthlyRate = venueData?.comboMonthlyDiscount !== undefined ? venueData.comboMonthlyDiscount : 15;
 
-  const comboDiscount = comboType === 'month' 
-    ? Math.floor(subtotal * (monthlyRate / 100)) 
+  const comboDiscount = comboType === 'month'
+    ? Math.floor(subtotal * (monthlyRate / 100))
     : (comboType === 'week' ? Math.floor(subtotal * (weeklyRate / 100)) : 0);
 
   const serviceFee = booking.serviceFee;
-  const discountVal = appliedVoucher 
-    ? (appliedVoucher.type === 'percent' 
-        ? Math.min(Math.floor((subtotal - comboDiscount) * appliedVoucher.value / 100), appliedVoucher.maxDiscount || Infinity) 
-        : appliedVoucher.value)
+  const discountVal = appliedVoucher
+    ? (appliedVoucher.type === 'percent'
+      ? Math.min(Math.floor((subtotal - comboDiscount) * appliedVoucher.value / 100), appliedVoucher.maxDiscount || Infinity)
+      : appliedVoucher.value)
     : 0;
   const pointsVal = usePoints && canUsePoints ? pointsDiscountValue : 0;
   const total = Math.max(0, subtotal + serviceFee - comboDiscount - discountVal - pointsVal);
@@ -205,9 +205,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
     try {
       setValidatingVoucher(true);
       setError(null);
-      
+
       const { voucher, discount } = await voucherService.validate(code.toUpperCase(), subtotal);
-      
+
       setAppliedVoucher(voucher);
       setVoucherCode(voucher.code);
       setShowVoucherModal(false);
@@ -338,7 +338,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     className="text-success fw-bold p-0 shadow-none border-0"
                     style={{ color: '#1a6b3c !important', textDecoration: 'none', fontSize: '14px' }}
                   >
-                    Chỉnh 
+                    Chỉnh
                   </Button>
                 </div>
 
@@ -412,7 +412,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                       <Badge bg="secondary" className="mt-3 py-2 px-3 align-self-center rounded-pill" style={{ fontSize: '10px' }}>Mặc định</Badge>
                     </div>
                   </Col>
-                  
+
                   <Col md={4}>
                     <div
                       onClick={() => setComboType('week')}
@@ -455,7 +455,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     </div>
                   </Col>
                 </Row>
-                
+
                 {comboDates.length > 1 && (
                   <div className="mt-4 p-3 rounded-4" style={{ backgroundColor: '#f8fafc', borderRadius: '16px' }}>
                     <span className="text-muted small fw-bold d-block mb-2" style={{ fontSize: '11px', letterSpacing: '0.5px' }}>
@@ -518,11 +518,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                 {appliedVoucher ? (
                   <div className="mb-4">
                     <span className="text-muted small d-block mb-2">Mã giảm giá đã áp dụng</span>
-                    <div 
+                    <div
                       className="p-3 rounded-4 d-flex justify-content-between align-items-center"
-                      style={{ 
-                        background: 'linear-gradient(135deg, #16a34a 0%, #0f3d22 100%)', 
-                        color: '#fff' 
+                      style={{
+                        background: 'linear-gradient(135deg, #16a34a 0%, #0f3d22 100%)',
+                        color: '#fff'
                       }}
                     >
                       <div>
@@ -536,9 +536,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                       <Button
                         onClick={handleRemoveVoucher}
                         size="sm"
-                        style={{ 
-                          background: 'rgba(255,255,255,0.2)', 
-                          border: 'none', 
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          border: 'none',
                           color: '#fff',
                           borderRadius: '8px',
                           fontWeight: 600,
@@ -553,7 +553,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                 ) : (
                   <div className="mb-4">
                     <span className="text-muted small d-block mb-2">Mã giảm giá</span>
-                    
+
                     {/* Voucher input */}
                     <div className="d-flex gap-2 mb-3" style={{ maxWidth: '400px' }}>
                       <Form.Control
@@ -596,14 +596,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                             Xem tất cả →
                           </Button>
                         </div>
-                        
+
                         {/* Show first 2 vouchers */}
                         <div className="d-flex flex-column gap-2">
                           {myVouchers.slice(0, 2).map((uv) => {
                             const voucher = uv.voucherId;
                             const isExpired = voucher.expiresAt && new Date(voucher.expiresAt) < new Date();
                             const isUsed = uv.status === 'used';
-                            
+
                             if (isExpired || isUsed) return null;
 
                             return (
@@ -650,8 +650,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                 {/* Points Reward Toggle switch */}
                 <div
                   className="p-3 rounded-4"
-                  style={{ 
-                    background: canUsePoints ? '#f8fafc' : '#fef3c7', 
+                  style={{
+                    background: canUsePoints ? '#f8fafc' : '#fef3c7',
                     border: canUsePoints ? '1px solid rgba(0,0,0,0.03)' : '1px solid #fbbf24',
                     opacity: userPoints > 0 ? 1 : 0.5
                   }}
@@ -661,10 +661,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     <div className="d-flex align-items-center gap-2.5">
                       <div
                         className="rounded-circle d-flex align-items-center justify-content-center"
-                        style={{ 
-                          width: '36px', 
-                          height: '36px', 
-                          background: canUsePoints ? '#dcfce7' : '#fee2e2' 
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          background: canUsePoints ? '#dcfce7' : '#fee2e2'
                         }}
                       >
                         <span className="material-symbols-outlined" style={{ color: canUsePoints ? '#16a34a' : '#dc2626' }}>
@@ -728,7 +728,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                           );
                         })}
                       </div>
-                      
+
                       {/* Custom point input */}
                       <div className="mt-3">
                         <label className="text-muted small d-block mb-2" style={{ fontSize: '11px' }}>
@@ -745,8 +745,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                               setSelectedPoints(val);
                             }}
                             className="form-control form-control-sm"
-                            style={{ 
-                              maxWidth: '150px', 
+                            style={{
+                              maxWidth: '150px',
                               fontSize: '13px',
                               borderRadius: '8px',
                               border: '1px solid #cbd5e1'
@@ -1002,21 +1002,21 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     }}
                   >
                     {/* Header */}
-                    <div style={{ 
-                      background: isExpired || isUsed 
-                        ? '#94a3b8' 
-                        : 'linear-gradient(135deg, #16a34a 0%, #0f3d22 100%)', 
-                      padding: '16px', 
-                      color: '#fff' 
+                    <div style={{
+                      background: isExpired || isUsed
+                        ? '#94a3b8'
+                        : 'linear-gradient(135deg, #16a34a 0%, #0f3d22 100%)',
+                      padding: '16px',
+                      color: '#fff'
                     }}>
                       <div className="d-flex justify-content-between align-items-start mb-2">
-                        <Badge style={{ 
-                          background: 'rgba(255,255,255,0.2)', 
-                          color: '#fff', 
-                          fontSize: '11px', 
-                          fontWeight: 600, 
-                          padding: '4px 10px', 
-                          borderRadius: '6px' 
+                        <Badge style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          color: '#fff',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '4px 10px',
+                          borderRadius: '6px'
                         }}>
                           {isUsed ? 'Đã dùng' : isExpired ? 'Hết hạn' : 'Khả dụng'}
                         </Badge>
@@ -1068,12 +1068,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         <Modal.Footer style={{ borderTop: '1px solid #e2e8f0', padding: '16px 24px' }}>
           <Button
             onClick={() => setShowVoucherModal(false)}
-            style={{ 
-              background: '#0f172a', 
-              border: 'none', 
-              borderRadius: '8px', 
-              fontWeight: 600, 
-              padding: '10px 24px' 
+            style={{
+              background: '#0f172a',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              padding: '10px 24px'
             }}
           >
             Đóng
