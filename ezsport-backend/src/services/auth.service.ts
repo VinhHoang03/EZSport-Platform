@@ -93,6 +93,11 @@ class AuthService {
     const existing = await User.findOne({ username });
     if (existing) throw new Error("Username đã tồn tại");
 
+    if (email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) throw new Error("Email đã được đăng ký bởi tài khoản khác");
+    }
+
     const hashed = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
