@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Spinner, Button } from 'react-bootstrap';
 import { W, TX, TX2 } from '../../../utils/theme';
 import { venueService, courtService, type Venue, type Court } from '../../../services/venue.service';
+import { CreateManualBookingModal } from './CreateManualBookingModal';
 
 interface Booking {
   id: string;
@@ -28,6 +29,7 @@ interface BookingCalendarProps {
   loading?: boolean;
   selectedDate?: Date;
   onDateChange?: (date: Date) => void;
+  onRefresh?: () => void;
 }
 
 export const BookingCalendar: React.FC<BookingCalendarProps> = ({
@@ -36,7 +38,11 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({
   loading = false,
   selectedDate = new Date(),
   onDateChange,
+  onRefresh,
 }) => {
+  const [showCreateManualModal, setShowCreateManualModal] = useState(false);
+  const [manualModalPrefills, setManualModalPrefills] = useState<{ courtId: string; startTime: string } | null>(null);
+  
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string>('');
   const [courts, setCourts] = useState<Court[]>([]);
@@ -215,9 +221,24 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({
     <div style={{ background: W, borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', padding: '24px', overflowX: 'auto', minWidth: '900px' }}>
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4" style={{ flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h4 style={{ fontSize: '18px', fontWeight: 800, color: TX, margin: '0 0 4px 0' }}>Lịch đặt sân</h4>
-          <span style={{ fontSize: '13px', color: TX2 }}>Quản lý lịch đặt theo ngày</span>
+        <div className="d-flex align-items-center gap-3">
+          <div>
+            <h4 style={{ fontSize: '18px', fontWeight: 800, color: TX, margin: '0 0 4px 0' }}>Lịch đặt sân</h4>
+            <span style={{ fontSize: '13px', color: TX2 }}>Quản lý lịch đặt theo ngày</span>
+          </div>
+          <Button
+            variant="success"
+            size="sm"
+            onClick={() => {
+              setManualModalPrefills(null);
+              setShowCreateManualModal(true);
+            }}
+            className="rounded-pill px-3 fw-bold d-flex align-items-center gap-1 shadow-sm border-0"
+            style={{ background: '#16a34a', height: '36px', fontSize: '13px' }}
+          >
+            <span className="material-symbols-outlined fs-5">add</span>
+            Đặt hộ khách
+          </Button>
         </div>
 
         {/* ── Date Navigator ── */}
@@ -302,13 +323,13 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({
 
           {/* Booking count badge */}
           <div style={{
-            background: bookingsList.length > 0 ? '#dcfce7' : '#f1f5f9',
-            color: bookingsList.length > 0 ? '#15803d' : '#64748b',
+            background: bookingsList.filter(b => b.status !== 'CANCELLED' && b.date === selectedDate.toLocaleDateString('vi-VN')).length > 0 ? '#dcfce7' : '#f1f5f9',
+            color: bookingsList.filter(b => b.status !== 'CANCELLED' && b.date === selectedDate.toLocaleDateString('vi-VN')).length > 0 ? '#15803d' : '#64748b',
             borderRadius: '20px', padding: '6px 14px',
             fontSize: '12px', fontWeight: 700,
-            border: bookingsList.length > 0 ? '1px solid #86efac' : '1px solid #e2e8f0',
+            border: bookingsList.filter(b => b.status !== 'CANCELLED' && b.date === selectedDate.toLocaleDateString('vi-VN')).length > 0 ? '1px solid #86efac' : '1px solid #e2e8f0',
           }}>
-            {bookingsList.filter(b => b.status !== 'CANCELLED').length} lịch hôm nay
+            {bookingsList.filter(b => b.status !== 'CANCELLED' && b.date === selectedDate.toLocaleDateString('vi-VN')).length} lịch ngày này
           </div>
         </div>
       </div>
@@ -599,15 +620,40 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({
                         </div>
                       )}
                       
+                      {/* Lưới các ô giờ trống (để click) */}
+                      {isActive && hours.map((hour, hrIdx) => (
+                        <div
+                          key={hrIdx}
+                          onClick={() => {
+                            setManualModalPrefills({
+                              courtId: court._id,
+                              startTime: hour,
+                            });
+                            setShowCreateManualModal(true);
+                          }}
+                          style={{
+                            height: '60px',
+                            cursor: 'cell',
+                            transition: 'background-color 0.2s',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 0.05)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          title={`Click để đặt sân ${court.name} lúc ${hour}`}
+                        />
+                      ))}
+
                       {bookingsList.filter(b => {
-                        // Chỉ hiển thị booking nếu có courtId khớp chính xác
-                        // Nếu booking có courtId, so sánh với court._id
-                        // Nếu không có courtId (mock data cũ), bỏ qua
+                        // Chỉ hiển thị booking nếu có courtId khớp chính xác và đúng ngày được chọn
                         const bookingCourtId = (b as any).courtId;
                         if (bookingCourtId) {
-                          return bookingCourtId === court._id && b.status !== 'CANCELLED';
+                          const isSameCourt = bookingCourtId === court._id;
+                          const isSameDate = b.date === selectedDate.toLocaleDateString('vi-VN');
+                          return isSameCourt && isSameDate && b.status !== 'CANCELLED';
                         }
-                        // Fallback: nếu không có courtId, không hiển thị gì
                         return false;
                       }).map(booking => (
                         <BookingCard key={booking.id} booking={booking} />
@@ -620,6 +666,18 @@ export const BookingCalendar: React.FC<BookingCalendarProps> = ({
           </>
         )}
       </div>
+
+      {/* Manual Booking Modal */}
+      <CreateManualBookingModal
+        show={showCreateManualModal}
+        onClose={() => setShowCreateManualModal(false)}
+        courts={courts}
+        selectedDate={selectedDate}
+        onSuccess={() => {
+          onRefresh?.();
+        }}
+        prefills={manualModalPrefills}
+      />
     </div>
   );
 };

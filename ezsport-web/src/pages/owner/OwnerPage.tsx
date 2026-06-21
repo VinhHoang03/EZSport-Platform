@@ -351,6 +351,7 @@ export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
                   setSelectedDate(date);
                   setSelectedBooking(null);
                 }}
+                onRefresh={() => fetchOwnerBookings(selectedDate)}
               />
             )}
 
