@@ -152,11 +152,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setLoading(true);
     try {
       const fullName = `${ho} ${ten}`.trim();
+      const cleanPhone = phoneNumber.replace(/\s/g, '');
+      const formattedPhone = cleanPhone ? (cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone) : undefined;
       await authService.register({
         username,
         email,
         password,
         fullName,
+        phone: formattedPhone,
         role: accountType === 'owner' ? 'owner' : 'player'
       });
 
@@ -165,7 +168,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setRegisterStep(3);
       }, 1000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại, tên đăng nhập đã tồn tại');
+      setError(err.response?.data?.message || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin');
     } finally {
       setLoading(false);
     }

@@ -43,6 +43,7 @@
     const [bookingsList, setBookingsList] = useState<Booking[]>([]);
     const [loadingBookings, setLoadingBookings] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
     const [showCreateCourtModal, setShowCreateCourtModal] = useState(false);
     const [selectedVenueForCourt, setSelectedVenueForCourt] = useState<Venue | null>(null);
@@ -330,6 +331,12 @@
                   bookingsList={bookingsList}
                   onSelectBooking={setSelectedBooking}
                   loading={loadingBookings}
+                  selectedDate={selectedDate}
+                  onDateChange={(date) => {
+                    setSelectedDate(date);
+                    setSelectedBooking(null);
+                  }}
+                  onRefresh={() => fetchOwnerBookings()}
                 />
               )}
 
