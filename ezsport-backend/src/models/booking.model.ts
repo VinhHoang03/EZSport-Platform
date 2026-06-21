@@ -23,6 +23,7 @@ export interface IBooking extends Document {
   totalPrice: number;
   status: BookingStatus;
   paymentMethod?: string;
+  payosOrderCode?: number;
   bookerName: string;
   bookerPhone: string;
   bookerEmail?: string;
@@ -115,7 +116,12 @@ const bookingSchema = new Schema<IBooking>(
     },
     paymentMethod: {
       type: String,
-      enum: ["card", "bank", "momo", "zalopay", "cash"],
+      enum: ["cash", "payos"],
+    },
+    payosOrderCode: {
+      type: Number,
+      unique: true,
+      sparse: true,
     },
     bookerName: {
       type: String,

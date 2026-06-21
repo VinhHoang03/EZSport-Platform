@@ -122,7 +122,7 @@ const RegisterPage: React.FC = () => {
   return (
     <AuthLayout leftContent={leftContent} topLink={topLink}>
       {/* Stepper */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px', position: 'relative' }}>
+      <div className="register-stepper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '16px', left: '12%', right: '12%', height: '2px', background: '#e2e8f0', zIndex: 1 }} />
         <div style={{ position: 'absolute', top: '16px', left: '12%', width: step === 2 ? '42%' : step === 3 ? '80%' : '0%', height: '2px', background: '#22c55e', zIndex: 2, transition: 'all 0.4s' }} />
         {stepperDots.map(item => {
@@ -141,7 +141,7 @@ const RegisterPage: React.FC = () => {
       {/* STEP 1 */}
       {step === 1 && (
         <div>
-          <div style={{ marginBottom: '32px' }}>
+          <div className="auth-form-heading" style={{ marginBottom: '32px' }}>
             <h2 style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a', letterSpacing: '-1.5px', marginBottom: '8px' }}>Bạn là ai?</h2>
             <p style={{ fontSize: '14.5px', color: '#64748b', fontWeight: 500 }}>Chọn loại tài khoản phù hợp</p>
           </div>
@@ -153,7 +153,7 @@ const RegisterPage: React.FC = () => {
             ]).map(opt => {
               const sel = accountType === opt.type;
               return (
-                <div key={opt.type} onClick={() => setAccountType(opt.type)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderRadius: '16px', background: sel ? 'rgba(26,107,60,0.05)' : '#f8fafc', border: sel ? '2px solid #1a6b3c' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.25s', transform: sel ? 'scale(1.01)' : 'scale(1)' }}>
+                <div className="register-account-option" key={opt.type} onClick={() => setAccountType(opt.type)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderRadius: '16px', background: sel ? 'rgba(26,107,60,0.05)' : '#f8fafc', border: sel ? '2px solid #1a6b3c' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.25s', transform: sel ? 'scale(1.01)' : 'scale(1)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <div style={{ width: 44, height: 44, borderRadius: '12px', background: sel ? 'rgba(26,107,60,0.15)' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: sel ? '#1a6b3c' : '#64748b' }}>
                       <span className="material-symbols-outlined">{opt.icon}</span>
@@ -187,7 +187,7 @@ const RegisterPage: React.FC = () => {
           </div>
           {error && <Alert variant="danger" className="py-2 px-3 border-0 rounded-3 small mb-3">{error}</Alert>}
           <Form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '14px', marginBottom: '14px' }}>
+            <div className="register-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '14px', marginBottom: '14px' }}>
               <Form.Group>
                 <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Họ</Form.Label>
                 <Form.Control type="text" placeholder="Nguyễn" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={ho} onChange={e => setHo(e.target.value)} required />
@@ -202,8 +202,8 @@ const RegisterPage: React.FC = () => {
               <Form.Control type="text" placeholder="an_nguyen" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={username} onChange={e => setUsername(e.target.value)} required />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email (tùy chọn)</Form.Label>
-              <Form.Control type="email" placeholder="an.nguyen@example.com" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={email} onChange={e => setEmail(e.target.value)} />
+              <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email</Form.Label>
+              <Form.Control type="email" placeholder="an.nguyen@example.com" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={email} onChange={e => setEmail(e.target.value)} required />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Số điện thoại</Form.Label>
@@ -216,7 +216,7 @@ const RegisterPage: React.FC = () => {
                 <Form.Control type="tel" placeholder="901 234 567" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc', paddingLeft: '78px' }} value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required />
               </div>
             </Form.Group>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '8px' }}>
+            <div className="register-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '8px' }}>
               <Form.Group>
                 <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Mật khẩu</Form.Label>
                 <Form.Control type="password" placeholder="Password123" className="py-2 shadow-none" style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }} value={password} onChange={e => setPassword(e.target.value)} required />
@@ -245,7 +245,7 @@ const RegisterPage: React.FC = () => {
                 </span>
               </label>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '14px' }}>
+            <div className="register-action-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '14px' }}>
               <button type="button" onClick={() => setStep(1)} style={{ background: '#fff', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '12px', padding: '13px 0', fontSize: '14px', fontWeight: 800, cursor: 'pointer' }}>Quay lại</button>
               <Button type="submit" disabled={loading} style={{ background: '#1a6b3c', color: '#fff', border: 'none', borderRadius: '12px', padding: '13px 0', fontSize: '14.5px', fontWeight: 800 }}>
                 {loading ? 'Đang tạo...' : 'Hoàn tất'}

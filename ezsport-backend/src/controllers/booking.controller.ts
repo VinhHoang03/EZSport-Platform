@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import bookingService from "../services/booking.service";
 import { createBookingSchema, updateBookingSchema } from "../validators/booking.validator";
-import momoService from "../services/momo.service";
+import payosService from "../services/payos.service";
+import Booking from "../models/booking.model";
 
 class BookingController {
   /**
@@ -27,32 +28,24 @@ class BookingController {
       }
       const booking = await bookingService.createBooking(userId, validation.data);
 
-      if (booking.paymentMethod === "momo") {
+      if (booking.paymentMethod === "payos") {
         try {
-          const momoRes = await momoService.createPayment(
+          const payosRes = await payosService.createPaymentLink(
             booking._id.toString(),
             booking.totalPrice,
-            `Thanh toan dat san ${booking.sport} tai EZSport`
+            `Dat san ${booking.sport} tai EZSport`
           );
-          if (momoRes.resultCode === 0) {
-            return res.status(201).json({
-              message: "Đặt sân thành công, vui lòng thanh toán qua MoMo",
-              data: booking,
-              payUrl: momoRes.payUrl,
-            });
-          } else {
-            console.error("[booking.createBooking] MoMo error:", momoRes);
-            return res.status(400).json({
-              message: "Không thể tạo liên kết thanh toán MoMo: " + momoRes.message,
-              data: booking,
-            });
-          }
-        } catch (momoErr: any) {
-          console.error("[booking.createBooking] MoMo exception:", momoErr);
-          return res.status(500).json({
-            message: "Lỗi kết nối cổng thanh toán MoMo",
+          return res.status(201).json({
+            message: "Đặt sân thành công, vui lòng thanh toán qua PayOS",
             data: booking,
-            error: momoErr.message,
+            payUrl: payosRes.checkoutUrl,
+          });
+        } catch (payosErr: any) {
+          console.error("[booking.createBooking] PayOS exception:", payosErr);
+          return res.status(500).json({
+            message: "Lỗi kết nối cổng thanh toán PayOS",
+            data: booking,
+            error: payosErr.message,
           });
         }
       }
@@ -132,43 +125,25 @@ class BookingController {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       
-      // If MoMo redirect query params are present, verify signature and update status on-the-fly
-      const { resultCode, signature, partnerCode, requestId, amount } = req.query;
-      if (resultCode !== undefined && signature !== undefined) {
-        console.log("[BookingController.getBookingById] Found MoMo redirect query params, verifying...");
-        const cleanId = id.length > 24 ? id.substring(0, 24) : id;
-        const booking = await bookingService.getBookingById(cleanId);
-        if (booking && booking.status === "PENDING" && booking.paymentMethod === "momo") {
-          const {
-            orderId,
-            orderInfo,
-            orderType,
-            transId,
-            message,
-            payType,
-            responseTime,
-            extraData,
-          } = req.query;
-          
-          const accessKey = process.env.MOMO_ACCESS_KEY || "klm05TvNBzhg7h7j";
-          const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData || ""}&message=${message}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
-          
-          const isValid = momoService.verifySignature(signature as string, rawSignature);
-          if (isValid) {
-            if (Number(resultCode) === 0) {
-              console.log(`[BookingController.getBookingById] MoMo redirect signature valid. Confirming booking ${cleanId}`);
-              await bookingService.updatePaymentStatus(cleanId, "CONFIRMED");
-            } else {
-              console.log(`[BookingController.getBookingById] MoMo redirect signature valid but resultCode is ${resultCode}. Cancelling booking ${cleanId}`);
-              await bookingService.updatePaymentStatus(cleanId, "CANCELLED");
-            }
-          } else {
-            console.warn("[BookingController.getBookingById] MoMo redirect signature verification failed!");
+      // Sync PENDING PayOS booking status on-the-fly
+      let booking = await bookingService.getBookingById(id);
+      if (booking && booking.status === "PENDING" && booking.paymentMethod === "payos" && booking.payosOrderCode) {
+        try {
+          console.log(`[BookingController.getBookingById] Querying PayOS API for orderCode: ${booking.payosOrderCode}`);
+          const payosInfo = await payosService.getPaymentLinkInformation(booking.payosOrderCode);
+          if (payosInfo.status === "PAID") {
+            console.log(`[BookingController.getBookingById] PayOS status is PAID. Confirming booking ${booking._id}`);
+            await bookingService.updatePaymentStatus(booking._id.toString(), "CONFIRMED");
+            booking = await bookingService.getBookingById(id); // Reload
+          } else if (payosInfo.status === "CANCELLED" || payosInfo.status === "EXPIRED") {
+            console.log(`[BookingController.getBookingById] PayOS status is ${payosInfo.status}. Cancelling booking ${booking._id}`);
+            await bookingService.updatePaymentStatus(booking._id.toString(), "CANCELLED");
+            booking = await bookingService.getBookingById(id); // Reload
           }
+        } catch (payosErr) {
+          console.error("[BookingController.getBookingById] Failed to sync status with PayOS:", payosErr);
         }
       }
-
-      const booking = await bookingService.getBookingById(id);
 
       if (!booking) {
         return res.status(404).json({
@@ -428,51 +403,40 @@ class BookingController {
     }
   }
 
+
   /**
-   * MoMo IPN Callback (POST /bookings/momo-ipn)
+   * PayOS Webhook Callback (POST /bookings/payos-webhook)
    */
-  async handleMomoIPN(req: Request, res: Response) {
+  async handlePayOSWebhook(req: Request, res: Response) {
     try {
-      console.log("[BookingController.handleMomoIPN] Callback payload:", JSON.stringify(req.body));
-      const {
-        partnerCode,
-        orderId,
-        requestId,
-        amount,
-        orderInfo,
-        orderType,
-        transId,
-        resultCode,
-        message,
-        payType,
-        responseTime,
-        extraData,
-        signature,
-      } = req.body;
-
-      const accessKey = process.env.MOMO_ACCESS_KEY || "klm05TvNBzhg7h7j";
-
-      // Re-sign to verify authenticity
-      const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&message=${message}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
-
-      const isValid = momoService.verifySignature(signature, rawSignature);
-      if (!isValid) {
-        console.warn("[BookingController.handleMomoIPN] Signature verification failed!");
-        return res.status(400).json({ message: "Signature verification failed" });
+      console.log("[BookingController.handlePayOSWebhook] Callback payload:", JSON.stringify(req.body));
+      
+      const webhookData = await payosService.verifyWebhookData(req.body);
+      if (!webhookData) {
+        console.warn("[BookingController.handlePayOSWebhook] Webhook signature verification failed!");
+        return res.status(400).json({ message: "Invalid signature" });
       }
 
-      const bookingId = momoService.extractBookingId(orderId);
-      if (resultCode === 0) {
-        console.log(`[BookingController.handleMomoIPN] Payment SUCCESS for booking ${bookingId}`);
-        await bookingService.updatePaymentStatus(bookingId, "CONFIRMED");
+      const { orderCode, code } = webhookData;
+      console.log(`[BookingController.handlePayOSWebhook] Webhook verified. orderCode: ${orderCode}, code: ${code}`);
+
+      const booking = await Booking.findOne({ payosOrderCode: orderCode });
+      if (!booking) {
+        console.error(`[BookingController.handlePayOSWebhook] Booking not found for orderCode: ${orderCode}`);
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (code === "00") {
+        console.log(`[BookingController.handlePayOSWebhook] Payment SUCCESS for booking ${booking._id}`);
+        await bookingService.updatePaymentStatus(booking._id.toString(), "CONFIRMED");
       } else {
-        console.warn(`[BookingController.handleMomoIPN] Payment FAILED/CANCELLED for booking ${bookingId}, code: ${resultCode}`);
-        await bookingService.updatePaymentStatus(bookingId, "CANCELLED");
+        console.warn(`[BookingController.handlePayOSWebhook] Payment FAILED/CANCELLED for booking ${booking._id}, code: ${code}`);
+        await bookingService.updatePaymentStatus(booking._id.toString(), "CANCELLED");
       }
 
-      return res.status(204).send();
+      return res.status(200).json({ success: true });
     } catch (err: any) {
-      console.error("[BookingController.handleMomoIPN] Error handling IPN callback:", err);
+      console.error("[BookingController.handlePayOSWebhook] Error handling webhook callback:", err);
       return res.status(500).json({ message: err?.message || "Internal Server Error" });
     }
   }

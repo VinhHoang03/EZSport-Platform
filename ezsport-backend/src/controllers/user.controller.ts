@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { User } from "../models/user.model";
+import CheckIn from "../models/checkin.model";
+import { Playmate } from "../models/playmate.model";
 
 // GET /api/users/me
 export const getMe = async (req: Request, res: Response) => {
@@ -10,7 +12,17 @@ export const getMe = async (req: Request, res: Response) => {
     const user = await User.findById(userId).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ message: "Get profile success", data: user });
+    const checkInCount = await CheckIn.countDocuments({ user: userId });
+    const playmateCount = await Playmate.countDocuments({ participants: userId });
+
+    res.status(200).json({
+      message: "Get profile success",
+      data: {
+        ...user.toObject(),
+        checkInCount,
+        playmateCount,
+      }
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -42,7 +54,17 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     if (!updated) return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ message: "Profile updated", data: updated });
+    const checkInCount = await CheckIn.countDocuments({ user: userId });
+    const playmateCount = await Playmate.countDocuments({ participants: userId });
+
+    res.status(200).json({
+      message: "Profile updated",
+      data: {
+        ...updated.toObject(),
+        checkInCount,
+        playmateCount,
+      }
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

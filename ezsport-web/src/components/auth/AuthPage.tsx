@@ -745,9 +745,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       />
                     </Form.Group>
 
-                    {/* Email (optional) */}
                     <Form.Group className="mb-3">
-                      <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email (tùy chọn)</Form.Label>
+                      <Form.Label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>Email</Form.Label>
                       <Form.Control
                         type="email"
                         placeholder="an.nguyen@example.com"
@@ -755,6 +754,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         style={{ borderRadius: '10px', fontSize: '14px', borderColor: '#e2e8f0', background: '#f8fafc' }}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        required
                       />
                     </Form.Group>
 

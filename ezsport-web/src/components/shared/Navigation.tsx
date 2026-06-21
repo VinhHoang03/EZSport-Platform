@@ -36,7 +36,7 @@ const Navigation: React.FC<NavigationProps> = ({
     <>
       <Navbar 
         bg="white" 
-        className="px-4 py-3 shadow-sm sticky-top border-bottom" 
+        className="main-navigation px-4 py-3 shadow-sm sticky-top border-bottom"
         style={{ 
           zIndex: 1050, 
           fontFamily: "'Inter', sans-serif",
@@ -52,8 +52,9 @@ const Navigation: React.FC<NavigationProps> = ({
             className="d-flex align-items-center cursor-pointer" 
             style={{ cursor: 'pointer' }}
           >
-            <div style={{ width: 210, height: 60, display: 'flex', alignItems: 'center', position: 'relative', overflow: 'visible' }}>
+            <div className="navigation-logo" style={{ width: 210, height: 60, display: 'flex', alignItems: 'center', position: 'relative', overflow: 'visible' }}>
               <img 
+                className="navigation-logo-image"
                 src="/logo3.png" 
                 alt="EZSport Logo" 
                 style={{ 
@@ -150,7 +151,7 @@ const Navigation: React.FC<NavigationProps> = ({
 
             {/* Grouped icon pill — only show when logged in */}
             {isAuthenticated && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#f1f5f9', borderRadius: '999px', padding: '4px 6px' }}>
+              <div className="navigation-actions" style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#f1f5f9', borderRadius: '999px', padding: '4px 6px' }}>
                 {[
                   { icon: 'notifications', title: 'Thông báo' },
                   { icon: 'favorite', title: 'Yêu thích' },
@@ -190,7 +191,7 @@ const Navigation: React.FC<NavigationProps> = ({
                       <span style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', borderRadius: '50%', background: '#22c55e', border: '1.5px solid #fff' }} />
                     </div>
                     {/* Short name */}
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="navigation-user-name" style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {user?.fullName?.split(' ').slice(-1)[0] || 'Tài khoản'}
                     </span>
                     <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#94a3b8' }}>expand_more</span>

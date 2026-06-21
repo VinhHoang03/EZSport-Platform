@@ -4,8 +4,8 @@ import { verifyToken } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 
-// Public webhook route for MoMo IPN payments
-router.post("/momo-ipn", bookingController.handleMomoIPN.bind(bookingController));
+// Public webhook route for PayOS payments
+router.post("/payos-webhook", bookingController.handlePayOSWebhook.bind(bookingController));
 
 // Public route: Available slots (no auth required so users can check before booking)
 router.get("/slots/:courtId", bookingController.getAvailableSlots.bind(bookingController));

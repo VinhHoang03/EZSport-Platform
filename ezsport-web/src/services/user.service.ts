@@ -10,6 +10,8 @@ export interface UserProfile {
   role?: string;
   loyaltyPoints?: number;
   createdAt?: string;
+  checkInCount?: number;
+  playmateCount?: number;
 }
 
 export const userService = {
