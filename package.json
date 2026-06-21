@@ -1,0 +1,24 @@
+{
+  "name": "ezsport-platform",
+  "version": "1.0.0",
+  "description": "EZSport Platform - Backend & Web",
+  "private": true,
+  "scripts": {
+    "backend:dev": "npm run dev --prefix ezsport-backend",
+    "backend:build": "npm run build --prefix ezsport-backend",
+    "backend:start": "npm run start --prefix ezsport-backend",
+    "web:dev": "npm run dev --prefix ezsport-web",
+    "web:build": "npm run build --prefix ezsport-web",
+    "web:preview": "npm run preview --prefix ezsport-web",
+    "dev": "concurrently --names \"BACKEND,WEB\" --prefix-colors \"cyan,magenta\" \"npm run backend:dev\" \"npm run web:dev\"",
+    "build": "npm run backend:build && npm run web:build",
+    "install:all": "npm install --prefix ezsport-backend && npm install --prefix ezsport-web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "@payos/node": "^2.0.5",
+    "ezsport-platform": "file:"
+  }
+}
