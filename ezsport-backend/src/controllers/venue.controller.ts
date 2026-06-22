@@ -6,11 +6,23 @@ import { calculateDistance } from "../utils/distance.util";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Các môn thể thao được phép */
+const ALLOWED_SPORTS = ['badminton', 'pickleball'];
+
 /** Parse sportTypes from body — accepts string or JSON array */
 const parseSportTypes = (raw: any): string[] => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.map(String);
   try { return JSON.parse(raw); } catch { return [String(raw)]; }
+};
+
+/** Validate sportTypes — chỉ cho phép pickleball và badminton */
+const validateSportTypes = (sportTypes: string[]): string | null => {
+  const invalid = sportTypes.filter(s => !ALLOWED_SPORTS.includes(s.toLowerCase()));
+  if (invalid.length > 0) {
+    return `Môn thể thao không hợp lệ: "${invalid.join('", "')}". Hệ thống chỉ hỗ trợ: ${ALLOWED_SPORTS.join(', ')}.`;
+  }
+  return null;
 };
 
 /** Parse amenities from body — accepts JSON string or array */
@@ -95,6 +107,8 @@ export const createVenue = async (req: Request, res: Response) => {
     if (!body.sportTypes.length) {
       return res.status(400).json({ message: "sportTypes là bắt buộc" });
     }
+    const sportError = validateSportTypes(body.sportTypes);
+    if (sportError) return res.status(400).json({ message: sportError });
 
     // Backward compat: keep emoji from first sport if not provided
     if (!body.emoji) {
@@ -131,6 +145,8 @@ export const updateVenue = async (req: Request, res: Response) => {
 
     if (body.sportTypes || body.sportType) {
       body.sportTypes = parseSportTypes(body.sportTypes ?? body.sportType);
+      const sportError = validateSportTypes(body.sportTypes);
+      if (sportError) return res.status(400).json({ message: sportError });
     }
 
     const amenities = parseAmenities(body.amenities);

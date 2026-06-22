@@ -27,7 +27,7 @@ const CourtSchema: Schema = new Schema<ICourt>(
     name: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     images: { type: [String], default: [] },
-    sportTypes: { type: [String], required: true },
+    sportTypes: { type: [String], required: true, enum: ['badminton', 'pickleball'] },
     courtType: { type: String, enum: ['indoor', 'outdoor'] },
     emoji: { type: String, default: '🏟️' },
     pricePerHour: { type: Number, required: true, min: 0 },
