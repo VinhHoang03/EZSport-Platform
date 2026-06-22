@@ -13,6 +13,10 @@ export interface IUser extends Document {
   updatedAt: Date;
   lastLogin?: Date;
   loyaltyPoints?: number;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankQrCode?: string;
 }
 
 export interface IUserDocument extends IUser, Document {}
@@ -37,6 +41,10 @@ export interface IUserDocument extends IUser, Document {}
       },
       lastLogin: { type: Date, default: null },
       loyaltyPoints: { type: Number, default: 0, min: 0 },
+      bankName: { type: String, required: false },
+      bankAccountName: { type: String, required: false },
+      bankAccountNumber: { type: String, required: false },
+      bankQrCode: { type: String, required: false },
     },
     { timestamps: true }
   );

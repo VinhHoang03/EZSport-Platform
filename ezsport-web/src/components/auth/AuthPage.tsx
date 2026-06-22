@@ -13,7 +13,7 @@ interface AuthPageProps {
   initialAccountType?: AccountType;
 }
 
-type AccountType = 'player' | 'owner' | 'shop';
+type AccountType = 'player' | 'owner';
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   onBackToLanding,
@@ -616,12 +616,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         title: 'Chủ sân',
                         desc: 'Đăng sân, quản lý lịch, tăng doanh thu',
                         icon: 'stadium'
-                      },
-                      {
-                        type: 'shop' as AccountType,
-                        title: 'Cửa hàng',
-                        desc: 'Bán đồ thể thao, tiếp cận người chơi',
-                        icon: 'shopping_bag'
                       }
                     ].map(opt => {
                       const isSelected = accountType === opt.type;

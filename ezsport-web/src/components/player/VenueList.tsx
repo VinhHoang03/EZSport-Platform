@@ -86,6 +86,29 @@ const VenueList: React.FC<VenueListProps> = ({
   }
 
   // ── Render 2: Horizontal Detailed List (For Discovery Page) ──
+  // Sort and Paginate for Discovery list
+  const sortedVenues = [...venues].sort((a, b) => {
+    if (sortBy === 'Giá thấp nhất') {
+      const priceA = parseInt((a.price || '').replace(/[^0-9]/g, ''), 10) || 0;
+      const priceB = parseInt((b.price || '').replace(/[^0-9]/g, ''), 10) || 0;
+      return priceA - priceB;
+    }
+    if (sortBy === 'Đánh giá cao nhất') {
+      return (b.rating || 0) - (a.rating || 0);
+    }
+    if (sortBy === 'Gần tôi nhất') {
+      const distA = parseFloat((a.distance || '').replace(/[^0-9.]/g, '')) || 999999;
+      const distB = parseFloat((b.distance || '').replace(/[^0-9.]/g, '')) || 999999;
+      return distA - distB;
+    }
+    return 0;
+  });
+
+  const ITEMS_PER_PAGE = 5;
+  const totalPages = Math.ceil(sortedVenues.length / ITEMS_PER_PAGE);
+  const safeActivePage = Math.min(activePage, totalPages || 1);
+  const paginatedVenues = sortedVenues.slice((safeActivePage - 1) * ITEMS_PER_PAGE, safeActivePage * ITEMS_PER_PAGE);
+
   return (
     <Col md={7} className="h-100 d-flex flex-column bg-white border-end" style={{ fontFamily: "'Inter', sans-serif" }}>
       
@@ -109,7 +132,7 @@ const VenueList: React.FC<VenueListProps> = ({
             {/* Sort Dropdown */}
             <Form.Select 
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => { setSortBy(e.target.value); setActivePage(1); }}
               className="border-0 shadow-sm rounded-pill px-3 py-1.5"
               style={{ 
                 fontSize: '13.5px', 
@@ -172,11 +195,11 @@ const VenueList: React.FC<VenueListProps> = ({
         className="flex-grow-1 overflow-auto px-4 py-3 custom-scrollbar" 
         style={{ background: '#f8fafc' }}
       >
-        {venues.map((venue, i) => (
+        {paginatedVenues.map((venue, i) => (
           <VenueCard 
             key={venue.id} 
             {...venue} 
-            index={i + 1}
+            index={(safeActivePage - 1) * ITEMS_PER_PAGE + i + 1}
             layout="horizontal"
             onDirectionsClick={onDirectionsClick}
             onDetailClick={onDetailClick}
@@ -185,97 +208,98 @@ const VenueList: React.FC<VenueListProps> = ({
         ))}
 
         {/* ── Pagination ── */}
-        <div className="d-flex justify-content-center mt-4 mb-3">
-          <Pagination className="m-0 gap-1" style={{ userSelect: 'none' }}>
-            <Pagination.Item 
-              active={activePage === 1} 
-              onClick={() => setActivePage(1)}
-              linkStyle={{
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                background: activePage === 1 ? '#1a6b3c' : 'transparent',
-                color: activePage === 1 ? '#ffffff' : '#64748b'
-              }}
-            >
-              1
-            </Pagination.Item>
-            <Pagination.Item 
-              active={activePage === 2} 
-              onClick={() => setActivePage(2)}
-              linkStyle={{
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                background: activePage === 2 ? '#1a6b3c' : 'transparent',
-                color: activePage === 2 ? '#ffffff' : '#64748b'
-              }}
-            >
-              2
-            </Pagination.Item>
-            <Pagination.Item 
-              active={activePage === 3} 
-              onClick={() => setActivePage(3)}
-              linkStyle={{
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                background: activePage === 3 ? '#1a6b3c' : 'transparent',
-                color: activePage === 3 ? '#ffffff' : '#64748b'
-              }}
-            >
-              3
-            </Pagination.Item>
-            <Pagination.Ellipsis 
-              linkStyle={{
-                border: 'none',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#94a3b8'
-              }}
-            />
-            <Pagination.Item 
-              active={activePage === 12} 
-              onClick={() => setActivePage(12)}
-              linkStyle={{
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                background: activePage === 12 ? '#1a6b3c' : 'transparent',
-                color: activePage === 12 ? '#ffffff' : '#64748b'
-              }}
-            >
-              12
-            </Pagination.Item>
-          </Pagination>
-        </div>
+        {totalPages > 1 && (
+          <div className="d-flex justify-content-center mt-4 mb-3">
+            <Pagination className="m-0 gap-1" style={{ userSelect: 'none' }}>
+              <Pagination.First
+                disabled={safeActivePage === 1}
+                onClick={() => setActivePage(1)}
+                linkStyle={{
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: safeActivePage === 1 ? '#cbd5e1' : '#64748b',
+                  background: 'transparent'
+                }}
+              />
+              <Pagination.Prev
+                disabled={safeActivePage === 1}
+                onClick={() => setActivePage(safeActivePage - 1)}
+                linkStyle={{
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: safeActivePage === 1 ? '#cbd5e1' : '#64748b',
+                  background: 'transparent'
+                }}
+              />
+              {Array.from({ length: totalPages }).map((_, idx) => {
+                const p = idx + 1;
+                const isCurrent = p === safeActivePage;
+                return (
+                  <Pagination.Item 
+                    key={p}
+                    active={isCurrent} 
+                    onClick={() => setActivePage(p)}
+                    linkStyle={{
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '13.5px',
+                      fontWeight: '700',
+                      background: isCurrent ? '#1a6b3c' : 'transparent',
+                      color: isCurrent ? '#ffffff' : '#64748b'
+                    }}
+                  >
+                    {p}
+                  </Pagination.Item>
+                );
+              })}
+              <Pagination.Next
+                disabled={safeActivePage === totalPages}
+                onClick={() => setActivePage(safeActivePage + 1)}
+                linkStyle={{
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: safeActivePage === totalPages ? '#cbd5e1' : '#64748b',
+                  background: 'transparent'
+                }}
+              />
+              <Pagination.Last
+                disabled={safeActivePage === totalPages}
+                onClick={() => setActivePage(totalPages)}
+                linkStyle={{
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: safeActivePage === totalPages ? '#cbd5e1' : '#64748b',
+                  background: 'transparent'
+                }}
+              />
+            </Pagination>
+          </div>
+        )}
 
       </div>
 

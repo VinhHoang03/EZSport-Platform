@@ -34,16 +34,29 @@ export const updateProfile = async (req: Request, res: Response) => {
     const userId = req.user?.id || req.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { fullName, phone, email } = req.body;
+    const { fullName, phone, email, bankName, bankAccountName, bankAccountNumber } = req.body;
     const updateData: any = {};
 
     if (fullName) updateData.fullName = fullName;
     if (phone !== undefined) updateData.phone = phone;
     if (email !== undefined) updateData.email = email;
+    if (bankName !== undefined) updateData.bankName = bankName;
+    if (bankAccountName !== undefined) updateData.bankAccountName = bankAccountName;
+    if (bankAccountNumber !== undefined) updateData.bankAccountNumber = bankAccountNumber;
 
     // Handle avatar upload (Cloudinary via multer)
     if (req.file?.path) {
       updateData.avatar = req.file.path;
+    }
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    if (files) {
+      if (files.avatar?.[0]?.path) {
+        updateData.avatar = files.avatar[0].path;
+      }
+      if (files.bankQrCode?.[0]?.path) {
+        updateData.bankQrCode = files.bankQrCode[0].path;
+      }
     }
 
     const updated = await User.findByIdAndUpdate(
