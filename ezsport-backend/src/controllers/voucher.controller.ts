@@ -47,6 +47,9 @@ export const createVoucher = async (req: Request, res: Response) => {
 
     return res.status(201).json({ message: "Voucher created", data: voucher });
   } catch (err: any) {
+    if (err.code === 11000 || err.message?.includes("11000") || err.message?.includes("duplicate key")) {
+      return res.status(400).json({ message: "Mã voucher này đã tồn tại trong hệ thống. Vui lòng nhập mã khác." });
+    }
     return res.status(400).json({ message: err?.message || "Cannot create voucher" });
   }
 };
@@ -145,6 +148,9 @@ export const redeemVoucher = async (req: Request, res: Response) => {
       totalPoints: user.loyaltyPoints,
     });
   } catch (err: any) {
+    if (err.code === 11000 || err.message?.includes("11000") || err.message?.includes("duplicate key")) {
+      return res.status(400).json({ message: "Bạn đã đổi voucher này rồi" });
+    }
     return res.status(400).json({ message: err?.message || "Cannot redeem voucher" });
   }
 };

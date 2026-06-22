@@ -4,6 +4,11 @@ import {
   getRevenueChart,
   getTopCourts,
   getOwnerTransactions,
+  getAdminStats,
+  getAdminRevenueChart,
+  getAdminRecentActivities,
+  getAdminSportMix,
+  getAdminTransactions,
 } from "../controllers/analytics.controller";
 import { verifyToken, authorizeRoles } from "../middlewares/auth.middleware";
 
@@ -14,5 +19,12 @@ router.get("/owner/stats", verifyToken as any, authorizeRoles("owner"), getOwner
 router.get("/owner/revenue-chart", verifyToken as any, authorizeRoles("owner"), getRevenueChart as any);
 router.get("/owner/top-courts", verifyToken as any, authorizeRoles("owner"), getTopCourts as any);
 router.get("/owner/transactions", verifyToken as any, authorizeRoles("owner"), getOwnerTransactions as any);
+
+// Các routes thống kê cho admin
+router.get("/admin/stats", verifyToken as any, authorizeRoles("admin"), getAdminStats as any);
+router.get("/admin/revenue-chart", verifyToken as any, authorizeRoles("admin"), getAdminRevenueChart as any);
+router.get("/admin/recent-activities", verifyToken as any, authorizeRoles("admin"), getAdminRecentActivities as any);
+router.get("/admin/sport-mix", verifyToken as any, authorizeRoles("admin"), getAdminSportMix as any);
+router.get("/admin/transactions", verifyToken as any, authorizeRoles("admin"), getAdminTransactions as any);
 
 export default router;

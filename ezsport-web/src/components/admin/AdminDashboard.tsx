@@ -5,6 +5,7 @@ import { voucherService, type Voucher } from '../../services/voucher.service';
 import { venueService, type Venue } from '../../services/venue.service';
 import { CreateVoucherModal, type VoucherFormData } from './CreateVoucherModal';
 import { EditVoucherModal } from './EditVoucherModal';
+import { adminService, type AdminStatsData, type AdminRevenueChartData, type AdminRecentActivity, type AdminSportMixData } from '../../services/admin.service';
 
 interface AdminDashboardProps {
   onGoHome: () => void;
@@ -26,28 +27,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
   // New States for User Directory (Danh bạ Người dùng)
   const [playerStatusFilter, setPlayerStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
-  
-  const [players, setPlayers] = useState([
-    { id: '#EZP-9021', name: 'Hoàng Nam', email: 'hoangnam@gmail.com', date: '12/03/2024', bookings: 42, spend: 12500000, status: 'active', img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60' },
-    { id: '#EZP-8854', name: 'Minh Thư', email: 'minhthu.kd@gmail.com', date: '05/03/2024', bookings: 15, spend: 4200000, status: 'active', img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&auto=format&fit=crop&q=60' },
-    { id: '#EZP-7612', name: 'Anh Tuấn', email: 'tuananh96@yahoo.com', date: '28/02/2024', bookings: 9, spend: 1500000, status: 'blocked', img: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=80&auto=format&fit=crop&q=60' },
-    { id: '#EZP-7501', name: 'Khánh Hoàng', email: 'hoangkhanh_sport@gmail.com', date: '20/02/2024', bookings: 22, spend: 6800000, status: 'active', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=60' }
-  ]);
+
+  const [players, setPlayers] = useState<any[]>([]);
 
   // States for Owner Management (Quản lý Chủ sân)
   const [ownerStatusFilter, setOwnerStatusFilter] = useState<'all' | 'verified' | 'pending' | 'locked'>('all');
 
-  const [owners, setOwners] = useState([
-    { id: '#EZ-1092', name: 'Nguyễn Văn An', email: 'annguyen@example.com', phone: '090-123-4567', venues: 4, status: 'verified', initials: 'NV', avatarBg: '#1e293b' },
-    { id: '#EZ-1085', name: 'Trần Thị Hoa', email: 'hoa.tran@ezcourt.vn', phone: '091-557-8843', venues: 2, status: 'pending', initials: 'TH', avatarBg: '#22c55e' },
-    { id: '#EZ-1072', name: 'Lê Văn Minh', email: 'minhle@outlook.com', phone: '084-222-3333', venues: 1, status: 'locked', initials: 'LM', avatarBg: '#ef4444' }
-  ]);
+  const [owners, setOwners] = useState<any[]>([]);
 
-  const [pendingRequests, setPendingRequests] = useState([
-    { id: 'REQ-101', venue: 'Sân bóng Đại Việt', owner: 'Phan Hùng Cường', time: '3 giờ trước', initials: 'PC', img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=80&auto=format&fit=crop&q=60' },
-    { id: 'REQ-102', venue: 'Tennis Academy', owner: 'Lý Bảo Ngọc', time: '5 giờ trước', initials: 'BN', img: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=80&auto=format&fit=crop&q=60' },
-    { id: 'REQ-103', venue: 'Cầu lông Ngôi Sao', owner: 'Đặng Mỹ Linh', time: '1 ngày trước', initials: 'ML', img: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=80&auto=format&fit=crop&q=60' }
-  ]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
 
   // States for Marketing & Promotion Management
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -55,22 +43,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   const [showEditVoucherModal, setShowEditVoucherModal] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
 
-  const [banners, setBanners] = useState([
-    { id: 'b1', title: 'Chiến dịch Mùa Hè Rực Lửa', link: 'ezsport.vn/may-day-mobi', views: '12.8k', clicks: '2,560', img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=200&auto=format&fit=crop&q=60' },
-    { id: 'b2', title: 'Giải Quần Vợt Mở Rộng 2024', link: 'ezsport.vn/tennis-open', views: '8.5k', clicks: '1,120', img: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=200&auto=format&fit=crop&q=60' }
-  ]);
+  const [banners, setBanners] = useState<{ id: string; title: string; link: string; views: string; clicks: string; img: string }[]>(() => {
+    const stored = localStorage.getItem('ezsport_banners');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error('Error parsing stored banners:', e);
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ezsport_banners', JSON.stringify(banners));
+  }, [banners]);
 
   const [pushTitle, setPushTitle] = useState('');
   const [pushBody, setPushBody] = useState('');
   const [pushTarget, setPushTarget] = useState('Tất cả người dùng');
 
   // Transactions State
-  const [transactions, setTransactions] = useState([
-    { id: 'RLD-08221', venue: 'Sân bóng Đại Nam', owner: 'Nguyễn Văn A', value: 450000, rate: 10, commission: 45000, status: 'paid', img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=80&auto=format&fit=crop&q=60' },
-    { id: 'JKF-94043', venue: 'Sân Tennis Hòa Bình', owner: 'Trần Thị B', value: 800000, rate: 10, commission: 80000, status: 'processing', img: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=80&auto=format&fit=crop&q=60' },
-    { id: 'HZX-88295', venue: 'CLB Cầu Lông Ngôi Sao', owner: 'Lê Văn C', value: 200000, rate: 10, commission: 20000, status: 'pending', img: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=80&auto=format&fit=crop&q=60' },
-    { id: 'RLD-98207', venue: 'Sân bóng 365', owner: 'Phạm Minh D', value: 600000, rate: 10, commission: 60000, status: 'paid', img: 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?w=80&auto=format&fit=crop&q=60' },
-  ]);
+  const [transactions, setTransactions] = useState<any[]>([]);
 
   const [venues, setVenues] = useState<Venue[]>([]);
 
@@ -80,6 +74,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   const [configWeeklyDiscount, setConfigWeeklyDiscount] = useState(5);
   const [configMonthlyDiscount, setConfigMonthlyDiscount] = useState(15);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [selectedOwnerForView, setSelectedOwnerForView] = useState<any | null>(null);
+  const [showOwnerDetailsModal, setShowOwnerDetailsModal] = useState(false);
+
+  // States for user directory dashboard metrics
+  const [totalPlayersCount, setTotalPlayersCount] = useState(0);
+  const [totalPlayersGrowth, setTotalPlayersGrowth] = useState(0);
+  const [newPlayersCount, setNewPlayersCount] = useState(0);
+  const [newPlayersGrowth, setNewPlayersGrowth] = useState(0);
+  const [onlinePlayersCount, setOnlinePlayersCount] = useState(0);
+
+  // Pagination states
+  const [playersPage, setPlayersPage] = useState(1);
+  const [ownersPage, setOwnersPage] = useState(1);
+  const [transactionsPage, setTransactionsPage] = useState(1);
+  const [vouchersPage, setVouchersPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
+
+  const [systemStats, setSystemStats] = useState<AdminStatsData | null>(null);
+  const [revenueChart, setRevenueChart] = useState<AdminRevenueChartData[]>([]);
+  const [recentActivities, setRecentActivities] = useState<AdminRecentActivity[]>([]);
+  const [sportMix, setSportMix] = useState<AdminSportMixData[]>([]);
+
+  const fetchAdminStats = async () => {
+    try {
+      const [statsRes, chartRes, activitiesRes, sportMixRes, transactionsRes] = await Promise.all([
+        adminService.getStats(),
+        adminService.getRevenueChart(),
+        adminService.getRecentActivities(),
+        adminService.getSportMix(),
+        adminService.getTransactions()
+      ]);
+      setSystemStats(statsRes);
+      setRevenueChart(chartRes);
+      setRecentActivities(activitiesRes);
+      setSportMix(sportMixRes);
+      setTransactions(transactionsRes);
+    } catch (error) {
+      console.error('Lỗi tải thống kê hệ thống:', error);
+    }
+  };
 
   const menuItems = [
     { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
@@ -96,6 +130,122 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
     return num.toLocaleString('vi-VN') + 'đ';
   };
 
+  const fetchUsersData = async () => {
+    try {
+      const allUsers = await adminService.getUsers();
+
+      // Filter players
+      const realPlayers = allUsers
+        .filter(u => u.role === 'player')
+        .map(u => ({
+          id: u._id,
+          name: u.fullName,
+          email: u.email || '',
+          date: u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '',
+          bookings: 0,
+          spend: 0,
+          status: u.status === 'active' ? 'active' : 'blocked',
+          img: u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.fullName)}&background=1a6b3c&color=fff`,
+        }));
+      setPlayers(realPlayers);
+
+      // Filter owners
+      const realOwners = allUsers
+        .filter(u => u.role === 'owner')
+        .map(u => {
+          const initials = u.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
+          const avatarColors = ['#1e293b', '#22c55e', '#ef4444', '#0f3d22', '#3b82f6'];
+          const hash = u._id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+          const avatarBg = avatarColors[hash % avatarColors.length];
+
+          return {
+            id: u._id,
+            name: u.fullName,
+            email: u.email || '',
+            phone: u.phone || '',
+            venues: 0,
+            status: u.status === 'active' ? 'verified' : u.status === 'inactive' ? 'pending' : 'locked',
+            initials,
+            avatarBg,
+            bankName: u.bankName || '',
+            bankAccountName: u.bankAccountName || '',
+            bankAccountNumber: u.bankAccountNumber || '',
+            bankQrCode: u.bankQrCode || '',
+          };
+        });
+      setOwners(realOwners);
+
+      // Filter pending requests (inactive owners)
+      const realPending = allUsers
+        .filter(u => u.role === 'owner' && u.status === 'inactive')
+        .map(u => {
+          const initials = u.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
+          return {
+            id: u._id,
+            venue: 'Yêu cầu đăng ký chủ sân',
+            owner: u.fullName,
+            time: u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : 'Đang chờ',
+            initials,
+            img: u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.fullName)}&background=1a6b3c&color=fff`,
+          };
+        });
+      setPendingRequests(realPending);
+
+      // Calculate dashboard player directory metrics
+      const playersList = allUsers.filter(u => u.role === 'player');
+      setTotalPlayersCount(playersList.length);
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      const newCount = playersList.filter(u => {
+        if (!u.createdAt) return false;
+        return new Date(u.createdAt) >= startOfMonth;
+      }).length;
+      setNewPlayersCount(newCount);
+
+      const lastMonthCount = playersList.filter(u => {
+        if (!u.createdAt) return false;
+        const d = new Date(u.createdAt);
+        return d >= startOfLastMonth && d <= endOfLastMonth;
+      }).length;
+
+      let growthPercent = 0;
+      if (lastMonthCount > 0) {
+        growthPercent = Math.round(((newCount - lastMonthCount) / lastMonthCount) * 100);
+      } else if (newCount > 0) {
+        growthPercent = 100;
+      }
+      setNewPlayersGrowth(growthPercent);
+
+      const totalLastMonth = playersList.filter(u => {
+        if (!u.createdAt) return false;
+        return new Date(u.createdAt) < startOfMonth;
+      }).length;
+
+      let totalGrowthPercent = 0;
+      if (totalLastMonth > 0) {
+        totalGrowthPercent = Math.round(((playersList.length - totalLastMonth) / totalLastMonth) * 100);
+      } else if (playersList.length > 0) {
+        totalGrowthPercent = 100;
+      }
+      setTotalPlayersGrowth(totalGrowthPercent);
+
+      // Define "Online" as users who logged in within last 30 minutes, minimum 1
+      const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const onlineCount = allUsers.filter(u => {
+        if (!u.lastLogin) return false;
+        return new Date(u.lastLogin) >= thirtyMinsAgo;
+      }).length;
+      setOnlinePlayersCount(Math.max(1, onlineCount));
+
+    } catch (error) {
+      console.error('Lỗi tải danh sách người dùng:', error);
+    }
+  };
+
   const fetchVenues = () => {
     venueService.getVenues()
       .then(setVenues)
@@ -107,6 +257,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
       .then(setVouchers)
       .catch((err) => alert(err?.response?.data?.message || 'Khong the tai danh sach voucher'));
     fetchVenues();
+    fetchUsersData();
+    fetchAdminStats();
   }, []);
 
   // Dynamic Commission Rate updates
@@ -128,139 +280,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
     }
   };
 
-  // Create mock payout
-  const handleCreatePayout = () => {
-    const venue = prompt('Nhập tên câu lạc bộ / Sân nhận thanh toán:');
-    const valueStr = prompt('Nhập số tiền chuyển khoản (VND):');
-    const owner = prompt('Nhập tên chủ sân nhận thụ hưởng:');
-    
-    if (venue && valueStr && owner) {
-      const val = parseInt(valueStr, 10);
-      if (!isNaN(val)) {
-        const newTx = {
-          id: `RLD-${Math.floor(10000 + Math.random() * 90000)}`,
-          venue,
-          owner,
-          value: val,
-          rate: commissionRate,
-          commission: Math.round(val * (commissionRate / 100)),
-          status: 'processing',
-          img: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=80&auto=format&fit=crop&q=60'
-        };
-        setTransactions(prev => [newTx, ...prev]);
-        alert(`💸 Đã tạo lệnh thanh toán cho chủ sân ${owner} trị giá ${formatVND(val)} thành công!`);
-      }
-    }
-  };
 
-  // Create mock player
-  const handleCreatePlayer = () => {
-    const name = prompt('Nhập họ tên người chơi mới:');
-    const email = prompt('Nhập địa chỉ email người chơi:');
-    const bookingsStr = prompt('Nhập số lượt đặt sân khởi tạo (ví dụ: 0):');
-    const spendStr = prompt('Nhập số tiền chi tiêu (VND, ví dụ: 0):');
-    
-    if (name && email) {
-      const bookings = parseInt(bookingsStr || '0', 10) || 0;
-      const spend = parseInt(spendStr || '0', 10) || 0;
-      const newPlayer = {
-        id: `#EZP-${Math.floor(1000 + Math.random() * 9000)}`,
-        name,
-        email,
-        date: new Date().toLocaleDateString('vi-VN'),
-        bookings,
-        spend,
-        status: 'active',
-        img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=60'
-      };
-      setPlayers(prev => [newPlayer, ...prev]);
-      alert(`🎉 Đã thêm người chơi ${name} vào danh bạ thành công!`);
-    }
-  };
 
   // Block/Unblock Player
-  const handleTogglePlayerStatus = (id: string) => {
-    setPlayers(prev => prev.map(p => {
-      if (p.id === id) {
-        const nextStatus = p.status === 'active' ? 'blocked' : 'active';
-        alert(`🔒 Đã chuyển đổi trạng thái của người chơi ${p.name} thành: ${nextStatus === 'active' ? 'HOẠT ĐỘNG' : 'BỊ CHẶN'}!`);
-        return { ...p, status: nextStatus };
-      }
-      return p;
-    }));
+  const handleTogglePlayerStatus = async (id: string) => {
+    const player = players.find(p => p.id === id);
+    if (!player) return;
+    const nextStatus = player.status === 'active' ? 'banned' : 'active';
+    try {
+      await adminService.updateUserStatus(id, nextStatus);
+      alert(`🔒 Đã chuyển đổi trạng thái của người chơi ${player.name} thành: ${nextStatus === 'active' ? 'HOẠT ĐỘNG' : 'BỊ CHẶN'}!`);
+      fetchUsersData();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Lỗi cập nhật trạng thái');
+    }
   };
 
   // Delete Player
-  const handleDeletePlayer = (id: string) => {
+  const handleDeletePlayer = async (id: string) => {
     const confirm = window.confirm('⚠️ Bạn có chắc chắn muốn xóa người dùng này khỏi hệ thống EZSport?');
     if (confirm) {
-      setPlayers(prev => prev.filter(p => p.id !== id));
-      alert('🗑️ Đã xóa tài khoản người chơi thành công!');
+      try {
+        await adminService.deleteUser(id);
+        alert('🗑️ Đã xóa tài khoản người chơi thành công!');
+        fetchUsersData();
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Lỗi xóa người chơi');
+      }
     }
   };
 
   // Owner Management Specific Operations
   const handleCreateOwner = () => {
-    const name = prompt('Nhập tên chủ sân mới:');
-    const email = prompt('Nhập địa chỉ email chủ sân:');
-    const phone = prompt('Nhập số điện thoại liên hệ:');
-    const venuesStr = prompt('Nhập số lượng sân sở hữu (ví dụ: 1):');
-    
-    if (name && email && phone) {
-      const venues = parseInt(venuesStr || '1', 10) || 1;
-      const initials = name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
-      const colors = ['#1e293b', '#22c55e', '#ef4444', '#0f3d22', '#3b82f6'];
-      const avatarBg = colors[Math.floor(Math.random() * colors.length)];
-      
-      const newOwner = {
-        id: `#EZ-${Math.floor(1000 + Math.random() * 9000)}`,
-        name,
-        email,
-        phone,
-        venues,
-        status: 'verified',
-        initials,
-        avatarBg
-      };
-      
-      setOwners(prev => [newOwner, ...prev]);
-      alert(`🎉 Đã thêm chủ sân ${name} vào danh sách thành công!`);
+    alert('Vui lòng sử dụng giao diện đăng ký của Chủ sân để tạo tài khoản mới.');
+  };
+
+  const handleToggleOwnerStatus = async (id: string) => {
+    const owner = owners.find(o => o.id === id);
+    if (!owner) return;
+    const nextStatus = owner.status === 'verified' ? 'banned' : 'active';
+    try {
+      await adminService.updateUserStatus(id, nextStatus);
+      alert(`🔒 Trạng thái chủ sân ${owner.name} đã được chuyển sang: ${nextStatus === 'active' ? 'ĐÃ XÁC MINH' : 'TẠM KHÓA'}!`);
+      fetchUsersData();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Lỗi cập nhật trạng thái');
     }
   };
 
-  const handleToggleOwnerStatus = (id: string) => {
-    setOwners(prev => prev.map(o => {
-      if (o.id === id) {
-        const nextStatus = o.status === 'verified' ? 'locked' : 'verified';
-        alert(`🔒 Trạng thái chủ sân ${o.name} đã được chuyển sang: ${nextStatus === 'verified' ? 'ĐÃ XÁC MINH' : 'TẠM KHÓA'}!`);
-        return { ...o, status: nextStatus };
-      }
-      return o;
-    }));
+  const handleApproveRequest = async (id: string, ownerName: string) => {
+    try {
+      await adminService.updateUserStatus(id, 'active');
+      alert(`✓ Đã phê duyệt và kích hoạt tài khoản của chủ sân ${ownerName} thành công!`);
+      fetchUsersData();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Lỗi phê duyệt chủ sân');
+    }
   };
 
-  const handleApproveRequest = (id: string, venue: string, ownerName: string) => {
-    setPendingRequests(prev => prev.filter(r => r.id !== id));
-    const initials = ownerName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
-    const newOwner = {
-      id: `#EZ-${Math.floor(1000 + Math.random() * 9000)}`,
-      name: ownerName,
-      email: `${ownerName.toLowerCase().replace(/\s+/g, '')}@ezcourt.vn`,
-      phone: '090-' + Math.floor(100000 + Math.random() * 900000),
-      venues: 1,
-      status: 'verified',
-      initials,
-      avatarBg: '#22c55e'
-    };
-    setOwners(prev => [newOwner, ...prev]);
-    alert(`✓ Đã phê duyệt và kích hoạt tài khoản câu lạc bộ "${venue}" của chủ sân ${ownerName} thành công!`);
-  };
-
-  const handleRejectRequest = (id: string, venue: string) => {
-    const confirm = window.confirm(`❌ Bạn có chắc chắn muốn từ chối yêu cầu đăng ký của sân "${venue}"?`);
+  const handleRejectRequest = async (id: string) => {
+    const confirm = window.confirm(`❌ Bạn có chắc chắn muốn từ chối yêu cầu đăng ký của chủ sân này không?`);
     if (confirm) {
-      setPendingRequests(prev => prev.filter(r => r.id !== id));
-      alert(`Đã từ chối đăng ký của sân "${venue}".`);
+      try {
+        await adminService.deleteUser(id);
+        alert(`Đã từ chối và xóa yêu cầu đăng ký.`);
+        fetchUsersData();
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Lỗi từ chối yêu cầu');
+      }
     }
   };
 
@@ -280,12 +367,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
     try {
       // Call API to update voucher
       await voucherService.update(voucherId, voucherData);
-      
+
       // Update local state
-      setVouchers(prev => prev.map(v => 
+      setVouchers(prev => prev.map(v =>
         v._id === voucherId ? { ...v, ...voucherData } : v
       ));
-      
+
       setShowEditVoucherModal(false);
       setSelectedVoucher(null);
       alert('Đã cập nhật voucher thành công!');
@@ -326,7 +413,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   const handleUploadBanner = () => {
     const title = prompt('Nhập tiêu đề banner mới:');
     const link = prompt('Nhập đường liên kết (ví dụ: ezsport.vn/khuyen-mai-hot):');
-    
+
     if (title && link) {
       const newBanner = {
         id: `banner-${Date.now()}`,
@@ -400,36 +487,164 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   // Show all vouchers (no filtering since we removed search)
   const filteredVouchers = vouchers;
 
+  // Helper to map sport names to colors
+  const getSportColor = (sport: string): string => {
+    switch (sport.toLowerCase()) {
+      case 'bóng đá':
+      case 'football':
+      case 'soccer':
+        return '#0f3d22';
+      case 'cầu lông':
+      case 'badminton':
+        return '#22c55e';
+      case 'tennis':
+        return '#3b82f6';
+      case 'pickleball':
+        return '#f59e0b';
+      default:
+        return '#cbd5e1';
+    }
+  };
+
+  // Helper to map activity action to styling info
+  const getActivityIcon = (action: string) => {
+    const actLower = action.toLowerCase();
+    if (actLower.includes('bóng đá') || actLower.includes('football') || actLower.includes('soccer')) {
+      return { icon: 'sports_soccer', bg: '#e6fcf0', color: '#15803d' };
+    }
+    if (actLower.includes('cầu lông') || actLower.includes('badminton')) {
+      return { icon: 'sports_tennis', bg: '#fef3c7', color: '#d97706' };
+    }
+    if (actLower.includes('tennis')) {
+      return { icon: 'sports_tennis', bg: '#e0f2fe', color: '#0369a1' };
+    }
+    if (actLower.includes('pickleball')) {
+      return { icon: 'sports_tennis', bg: '#fae8ff', color: '#a21caf' };
+    }
+    return { icon: 'sports_tennis', bg: '#e0f2fe', color: '#0369a1' };
+  };
+
+  // Compute conic gradient for sport mix donut chart
+  let accumulatedPercent = 0;
+  const gradientSlices = sportMix.map(item => {
+    const start = accumulatedPercent;
+    accumulatedPercent += item.percent;
+    const end = accumulatedPercent;
+    const color = getSportColor(item.sport);
+    return `${color} ${start}% ${end}%`;
+  });
+  const conicGradientString = gradientSlices.length > 0
+    ? `conic-gradient(${gradientSlices.join(', ')})`
+    : 'conic-gradient(#cbd5e1 0% 100%)';
+
+  // Marketing helper variables computed from vouchers list
+  const totalVouchersIssued = vouchers.reduce((sum, v) => sum + (v.quantity || 0), 0);
+  const totalVouchersUsed = vouchers.reduce((sum, v) => sum + (v.usedCount || 0), 0);
+  const totalVouchersRedeemed = vouchers.reduce((sum, v) => sum + (v.redeemedCount || 0), 0);
+  const voucherUsageRate = totalVouchersRedeemed > 0 ? Math.round((totalVouchersUsed / totalVouchersRedeemed) * 100) : 0;
+
+  // Monthly voucher growth
+  const mNow = new Date();
+  const mStartOfMonth = new Date(mNow.getFullYear(), mNow.getMonth(), 1);
+  const mStartOfLastMonth = new Date(mNow.getFullYear(), mNow.getMonth() - 1, 1);
+  const mEndOfLastMonth = new Date(mNow.getFullYear(), mNow.getMonth(), 0);
+
+  const vouchersThisMonth = vouchers.filter(v => v.createdAt && new Date(v.createdAt) >= mStartOfMonth).length;
+  const vouchersLastMonth = vouchers.filter(v => v.createdAt && new Date(v.createdAt) >= mStartOfLastMonth && new Date(v.createdAt) <= mEndOfLastMonth).length;
+  const voucherGrowthPercent = vouchersLastMonth > 0 ? Math.round(((vouchersThisMonth - vouchersLastMonth) / vouchersLastMonth) * 100) : (vouchersThisMonth > 0 ? 100 : 0);
+
+  // Paginated slices for tables
+  const paginatedPlayers = filteredPlayers.slice((playersPage - 1) * ITEMS_PER_PAGE, playersPage * ITEMS_PER_PAGE);
+  const paginatedOwners = filteredOwners.slice((ownersPage - 1) * ITEMS_PER_PAGE, ownersPage * ITEMS_PER_PAGE);
+  const paginatedTransactions = filteredTransactions.slice((transactionsPage - 1) * ITEMS_PER_PAGE, transactionsPage * ITEMS_PER_PAGE);
+  const paginatedVouchers = filteredVouchers.slice((vouchersPage - 1) * ITEMS_PER_PAGE, vouchersPage * ITEMS_PER_PAGE);
+
+  // Reusable pagination controller renderer
+  const renderTablePagination = (currentPage: number, totalItems: number, onPageChange: (p: number) => void) => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
+
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div className="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+        <span style={{ fontSize: '12px', color: TX2, fontWeight: 500 }}>
+          Hiển thị {Math.min(totalItems, (currentPage - 1) * ITEMS_PER_PAGE + 1)}-{Math.min(totalItems, currentPage * ITEMS_PER_PAGE)} của {totalItems} dòng
+        </span>
+
+        <div className="d-flex align-items-center gap-1">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+            style={{
+              border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', padding: '4px 10px', fontSize: '11px', fontWeight: 700,
+              color: currentPage === 1 ? '#cbd5e1' : TX2, cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Trước
+          </button>
+          {pageNumbers.map(num => (
+            <button
+              key={num}
+              onClick={() => onPageChange(num)}
+              style={{
+                border: num === currentPage ? 'none' : `1px solid ${BORDER}`,
+                background: num === currentPage ? PRIMARY : W,
+                color: num === currentPage ? W : TX2,
+                borderRadius: '4px', width: '28px', height: '28px', fontSize: '12px', fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              {num}
+            </button>
+          ))}
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => onPageChange(currentPage + 1)}
+            style={{
+              border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', padding: '4px 10px', fontSize: '11px', fontWeight: 700,
+              color: currentPage === totalPages ? '#cbd5e1' : TX2, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Sau
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: BG, fontFamily: "'Inter', sans-serif" }}>
-      
+
       {/* ─── SIDEBAR ─── */}
-      <div style={{ 
+      <div style={{
         width: '260px', backgroundColor: W, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column',
         zIndex: 10
       }}>
         {/* Top Branding Logo */}
-        <div 
+        <div
           onClick={onGoHome}
-          style={{ 
-            borderBottom: `1px solid ${BORDER}`, padding: '8px 16px', marginBottom: '8px', 
+          style={{
+            borderBottom: `1px solid ${BORDER}`, padding: '8px 16px', marginBottom: '8px',
             cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             overflow: 'visible'
           }}
         >
-          <img 
-            src="/logo2.png" 
-            alt="EZSport Admin Logo" 
-            style={{ 
-              width: '100%', 
-              height: 'auto', 
-              maxHeight: '58px', 
-              objectFit: 'contain', 
-              transform: 'scale(2.9)', 
+          <img
+            src="/logo2.png"
+            alt="EZSport Admin Logo"
+            style={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '58px',
+              objectFit: 'contain',
+              transform: 'scale(2.9)',
               transformOrigin: 'center',
               marginTop: '24px',
               marginBottom: '24px'
-            }} 
+            }}
           />
           <div style={{ fontSize: '10px', color: '#1e40af', fontWeight: 800, marginTop: '18px', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>
             Quản trị hệ thống
@@ -441,7 +656,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
           {menuItems.map(item => {
             const isActive = activeMenu === item.id;
             return (
-              <div 
+              <div
                 key={item.id}
                 onClick={() => setActiveMenu(item.id)}
                 style={{
@@ -463,17 +678,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
         {/* Sidebar bottom footer */}
         <div className="p-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-          <div 
-            className="d-flex align-items-center gap-3 p-2 rounded" 
+          <div
+            className="d-flex align-items-center gap-3 p-2 rounded"
             style={{ color: TX2, fontSize: '14px', fontWeight: 500, cursor: 'pointer', marginBottom: '4px' }}
             onClick={() => alert('📞 Tổng đài hỗ trợ kỹ thuật Admin hoạt động 24/7!')}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>contact_support</span>
             <span>Hỗ trợ</span>
           </div>
-          
-          <div 
-            className="d-flex align-items-center gap-3 p-2 rounded text-danger" 
+
+          <div
+            className="d-flex align-items-center gap-3 p-2 rounded text-danger"
             style={{ fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
             onClick={() => {
               logout();
@@ -488,10 +703,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
       {/* ─── MAIN CONTENT ─── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        
+
         {/* Scrollable Dashboard Viewport */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-          
+
           {activeMenu === 'overview' ? (
             <>
               {/* ─── GENERAL SYSTEM OVERVIEW VIEW ─── */}
@@ -501,7 +716,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                   <h2 style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: 0 }}>Trang Tổng Quan</h2>
                   <p style={{ fontSize: '13px', color: TX2, margin: '2px 0 0 0' }}>Chào mừng trở lại, Huyền. Đây là tình hình vận hành hệ thống hôm nay.</p>
                 </div>
-                
+
                 <div className="d-flex align-items-center gap-2">
                   <Dropdown>
                     <Dropdown.Toggle variant="light" size="sm" style={{ background: W, border: `1px solid ${BORDER}`, borderRadius: '8px', fontWeight: 700, fontSize: '12px', padding: '8px 16px', color: TX }}>
@@ -513,10 +728,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                       <Dropdown.Item>📅 30 ngày qua</Dropdown.Item>
                     </Dropdown.Menu>
                   </Dropdown>
-                  
-                  <Button 
-                    style={{ 
-                      background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '8px 16px', 
+
+                  <Button
+                    style={{
+                      background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '8px 16px',
                       fontSize: '12px', fontWeight: 700, color: W, display: 'flex', alignItems: 'center', gap: '6px',
                       boxShadow: '0 2px 6px rgba(15,61,34,0.15)'
                     }}
@@ -536,8 +751,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div className="d-flex align-items-start justify-content-between">
                       <div>
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tổng doanh thu (GMT)</span>
-                        <div style={{ fontSize: '22px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>2.500.000.000đ</div>
-                        
+                        <div style={{ fontSize: '22px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>
+                          {systemStats ? formatVND(systemStats.totalRevenue) : '0đ'}
+                        </div>
+
                         {/* Premium Soft Mint Green Rounded Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '4px 10px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '13px', fontWeight: 800 }}>trending_up</span>
@@ -556,7 +773,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                       <div>
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lợi nhuận hoa hồng</span>
                         <div style={{ fontSize: '22px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif", borderBottom: '4px solid #16803d', display: 'inline-block', paddingBottom: '2px' }}>
-                          250.000.000đ
+                          {systemStats ? formatVND(systemStats.totalCommissions) : '0đ'}
                         </div>
                       </div>
                       <span className="material-symbols-outlined text-success" style={{ fontSize: '24px' }}>payments</span>
@@ -570,8 +787,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div className="d-flex align-items-start justify-content-between">
                       <div>
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tổng lượt đặt sân</span>
-                        <div style={{ fontSize: '22px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>1,250</div>
-                        
+                        <div style={{ fontSize: '22px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>
+                          {systemStats ? systemStats.totalBookings.toLocaleString('vi-VN') : '0'}
+                        </div>
+
                         {/* Mini vertical wave chart */}
                         <div className="d-flex align-items-end gap-1 mt-2" style={{ height: '16px' }}>
                           <div style={{ width: '3px', height: '8px', background: '#22c55e', borderRadius: '1px' }} />
@@ -591,8 +810,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div className="d-flex align-items-start justify-content-between">
                       <div>
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tỷ lệ huỷ sân</span>
-                        <div style={{ fontSize: '22px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>2.4%</div>
-                        
+                        <div style={{ fontSize: '22px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>
+                          {systemStats ? `${systemStats.cancellationRate}%` : '0%'}
+                        </div>
+
                         {/* Premium Soft Mint Green Rounded Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '4px 10px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '13px', fontWeight: 800 }}>trending_down</span>
@@ -611,7 +832,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                 <Col lg={8}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', height: '100%' }}>
                     <Card.Body className="p-4 d-flex flex-column justify-content-between">
-                      
+
                       {/* Chart Header */}
                       <div className="d-flex justify-content-between align-items-center mb-4">
                         <span style={{ fontSize: '16px', fontWeight: 800, color: TX }}>Doanh thu & Số lượt đặt</span>
@@ -634,29 +855,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         <div style={{ position: 'absolute', top: '75%', left: 0, width: '100%', borderTop: `1px dashed ${BORDER}`, zIndex: 0 }} />
 
                         {/* Six columns */}
-                        {[
-                          { val: '40%', month: 'Th06' },
-                          { val: '75%', month: 'Th07' },
-                          { val: '60%', month: 'Th08' },
-                          { val: '95%', month: 'Th09' },
-                          { val: '80%', month: 'Th10' },
-                          { val: '90%', month: 'Th11' }
-                        ].map((bar, index) => (
-                          <div key={index} style={{ zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', width: '45px' }}>
-                            <div style={{
-                              width: '24px', 
-                              height: bar.val, 
-                              background: 'linear-gradient(180deg, #15803d 0%, #0f3d22 100%)', 
-                              borderRadius: '6px',
-                              boxShadow: '0 4px 8px rgba(15,61,34,0.15)',
-                              transition: 'all 0.3s'
-                            }} 
-                              onMouseEnter={e => e.currentTarget.style.transform = 'scaleY(1.05)'}
-                              onMouseLeave={e => e.currentTarget.style.transform = 'scaleY(1)'}
-                            />
-                            <div style={{ fontSize: '10px', color: TX2, fontWeight: 700, marginTop: '8px' }}>{bar.month}</div>
+                        {revenueChart && revenueChart.length > 0 ? (
+                          revenueChart.map((bar, index) => {
+                            const maxRevenue = Math.max(...revenueChart.map(d => d.revenue), 1);
+                            const val = `${Math.max(10, Math.round((bar.revenue / maxRevenue) * 90))}%`;
+                            return (
+                              <div key={index} style={{ zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', width: '45px' }} title={`Doanh thu: ${formatVND(bar.revenue)}, Đặt sân: ${bar.bookings}`}>
+                                <div style={{
+                                  width: '24px',
+                                  height: val,
+                                  background: 'linear-gradient(180deg, #15803d 0%, #0f3d22 100%)',
+                                  borderRadius: '6px',
+                                  boxShadow: '0 4px 8px rgba(15,61,34,0.15)',
+                                  transition: 'all 0.3s'
+                                }}
+                                  onMouseEnter={e => e.currentTarget.style.transform = 'scaleY(1.05)'}
+                                  onMouseLeave={e => e.currentTarget.style.transform = 'scaleY(1)'}
+                                />
+                                <div style={{ fontSize: '10px', color: TX2, fontWeight: 700, marginTop: '8px' }}>{bar.month}</div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div style={{ zIndex: 2, color: TX2, fontSize: '12px', width: '100%', textAlign: 'center', paddingBottom: '40px' }}>
+                            Không có dữ liệu biểu đồ
                           </div>
-                        ))}
+                        )}
                       </div>
 
                     </Card.Body>
@@ -667,13 +891,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                 <Col lg={4}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', height: '100%' }}>
                     <Card.Body className="p-4 d-flex flex-column justify-content-between">
-                      
+
                       <span style={{ fontSize: '16px', fontWeight: 800, color: TX, marginBottom: '20px', display: 'block' }}>Cơ cấu loại hình</span>
 
                       {/* Donut slice circle created elegantly in pure conic gradient */}
                       <div style={{
                         width: '130px', height: '130px', borderRadius: '50%',
-                        background: 'conic-gradient(#0f3d22 0% 50%, #22c55e 50% 75%, #3b82f6 75% 90%, #f59e0b 90% 100%)',
+                        background: conicGradientString,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
                       }}>
@@ -684,27 +908,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                       </div>
 
                       {/* Legend List */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', fontWeight: 700, color: TX }}>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span><span style={{ color: '#0f3d22', marginRight: '6px' }}>●</span>Bóng đá</span>
-                          <span style={{ color: TX2 }}>50%</span>
-                        </div>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span><span style={{ color: '#22c55e', marginRight: '6px' }}>●</span>Cầu lông</span>
-                          <span style={{ color: TX2 }}>25%</span>
-                        </div>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span><span style={{ color: '#3b82f6', marginRight: '6px' }}>●</span>Tennis</span>
-                          <span style={{ color: TX2 }}>15%</span>
-                        </div>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span><span style={{ color: '#f59e0b', marginRight: '6px' }}>●</span>Pickleball</span>
-                          <span style={{ color: TX2 }}>10%</span>
-                        </div>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span><span style={{ color: '#e2e8f0', marginRight: '6px' }}>●</span>Khác</span>
-                          <span style={{ color: TX2 }}>0%</span>
-                        </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', fontWeight: 700, color: TX, maxHeight: '120px', overflowY: 'auto' }}>
+                        {sportMix && sportMix.length > 0 ? (
+                          sportMix.map((item, idx) => (
+                            <div key={idx} className="d-flex justify-content-between align-items-center">
+                              <span>
+                                <span style={{ color: getSportColor(item.sport), marginRight: '6px' }}>●</span>
+                                {item.sport}
+                              </span>
+                              <span style={{ color: TX2 }}>{item.percent}% ({item.count})</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center text-muted" style={{ fontSize: '11px' }}>
+                            Không có dữ liệu cơ cấu
+                          </div>
+                        )}
                       </div>
 
                     </Card.Body>
@@ -714,53 +933,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
               {/* Bottom 3 cards segment */}
               <Row className="g-4">
-                
+
                 {/* Column Bottom 1: Hoạt động gần đây */}
                 <Col lg={4}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', height: '100%' }}>
                     <Card.Body className="p-4">
-                      
+
                       <span style={{ fontSize: '15px', fontWeight: 800, color: TX, marginBottom: '24px', display: 'block' }}>Hoạt động gần đây</span>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {/* Activity 1 */}
-                        <div className="d-flex align-items-start gap-3">
-                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e6fcf0', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>sports_soccer</span>
+                        {recentActivities && recentActivities.length > 0 ? (
+                          recentActivities.map((act) => {
+                            const styleInfo = getActivityIcon(act.action);
+                            return (
+                              <div key={act.id} className="d-flex align-items-start gap-3">
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '50%',
+                                  background: styleInfo.bg,
+                                  color: styleInfo.color,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{styleInfo.icon}</span>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '13px', color: TX, fontWeight: 500 }}>
+                                    <strong style={{ fontWeight: 800 }}>{act.user}</strong> {act.action}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: TX2, marginTop: '4px' }}>
+                                    {act.time} • Trạng thái: {act.status}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center text-muted py-3" style={{ fontSize: '13px' }}>
+                            Không có hoạt động gần đây
                           </div>
-                          <div>
-                            <div style={{ fontSize: '13px', color: TX, fontWeight: 500 }}>
-                              <strong style={{ fontWeight: 800 }}>Nguyễn Văn A</strong> vừa đặt sân tại <span style={{ color: PRIMARY, fontWeight: 700 }}>CLB Lan Anh</span>
-                            </div>
-                            <div style={{ fontSize: '11px', color: TX2, marginTop: '4px' }}>2 phút trước • Quận 10</div>
-                          </div>
-                        </div>
-
-                        {/* Activity 2 */}
-                        <div className="d-flex align-items-start gap-3">
-                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '13px', color: TX, fontWeight: 500 }}>
-                              <strong style={{ fontWeight: 800 }}>Chủ sân Hoa Lư</strong> vừa cập nhật bảng giá
-                            </div>
-                            <div style={{ fontSize: '11px', color: TX2, marginTop: '4px' }}>15 phút trước • Quận 1</div>
-                          </div>
-                        </div>
-
-                        {/* Activity 3 */}
-                        <div className="d-flex align-items-start gap-3">
-                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#ffe4e6', color: '#b91c1c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>payments</span>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '13px', color: TX, fontWeight: 500 }}>
-                              Yêu cầu rút tiền mới từ <span style={{ color: PRIMARY, fontWeight: 700 }}>CLB Kỳ Hòa</span>
-                            </div>
-                            <div style={{ fontSize: '11px', color: TX2, marginTop: '4px' }}>45 phút trước • Quận 10</div>
-                          </div>
-                        </div>
+                        )}
                       </div>
 
                     </Card.Body>
@@ -771,27 +986,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                 <Col lg={4}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', height: '100%' }}>
                     <Card.Body className="p-4">
-                      
+
                       <span style={{ fontSize: '15px', fontWeight: 800, color: TX, marginBottom: '24px', display: 'block' }}>Khu vực sôi động nhất</span>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {[
-                          { num: 1, name: 'Quận 7, HCM', count: '842 bookings' },
-                          { num: 2, name: 'Quận 1, HCM', count: '720 bookings' },
-                          { num: 3, name: 'Q. Cầu Giấy, HN', count: '695 bookings' },
-                          { num: 4, name: 'Q. Bình Thạnh', count: '540 bookings' },
-                          { num: 5, name: 'Q. Thủ Đức', count: '482 bookings' }
-                        ].map(area => (
-                          <div key={area.num} className="d-flex align-items-center justify-content-between">
-                            <div className="d-flex align-items-center gap-3">
-                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: BG, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, color: TX }}>
-                                {area.num}
+                        {systemStats?.topAreas && systemStats.topAreas.length > 0 ? (
+                          systemStats.topAreas.map((area, idx) => (
+                            <div key={idx} className="d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center gap-3">
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: BG, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, color: TX }}>
+                                  {idx + 1}
+                                </div>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: TX, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={area.name}>{area.name}</span>
                               </div>
-                              <span style={{ fontSize: '13px', fontWeight: 700, color: TX }}>{area.name}</span>
+                              <span style={{ fontSize: '12px', fontWeight: 800, color: '#16803d' }}>{area.count} bookings</span>
                             </div>
-                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#16803d' }}>{area.count}</span>
+                          ))
+                        ) : (
+                          <div className="text-center text-muted py-3" style={{ fontSize: '13px' }}>
+                            Chưa có dữ liệu đặt sân
                           </div>
-                        ))}
+                        )}
                       </div>
 
                     </Card.Body>
@@ -802,7 +1017,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                 <Col lg={4}>
                   <Card style={{ background: PRIMARY, border: 'none', borderRadius: '16px', boxShadow: '0 4px 16px rgba(15,61,34,0.18)', height: '100%' }}>
                     <Card.Body className="p-4 d-flex flex-column justify-content-between" style={{ minHeight: '260px' }}>
-                      
+
                       {/* Section Title */}
                       <div className="d-flex align-items-center gap-2 mb-4" style={{ color: W }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>check_circle</span>
@@ -812,42 +1027,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                       {/* To-Do Items */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {/* Task 1 */}
-                        <div className="d-flex align-items-center justify-content-between p-3 rounded" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div
+                          onClick={() => { setActiveMenu('owners'); setOwnerStatusFilter('pending'); setOwnersPage(1); }}
+                          className="d-flex align-items-center justify-content-between p-3 rounded"
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        >
                           <span style={{ fontSize: '13px', color: W, fontWeight: 700 }}>Chủ sân chờ duyệt</span>
                           <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#22c55e', color: W, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
-                            12
+                            {systemStats ? systemStats.pendingOwners : 0}
                           </div>
                         </div>
 
                         {/* Task 2 */}
-                        <div className="d-flex align-items-center justify-content-between p-3 rounded" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div
+                          className="d-flex align-items-center justify-content-between p-3 rounded"
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.08)'
+                          }}
+                        >
                           <span style={{ fontSize: '13px', color: W, fontWeight: 700 }}>Khiếu nại chưa xử lý</span>
                           <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#ef4444', color: W, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
-                            03
+                            0
                           </div>
                         </div>
 
                         {/* Task 3 */}
-                        <div className="d-flex align-items-center justify-content-between p-3 rounded" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                          <span style={{ fontSize: '13px', color: W, fontWeight: 700 }}>Đối soát quá hạn</span>
+                        <div
+                          onClick={() => { setActiveMenu('finance'); setStatusFilter('pending'); setTransactionsPage(1); }}
+                          className="d-flex align-items-center justify-content-between p-3 rounded"
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        >
+                          <span style={{ fontSize: '13px', color: W, fontWeight: 700 }}>Yêu cầu đặt sân chờ duyệt</span>
                           <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f59e0b', color: W, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
-                            02
+                            {systemStats ? systemStats.pendingBookings : 0}
                           </div>
                         </div>
                       </div>
 
                       {/* Bottom Button */}
-                      <Button 
-                        onClick={() => alert('Đang mở màn hình quản lý nhiệm vụ cần làm ngay...')}
-                        style={{ 
-                          width: '100%', 
-                          background: '#4ade80', 
-                          border: 'none', 
-                          borderRadius: '8px', 
-                          padding: '10px 0', 
-                          fontSize: '12px', 
-                          fontWeight: 800, 
-                          color: '#000000', 
+                      <Button
+                        onClick={() => { setActiveMenu('owners'); setOwnerStatusFilter('pending'); setOwnersPage(1); }}
+                        style={{
+                          width: '100%',
+                          background: '#4ade80',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '10px 0',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: '#000000',
                           boxShadow: '0 4px 10px rgba(74,222,128,0.2)',
                           marginTop: '20px'
                         }}
@@ -869,27 +1112,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                   <h2 style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: 0 }}>Tài chính & Hoa hồng</h2>
                   <p style={{ fontSize: '13px', color: TX2, margin: '2px 0 0 0' }}>Theo dõi và quản lý dòng tiền toàn hệ thống</p>
                 </div>
-                
+
                 <div className="d-flex align-items-center gap-3">
-                  <button 
-                    style={{ 
-                      border: `1px solid ${BORDER}`, background: W, color: TX, borderRadius: '8px', 
+                  <button
+                    style={{
+                      border: `1px solid ${BORDER}`, background: W, color: TX, borderRadius: '8px',
                       padding: '10px 20px', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)', cursor: 'pointer' 
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)', cursor: 'pointer'
                     }}
                     onClick={() => alert('📤 Đang xuất báo cáo tài chính toàn hệ thống dưới dạng tệp Excel...')}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
                     Xuất báo cáo
                   </button>
-                  
-                  <Button 
-                    style={{ 
-                      background: '#000', border: 'none', borderRadius: '8px', padding: '10px 20px', 
+
+                  <Button
+                    style={{
+                      background: '#000', border: 'none', borderRadius: '8px', padding: '10px 20px',
                       fontSize: '12px', fontWeight: 700, color: W, boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                       display: 'flex', alignItems: 'center', gap: '6px'
                     }}
-                    onClick={handleCreatePayout}
+                    onClick={() => alert('ℹ️ Chức năng thanh toán được tự động thực hiện định kỳ qua cổng liên kết ngân hàng đối tác.')}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
                     Tạo lệnh thanh toán
@@ -899,7 +1142,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
               {/* Row of Four Metric cards */}
               <Row className="g-4 mb-4">
-                
+
                 {/* Card 1: System Commission config (Green theme, wider) */}
                 <Col lg={3} md={6}>
                   <Card style={{ background: PRIMARY, color: W, border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(15,61,34,0.15)', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px' }}>
@@ -917,8 +1160,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                       </div>
                       <p style={{ fontSize: '11px', opacity: 0.7, lineHeight: 1.4 }}>Áp dụng cho tất cả các câu lạc bộ/sân vận động trong mạng lưới EZSport chưa có thỏa thuận riêng.</p>
                     </div>
-                    
-                    <button 
+
+                    <button
                       onClick={handleUpdateCommission}
                       style={{ width: '100%', background: '#15803d', border: 'none', borderRadius: '8px', padding: '10px', color: W, fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', marginTop: '12px' }}
                     >
@@ -933,14 +1176,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tổng doanh thu hệ thống</span>
-                        
+
                         {/* Unified Mint Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
                           <span>+12%</span>
                         </div>
                       </div>
-                      <div style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: '8px 0' }}>1.500.000.000đ</div>
+                      <div style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: '8px 0' }}>
+                        {systemStats ? formatVND(systemStats.totalRevenue) : '0đ'}
+                      </div>
                     </div>
                     <div style={{ fontSize: '11px', color: TX2, marginTop: '12px' }}>So với tháng trước</div>
                   </Card>
@@ -952,14 +1197,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hoa hồng hệ thống</span>
-                        
+
                         {/* Unified Mint Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
                           <span>+15%</span>
                         </div>
                       </div>
-                      <div style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: '8px 0' }}>150.000.000đ</div>
+                      <div style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: '8px 0' }}>
+                        {systemStats ? formatVND(systemStats.totalCommissions) : '0đ'}
+                      </div>
                     </div>
                     <div style={{ fontSize: '11px', color: TX2, marginTop: '12px' }}>Lợi nhuận từ phí dịch vụ</div>
                   </Card>
@@ -987,7 +1234,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
               {/* Section: Dynamic Transaction Reconciliation table */}
               <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                 <Card.Body className="p-4">
-                  
+
                   {/* Table Header Filter options */}
                   <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                     <div className="d-flex align-items-center gap-2">
@@ -1003,20 +1250,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         </Dropdown.Menu>
                       </Dropdown>
                     </div>
-                    
+
                     <div className="d-flex align-items-center gap-2">
                       <Dropdown>
                         <Dropdown.Toggle variant="light" size="sm" style={{ background: '#f1f5f9', border: `1px solid ${BORDER}`, borderRadius: '8px', fontWeight: 700, fontSize: '12px', padding: '6px 12px', color: TX2, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           {statusFilter === 'all' ? 'Tất cả trạng thái' : statusFilter === 'paid' ? 'Đã thanh toán' : statusFilter === 'processing' ? 'Đang xử lý' : 'Chờ đối soát'}
                         </Dropdown.Toggle>
                         <Dropdown.Menu>
-                          <Dropdown.Item onClick={() => setStatusFilter('all')}>Tất cả trạng thái</Dropdown.Item>
-                          <Dropdown.Item onClick={() => setStatusFilter('paid')}>Đã thanh toán</Dropdown.Item>
-                          <Dropdown.Item onClick={() => setStatusFilter('processing')}>Đang xử lý</Dropdown.Item>
-                          <Dropdown.Item onClick={() => setStatusFilter('pending')}>Chờ đối soát</Dropdown.Item>
+                          <Dropdown.Item onClick={() => { setStatusFilter('all'); setTransactionsPage(1); }}>Tất cả trạng thái</Dropdown.Item>
+                          <Dropdown.Item onClick={() => { setStatusFilter('paid'); setTransactionsPage(1); }}>Đã thanh toán</Dropdown.Item>
+                          <Dropdown.Item onClick={() => { setStatusFilter('processing'); setTransactionsPage(1); }}>Đang xử lý</Dropdown.Item>
+                          <Dropdown.Item onClick={() => { setStatusFilter('pending'); setTransactionsPage(1); }}>Chờ đối soát</Dropdown.Item>
                         </Dropdown.Menu>
                       </Dropdown>
-                      
+
                       <button style={{ border: `1px solid ${BORDER}`, background: '#fff', borderRadius: '8px', padding: '6px 10px', color: TX2, cursor: 'pointer' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px', verticalAlign: 'middle' }}>filter_alt</span>
                       </button>
@@ -1034,7 +1281,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredTransactions.map((tx, idx) => {
+                        {paginatedTransactions.map((tx, idx) => {
                           return (
                             <tr key={tx.id} style={{ borderBottom: `1px solid ${BORDER}`, background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'all 0.1s' }}>
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: TX }}>{tx.id}</td>
@@ -1049,8 +1296,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 700, color: TX2 }}>{tx.rate}%</td>
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: PRIMARY }}>{formatVND(tx.commission)}</td>
                               <td style={{ padding: '16px' }}>
-                                <span 
-                                  style={{ 
+                                <span
+                                  style={{
                                     display: 'inline-block',
                                     padding: '6px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700,
                                     background: tx.status === 'paid' || tx.status === 'processing' ? '#e6fcf0' : '#f1f5f9',
@@ -1068,7 +1315,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                           <tr>
                             <td colSpan={7} className="text-center py-5 text-muted" style={{ fontSize: '13px' }}>
                               <span className="material-symbols-outlined text-muted mb-2" style={{ fontSize: '32px' }}>search_off</span>
-                              <div>Không tìm thấy giao dịch nào phù hợp</div>
+                              <div>
+                                {statusFilter === 'paid'
+                                  ? 'Không có giao dịch nào đã thanh toán'
+                                  : statusFilter === 'processing'
+                                    ? 'Không có giao dịch nào đang xử lý'
+                                    : statusFilter === 'pending'
+                                      ? 'Không có giao dịch nào chờ đối soát'
+                                      : 'Không tìm thấy giao dịch nào phù hợp'}
+                              </div>
+                              {statusFilter !== 'all' && (
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  style={{ color: PRIMARY, fontWeight: 700, textDecoration: 'none', marginTop: '8px' }}
+                                  onClick={() => { setStatusFilter('all'); setTransactionsPage(1); }}
+                                >
+                                  Xem tất cả giao dịch
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         )}
@@ -1076,24 +1341,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     </table>
                   </div>
 
-                  {/* Table pagination footer bar */}
-                  <div className="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <span style={{ fontSize: '12px', color: TX2, fontWeight: 500 }}>
-                      Hiển thị 1-{filteredTransactions.length} trên {transactions.length} giao dịch
-                    </span>
-                    
-                    <div className="d-flex align-items-center gap-1">
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: TX2 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_left</span>
-                      </button>
-                      <button style={{ border: 'none', background: PRIMARY, color: W, borderRadius: '4px', width: '28px', height: '28px', fontSize: '12px', fontWeight: 700 }}>1</button>
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, color: TX2, borderRadius: '4px', width: '28px', height: '28px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>2</button>
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, color: TX2, borderRadius: '4px', width: '28px', height: '28px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>3</button>
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: TX2 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
-                      </button>
-                    </div>
-                  </div>
+                  {renderTablePagination(transactionsPage, filteredTransactions.length, setTransactionsPage)}
 
                 </Card.Body>
               </Card>
@@ -1107,14 +1355,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                   <h2 style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: 0 }}>Danh bạ Người dùng</h2>
                   <p style={{ fontSize: '13px', color: TX2, margin: '2px 0 0 0' }}>Quản lý và theo dõi thông tin chi tiết của tất cả người chơi trong hệ thống EZSport.</p>
                 </div>
-                
-                <Button 
-                  style={{ 
-                    background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '10px 20px', 
+
+                <Button
+                  style={{
+                    background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '10px 20px',
                     fontSize: '12px', fontWeight: 700, color: W, boxShadow: '0 2px 6px rgba(15,61,34,0.15)',
                     display: 'flex', alignItems: 'center', gap: '6px'
                   }}
-                  onClick={handleCreatePlayer}
+                  onClick={() => alert('ℹ️ Quản trị viên không thể trực tiếp tạo người chơi. Hãy hướng dẫn người dùng tự đăng ký tài khoản từ trang đăng ký.')}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
                   Thêm người dùng mới
@@ -1129,14 +1377,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tổng người dùng</span>
-                        
+
                         {/* Unified Mint Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
-                          <span>+12%</span>
+                          <span>+{totalPlayersGrowth}%</span>
                         </div>
                       </div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>12.840</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>{totalPlayersCount.toLocaleString('vi-VN')}</div>
                     </div>
                   </Card>
                 </Col>
@@ -1147,14 +1395,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Thành viên mới (tháng này)</span>
-                        
+
                         {/* Unified Mint Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
-                          <span>+8.5%</span>
+                          <span>+{newPlayersGrowth}%</span>
                         </div>
                       </div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>850</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>{newPlayersCount.toLocaleString('vi-VN')}</div>
                     </div>
                   </Card>
                 </Col>
@@ -1169,7 +1417,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
                         </div>
                       </div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>1.240</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>{onlinePlayersCount.toLocaleString('vi-VN')}</div>
                     </div>
                   </Card>
                 </Col>
@@ -1178,18 +1426,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
               {/* Table List of Players */}
               <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                 <Card.Body className="p-4">
-                  
+
                   {/* Table Header Filter options */}
                   <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                     <div className="d-flex align-items-center gap-3">
                       <span style={{ fontSize: '16px', fontWeight: 800, color: TX }}>Danh sách người chơi</span>
-                      
+
                       {/* Status Tabs pills */}
                       <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: `1px solid ${BORDER}` }}>
-                        <button 
-                          onClick={() => setPlayerStatusFilter('all')}
+                        <button
+                          onClick={() => { setPlayerStatusFilter('all'); setPlayersPage(1); }}
                           style={{
-                            border: 'none', 
+                            border: 'none',
                             background: playerStatusFilter === 'all' ? W : 'transparent',
                             color: playerStatusFilter === 'all' ? TX : TX2,
                             padding: '6px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
@@ -1199,10 +1447,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         >
                           Tất cả
                         </button>
-                        <button 
-                          onClick={() => setPlayerStatusFilter('active')}
+                        <button
+                          onClick={() => { setPlayerStatusFilter('active'); setPlayersPage(1); }}
                           style={{
-                            border: 'none', 
+                            border: 'none',
                             background: playerStatusFilter === 'active' ? W : 'transparent',
                             color: playerStatusFilter === 'active' ? TX : TX2,
                             padding: '6px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
@@ -1212,10 +1460,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         >
                           Hoạt động
                         </button>
-                        <button 
-                          onClick={() => setPlayerStatusFilter('blocked')}
+                        <button
+                          onClick={() => { setPlayerStatusFilter('blocked'); setPlayersPage(1); }}
                           style={{
-                            border: 'none', 
+                            border: 'none',
                             background: playerStatusFilter === 'blocked' ? W : 'transparent',
                             color: playerStatusFilter === 'blocked' ? TX : TX2,
                             padding: '6px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
@@ -1227,13 +1475,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="d-flex align-items-center gap-2">
                       <button style={{ border: `1px solid ${BORDER}`, background: '#fff', borderRadius: '8px', padding: '6px 10px', color: TX2, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>filter_alt</span>
                       </button>
-                      
-                      <button 
+
+                      <button
                         style={{ border: `1px solid ${BORDER}`, background: '#fff', borderRadius: '8px', padding: '6px 10px', color: TX2, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                         onClick={() => alert('📥 Đang tải danh sách người chơi về máy tính...')}
                       >
@@ -1253,13 +1501,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPlayers.map((p, idx) => {
+                        {paginatedPlayers.map((p, idx) => {
                           return (
                             <tr key={p.id} style={{ borderBottom: `1px solid ${BORDER}`, background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'all 0.1s' }}>
-                              
+
                               {/* Player ID */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: TX }}>{p.id}</td>
-                              
+
                               {/* Avatar & Info */}
                               <td style={{ padding: '16px' }}>
                                 <div className="d-flex align-items-center gap-3">
@@ -1270,20 +1518,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                   </div>
                                 </div>
                               </td>
-                              
+
                               {/* Join Date */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 700, color: TX }}>{p.date}</td>
-                              
+
                               {/* Total Bookings */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: TX }}>{p.bookings}</td>
-                              
+
                               {/* Total Spend */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: TX }}>{formatVND(p.spend)}</td>
-                              
+
                               {/* Status Badge - Unified Pill */}
                               <td style={{ padding: '16px' }}>
-                                <span 
-                                  style={{ 
+                                <span
+                                  style={{
                                     display: 'inline-block',
                                     padding: '6px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700,
                                     background: p.status === 'active' ? '#e6fcf0' : '#fee2e2',
@@ -1323,7 +1571,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                           <tr>
                             <td colSpan={7} className="text-center py-5 text-muted" style={{ fontSize: '13px' }}>
                               <span className="material-symbols-outlined text-muted mb-2" style={{ fontSize: '32px' }}>search_off</span>
-                              <div>Không tìm thấy người chơi nào phù hợp</div>
+                              <div>
+                                {playerStatusFilter === 'active'
+                                  ? 'Không có người chơi nào đang hoạt động'
+                                  : playerStatusFilter === 'blocked'
+                                    ? 'Không có người chơi nào bị chặn'
+                                    : 'Không tìm thấy người chơi nào phù hợp'}
+                              </div>
+                              {playerStatusFilter !== 'all' && (
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  style={{ color: PRIMARY, fontWeight: 700, textDecoration: 'none', marginTop: '8px' }}
+                                  onClick={() => { setPlayerStatusFilter('all'); setPlayersPage(1); }}
+                                >
+                                  Xem tất cả người chơi
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         )}
@@ -1331,22 +1595,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     </table>
                   </div>
 
-                  {/* Table pagination footer bar */}
-                  <div className="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <span style={{ fontSize: '12px', color: TX2, fontWeight: 500 }}>
-                      Hiển thị 1-{filteredPlayers.length} trên tổng số 12.840 người dùng
-                    </span>
-                    
-                    <div className="d-flex align-items-center gap-1">
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', width: '48px', height: '28px', fontSize: '11px', fontWeight: 700, color: TX2 }}>Trước</button>
-                      <button style={{ border: 'none', background: PRIMARY, color: W, borderRadius: '4px', width: '28px', height: '28px', fontSize: '12px', fontWeight: 700 }}>1</button>
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, color: TX2, borderRadius: '4px', width: '28px', height: '28px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>2</button>
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, color: TX2, borderRadius: '4px', width: '28px', height: '28px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>3</button>
-                      <span style={{ fontSize: '12px', color: TX2, margin: '0 4px' }}>...</span>
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, color: TX2, borderRadius: '4px', width: '48px', height: '28px', fontSize: '12px', fontWeight: 700 }}>1284</button>
-                      <button style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', width: '48px', height: '28px', fontSize: '11px', fontWeight: 700, color: TX2 }}>Sau</button>
-                    </div>
-                  </div>
+                  {renderTablePagination(playersPage, filteredPlayers.length, setPlayersPage)}
 
                 </Card.Body>
               </Card>
@@ -1364,16 +1613,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
               {/* Grid split view: 8cols Owner list, 4cols Pending approvals */}
               <Row className="g-4">
-                
+
                 {/* Column Left (8cols) - Danh sách chủ sân */}
                 <Col lg={8}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                     <Card.Body className="p-4">
-                      
+
                       {/* Owner list Filter Header */}
                       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                         <span style={{ fontSize: '16px', fontWeight: 800, color: TX }}>Danh sách Chủ sân</span>
-                        
+
                         <div className="d-flex align-items-center gap-2">
                           {/* Status Filter */}
                           <Dropdown>
@@ -1381,17 +1630,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                               {ownerStatusFilter === 'all' ? 'Tất cả trạng thái' : ownerStatusFilter === 'verified' ? 'Đã xác minh' : ownerStatusFilter === 'pending' ? 'Chờ duyệt' : 'Tạm khóa'}
                             </Dropdown.Toggle>
                             <Dropdown.Menu>
-                              <Dropdown.Item onClick={() => setOwnerStatusFilter('all')}>Tất cả trạng thái</Dropdown.Item>
-                              <Dropdown.Item onClick={() => setOwnerStatusFilter('verified')}>Đã xác minh</Dropdown.Item>
-                              <Dropdown.Item onClick={() => setOwnerStatusFilter('pending')}>Chờ duyệt</Dropdown.Item>
-                              <Dropdown.Item onClick={() => setOwnerStatusFilter('locked')}>Tạm khóa</Dropdown.Item>
+                              <Dropdown.Item onClick={() => { setOwnerStatusFilter('all'); setOwnersPage(1); }}>Tất cả trạng thái</Dropdown.Item>
+                              <Dropdown.Item onClick={() => { setOwnerStatusFilter('verified'); setOwnersPage(1); }}>Đã xác minh</Dropdown.Item>
+                              <Dropdown.Item onClick={() => { setOwnerStatusFilter('pending'); setOwnersPage(1); }}>Chờ duyệt</Dropdown.Item>
+                              <Dropdown.Item onClick={() => { setOwnerStatusFilter('locked'); setOwnersPage(1); }}>Tạm khóa</Dropdown.Item>
                             </Dropdown.Menu>
                           </Dropdown>
 
                           {/* Add Owner button */}
-                          <Button 
-                            style={{ 
-                              background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '6px 12px', 
+                          <Button
+                            style={{
+                              background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '6px 12px',
                               fontSize: '12px', fontWeight: 700, color: W, display: 'flex', alignItems: 'center', gap: '4px'
                             }}
                             onClick={handleCreateOwner}
@@ -1413,13 +1662,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredOwners.map((o, idx) => {
+                            {paginatedOwners.map((o, idx) => {
                               return (
                                 <tr key={o.id} style={{ borderBottom: `1px solid ${BORDER}`, background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'all 0.1s' }}>
-                                  
+
                                   {/* Owner ID (green link style) */}
                                   <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: '#15803d' }}>{o.id}</td>
-                                  
+
                                   {/* Initials Avatar & Name */}
                                   <td style={{ padding: '16px' }}>
                                     <div className="d-flex align-items-center gap-3">
@@ -1429,22 +1678,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                       <span style={{ fontSize: '13px', fontWeight: 800, color: TX }}>{o.name}</span>
                                     </div>
                                   </td>
-                                  
+
                                   {/* Contact info */}
                                   <td style={{ padding: '16px' }}>
                                     <div style={{ fontSize: '12px', fontWeight: 500, color: TX }}>{o.email}</div>
                                     <div style={{ fontSize: '11px', color: TX2, marginTop: '2px' }}>{o.phone}</div>
                                   </td>
-                                  
+
                                   {/* Venues count */}
                                   <td style={{ padding: '16px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: TX }}>
                                     {o.venues.toString().padStart(2, '0')}
                                   </td>
-                                  
+
                                   {/* Status Badge - Unified Pill */}
                                   <td style={{ padding: '16px' }}>
-                                    <span 
-                                      style={{ 
+                                    <span
+                                      style={{
                                         display: 'inline-block',
                                         padding: '6px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700,
                                         background: o.status === 'verified' ? '#e6fcf0' : o.status === 'pending' ? '#f1f5f9' : '#fee2e2',
@@ -1454,17 +1703,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                       {o.status === 'verified' ? 'ĐÃ XÁC MINH' : o.status === 'pending' ? 'CHỜ DUYỆT' : 'TẠM KHÓA'}
                                     </span>
                                   </td>
-                                  
+
                                   {/* Circular Actions Buttons */}
                                   <td style={{ padding: '16px' }}>
                                     <div className="d-flex align-items-center gap-1">
-                                      <button 
-                                        onClick={() => alert(`👁️ Chi tiết chủ sân ${o.name}:\nID: ${o.id}\nEmail: ${o.email}\nSĐT: ${o.phone}\nSố lượng sân: ${o.venues}`)}
+                                      <button
+                                        onClick={() => {
+                                          setSelectedOwnerForView(o);
+                                          setShowOwnerDetailsModal(true);
+                                        }}
                                         style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: TX2, cursor: 'pointer' }}
                                       >
                                         <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>visibility</span>
                                       </button>
-                                      <button 
+                                      <button
                                         onClick={() => {
                                           const newName = prompt('Nhập họ tên mới cho chủ sân:', o.name);
                                           if (newName) setOwners(prev => prev.map(item => item.id === o.id ? { ...item, name: newName } : item));
@@ -1473,7 +1725,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                       >
                                         <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>edit</span>
                                       </button>
-                                      <button 
+                                      <button
                                         onClick={() => handleToggleOwnerStatus(o.id)}
                                         style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: o.status === 'locked' ? '#22c55e' : '#ef4444', cursor: 'pointer' }}
                                       >
@@ -1481,51 +1733,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                       </button>
                                     </div>
                                   </td>
-                                  
+
                                 </tr>
                               );
                             })}
-                            
+
                             {filteredOwners.length === 0 && (
                               <tr>
                                 <td colSpan={6} className="text-center py-5 text-muted" style={{ fontSize: '13px' }}>
-                                  <span className="material-symbols-outlined text-muted mb-2" style={{ fontSize: '32px' }}>search_off</span>
-                                  <div>Không tìm thấy chủ sân nào phù hợp</div>
+                                  <span className="material-symbols-outlined text-muted mb-2" style={{ fontSize: '32px' }}>
+                                    {ownerStatusFilter === 'pending' ? 'check_circle' : 'search_off'}
+                                  </span>
+                                  <div>
+                                    {ownerStatusFilter === 'pending'
+                                      ? 'Không có chủ sân nào đang chờ duyệt'
+                                      : ownerStatusFilter === 'verified'
+                                        ? 'Không có chủ sân nào đã xác minh'
+                                        : ownerStatusFilter === 'locked'
+                                          ? 'Không có chủ sân nào bị khóa'
+                                          : 'Không tìm thấy chủ sân nào phù hợp'}
+                                  </div>
+                                  {ownerStatusFilter !== 'all' && (
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      style={{ color: PRIMARY, fontWeight: 700, textDecoration: 'none', marginTop: '8px' }}
+                                      onClick={() => { setOwnerStatusFilter('all'); setOwnersPage(1); }}
+                                    >
+                                      Xem tất cả chủ sân
+                                    </Button>
+                                  )}
                                 </td>
                               </tr>
                             )}
                           </tbody>
                         </table>
                       </div>
-                      
-                      {/* Owner list Footer Pagination */}
-                      <div className="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                        <span style={{ fontSize: '12px', color: TX2, fontWeight: 500 }}>
-                          Hiển thị 1-{filteredOwners.length} của {owners.length} chủ sân
-                        </span>
-                        
-                        <div className="d-flex align-items-center gap-1">
-                          <button style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: TX2 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_left</span>
-                          </button>
-                          <button style={{ border: 'none', background: PRIMARY, color: W, borderRadius: '4px', width: '24px', height: '24px', fontSize: '11px', fontWeight: 700 }}>1</button>
-                          <button style={{ border: `1px solid ${BORDER}`, background: W, color: TX2, borderRadius: '4px', width: '24px', height: '24px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>2</button>
-                          <button style={{ border: `1px solid ${BORDER}`, background: W, color: TX2, borderRadius: '4px', width: '24px', height: '24px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>3</button>
-                          <button style={{ border: `1px solid ${BORDER}`, background: W, borderRadius: '4px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: TX2 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_right</span>
-                          </button>
-                        </div>
-                      </div>
-                      
+
+                      {renderTablePagination(ownersPage, filteredOwners.length, setOwnersPage)}
+
                     </Card.Body>
                   </Card>
                 </Col>
-                
+
                 {/* Column Right (4cols) - Yêu cầu chờ duyệt */}
                 <Col lg={4}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                     <Card.Body className="p-4">
-                      
+
                       {/* Section Title */}
                       <div className="d-flex align-items-center justify-content-between mb-4 pb-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
                         <div className="d-flex align-items-center gap-2">
@@ -1534,13 +1789,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         </div>
                         <span className="material-symbols-outlined" style={{ color: TX2, fontSize: '20px', cursor: 'pointer' }}>more_horiz</span>
                       </div>
-                      
+
                       {/* Requests Stack */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {pendingRequests.map(req => {
                           return (
                             <div key={req.id} style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '16px', transition: 'all 0.15s' }}>
-                              
+
                               {/* Venue details row */}
                               <div className="d-flex align-items-center gap-3 mb-3">
                                 <img src={req.img} alt={req.venue} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: `1px solid ${BORDER}` }} />
@@ -1550,31 +1805,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                   <div style={{ fontSize: '10px', color: '#16803d', fontWeight: 700, marginTop: '4px' }}>{req.time}</div>
                                 </div>
                               </div>
-                              
+
                               {/* Dynamic verification action buttons */}
                               <Row className="g-2">
                                 <Col xs={6}>
-                                  <Button 
-                                    onClick={() => handleApproveRequest(req.id, req.venue, req.owner)}
+                                  <Button
+                                    onClick={() => handleApproveRequest(req.id, req.owner)}
                                     style={{ width: '100%', background: '#15803d', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 700, padding: '6px 0', color: W }}
                                   >
                                     ✓ Duyệt
                                   </Button>
                                 </Col>
                                 <Col xs={6}>
-                                  <Button 
-                                    onClick={() => handleRejectRequest(req.id, req.venue)}
+                                  <Button
+                                    onClick={() => handleRejectRequest(req.id)}
                                     style={{ width: '100%', background: W, border: '1px solid #ef4444', borderRadius: '6px', fontSize: '11px', fontWeight: 700, padding: '5px 0', color: '#ef4444' }}
                                   >
                                     ✕ Từ chối
                                   </Button>
                                 </Col>
                               </Row>
-                              
+
                             </div>
                           );
                         })}
-                        
+
                         {pendingRequests.length === 0 && (
                           <div className="text-center py-5 text-muted" style={{ fontSize: '12px' }}>
                             <span className="material-symbols-outlined text-success mb-2" style={{ fontSize: '32px' }}>check_circle</span>
@@ -1582,10 +1837,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                           </div>
                         )}
                       </div>
-                      
+
                       {/* View all button at bottom */}
                       <div className="text-center mt-4 pt-2">
-                        <span 
+                        <span
                           onClick={() => alert('Đang chuyển hướng đến danh sách toàn bộ 15 yêu cầu đăng ký sân...')}
                           style={{ fontSize: '12px', color: PRIMARY, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
@@ -1594,11 +1849,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                           Xem tất cả yêu cầu →
                         </span>
                       </div>
-                      
+
                     </Card.Body>
                   </Card>
                 </Col>
-                
+
               </Row>
             </>
           ) : activeMenu === 'marketing' ? (
@@ -1610,10 +1865,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                   <h2 style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: 0, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Quản lý Marketing & Khuyến mãi</h2>
                   <p style={{ fontSize: '13px', color: TX2, margin: '2px 0 0 0' }}>Theo dõi hiệu quả các chiến dịch và quản lý mã giảm giá hệ thống</p>
                 </div>
-                
-                <Button 
-                  style={{ 
-                    background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '10px 20px', 
+
+                <Button
+                  style={{
+                    background: '#0f3d22', border: 'none', borderRadius: '8px', padding: '10px 20px',
                     fontSize: '12px', fontWeight: 700, color: W, boxShadow: '0 2px 6px rgba(15,61,34,0.15)',
                     display: 'flex', alignItems: 'center', gap: '6px'
                   }}
@@ -1632,14 +1887,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tổng Voucher đã phát hành</span>
-                        
+
                         {/* Unified Mint Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
-                          <span>+12%</span>
+                          <span>+{voucherGrowthPercent}%</span>
                         </div>
                       </div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>1,250</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>{totalVouchersIssued.toLocaleString('vi-VN')}</div>
                     </div>
                   </Card>
                 </Col>
@@ -1650,14 +1905,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tỷ lệ sử dụng</span>
-                        
-                        {/* Unified Mint Growth Badge */}
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
-                          <span>+5%</span>
-                        </div>
                       </div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>65%</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>{voucherUsageRate}%</div>
                     </div>
                   </Card>
                 </Col>
@@ -1668,12 +1917,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tổng tiền đã giảm giá</span>
-                        <span style={{ background: '#fee2e2', color: '#ef4444', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '4px 8px', fontSize: '12px', fontWeight: 700 }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>arrow_downward</span>
-                          -2%
-                        </span>
+                        {systemStats?.discountGrowth !== undefined && systemStats.discountGrowth < 0 ? (
+                          <span style={{ background: '#fee2e2', color: '#ef4444', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '4px 8px', fontSize: '12px', fontWeight: 700 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>arrow_downward</span>
+                            {systemStats.discountGrowth}%
+                          </span>
+                        ) : (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
+                            <span>+{systemStats?.discountGrowth || 0}%</span>
+                          </div>
+                        )}
                       </div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>25.500k</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>{formatVND(systemStats?.totalDiscount || 0)}</div>
                     </div>
                   </Card>
                 </Col>
@@ -1684,14 +1940,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     <div>
                       <div className="d-flex align-items-center justify-content-between mb-2">
                         <span style={{ fontSize: '10px', fontWeight: 800, color: TX2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lượt người dùng mới</span>
-                        
+
                         {/* Unified Mint Growth Badge */}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: '#e6fcf0', color: '#15803d', borderRadius: '9999px', fontSize: '11px', fontWeight: 700, padding: '3px 8px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '12px', fontWeight: 800 }}>trending_up</span>
-                          <span>+24%</span>
+                          <span>+{newPlayersGrowth}%</span>
                         </div>
                       </div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>482</div>
+                      <div style={{ fontSize: '28px', fontWeight: 900, color: TX, margin: '8px 0', fontFamily: "'Outfit', sans-serif" }}>{newPlayersCount.toLocaleString('vi-VN')}</div>
                     </div>
                   </Card>
                 </Col>
@@ -1700,18 +1956,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
               {/* Voucher list table section */}
               <Card className="mb-4" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                 <Card.Body className="p-4">
-                  
+
                   {/* Table Header Filter options */}
                   <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                     <span style={{ fontSize: '16px', fontWeight: 800, color: TX }}>Danh sách Voucher</span>
-                    
+
                     <div className="d-flex align-items-center gap-2">
                       <button style={{ border: `1px solid ${BORDER}`, background: '#fff', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 700, color: TX2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>filter_alt</span>
                         Bộ lọc
                       </button>
-                      
-                      <button 
+
+                      <button
                         style={{ border: `1px solid ${BORDER}`, background: '#fff', borderRadius: '8px', padding: '6px 14px', fontSize: '12px', fontWeight: 700, color: TX2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                         onClick={() => alert('📤 Đang xuất báo cáo các mã voucher khuyến mãi hệ thống...')}
                       >
@@ -1732,27 +1988,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredVouchers.map((v, idx) => {
+                        {paginatedVouchers.map((v, idx) => {
                           const expired = !v.active || (!!v.expiresAt && new Date(v.expiresAt).getTime() < Date.now()) || v.usedCount >= v.quantity;
                           const typeLabel = v.type === 'percent' ? 'Phần trăm hóa đơn' : 'Giảm giá trực tiếp';
                           const expiryLabel = v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('vi-VN') : 'Không thời hạn';
                           return (
                             <tr key={v.code} style={{ borderBottom: `1px solid ${BORDER}`, background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'all 0.1s' }}>
-                              
+
                               {/* Voucher Code (green bold link style) */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: '#15803d' }}>{v.code}</td>
-                              
+
                               {/* Promotion Type */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: TX }}>{typeLabel}</td>
-                              
+
                               {/* Discount Amount */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 800, color: TX }}>
                                 {v.type === 'percent' ? `${v.value}%` : formatVND(v.value)}
                               </td>
-                              
+
                               {/* Applicable for */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 600, color: TX }}>{v.target}</td>
-                              
+
                               {/* Qty Progress Bar */}
                               <td style={{ padding: '16px' }}>
                                 <div style={{ width: '100px' }}>
@@ -1765,11 +2021,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
 
                               {/* Expiry Date */}
                               <td style={{ padding: '16px', fontSize: '13px', fontWeight: 700, color: TX }}>{expiryLabel}</td>
-                              
+
                               {/* Status Badge - Unified Pill */}
                               <td style={{ padding: '16px' }}>
-                                <span 
-                                  style={{ 
+                                <span
+                                  style={{
                                     display: 'inline-block',
                                     padding: '6px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700,
                                     background: expired ? '#fee2e2' : '#e6fcf0',
@@ -1783,14 +2039,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                               {/* Action icons */}
                               <td style={{ padding: '16px' }}>
                                 <div className="d-flex align-items-center gap-2">
-                                  <button 
+                                  <button
                                     onClick={() => handleOpenEditModal(v)}
                                     style={{ border: 'none', background: 'transparent', padding: 0, color: TX2, cursor: 'pointer' }}
                                     title="Chỉnh sửa voucher"
                                   >
                                     <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => handleDeleteVoucher(v._id, v.code)}
                                     style={{ border: 'none', background: 'transparent', padding: 0, color: TX2, cursor: 'pointer' }}
                                   >
@@ -1815,48 +2071,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                     </table>
                   </div>
 
+                  {renderTablePagination(vouchersPage, filteredVouchers.length, setVouchersPage)}
+
                 </Card.Body>
               </Card>
 
               {/* Bottom split view: Send Push & Home Banner */}
               <Row className="g-4">
-                
+
                 {/* Left panel: Gửi Thông Báo Đẩy */}
                 <Col lg={6}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', height: '100%' }}>
                     <Card.Body className="p-4 d-flex flex-column">
-                      
+
                       {/* Panel Title */}
                       <div className="d-flex align-items-center gap-2 mb-4 pb-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
                         <span className="material-symbols-outlined text-success" style={{ fontSize: '20px' }}>notifications_active</span>
                         <span style={{ fontSize: '16px', fontWeight: 800, color: TX }}>Gửi Thông Báo Đẩy</span>
                       </div>
-                      
+
                       {/* Push Notification Form */}
                       <form onSubmit={handleSendPush} className="d-flex flex-column flex-grow-1 justify-content-between gap-3">
                         <div>
                           <div className="mb-3">
                             <label style={{ fontSize: '12px', fontWeight: 700, color: TX, marginBottom: '6px', display: 'block' }}>Tiêu đề thông báo</label>
-                            <input 
-                              type="text" 
-                              placeholder="VD: Khuyến mãi cuối tuần cực sốc!" 
+                            <input
+                              type="text"
+                              placeholder="VD: Khuyến mãi cuối tuần cực sốc!"
                               value={pushTitle}
                               onChange={e => setPushTitle(e.target.value)}
                               style={{ width: '100%', border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '10px 14px', fontSize: '13px', outline: 'none' }}
                             />
                           </div>
-                          
+
                           <div className="mb-3">
                             <label style={{ fontSize: '12px', fontWeight: 700, color: TX, marginBottom: '6px', display: 'block' }}>Nội dung thông báo</label>
-                            <textarea 
-                              placeholder="Nhập nội dung thông điệp bạn muốn gửi..." 
+                            <textarea
+                              placeholder="Nhập nội dung thông điệp bạn muốn gửi..."
                               value={pushBody}
                               onChange={e => setPushBody(e.target.value)}
                               rows={4}
                               style={{ width: '100%', border: `1px solid ${BORDER}`, borderRadius: '8px', padding: '10px 14px', fontSize: '13px', outline: 'none', resize: 'none' }}
                             />
                           </div>
-                          
+
                           <div className="mb-3">
                             <label style={{ fontSize: '12px', fontWeight: 700, color: TX, marginBottom: '6px', display: 'block' }}>Đối tượng nhận tin</label>
                             <Dropdown>
@@ -1871,8 +2129,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                             </Dropdown>
                           </div>
                         </div>
-                        
-                        <Button 
+
+                        <Button
                           type="submit"
                           style={{ width: '100%', background: '#000000', border: 'none', borderRadius: '8px', padding: '12px 0', fontSize: '13px', fontWeight: 700, color: W, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
                         >
@@ -1889,7 +2147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                 <Col lg={6}>
                   <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', height: '100%' }}>
                     <Card.Body className="p-4 d-flex flex-column justify-content-between">
-                      
+
                       {/* Panel Title */}
                       <div className="d-flex align-items-center justify-content-between mb-4 pb-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
                         <div className="d-flex align-items-center gap-2">
@@ -1898,7 +2156,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                         </div>
                         <span style={{ fontSize: '11px', color: TX2, fontWeight: 600 }}>Kích thước chuẩn: 1200x450px</span>
                       </div>
-                      
+
                       {/* Banners active stack */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {banners.map(b => {
@@ -1916,9 +2174,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                   <span>{b.clicks}</span>
                                 </div>
                               </div>
-                              
+
                               <div className="d-flex align-items-center gap-1">
-                                <button 
+                                <button
                                   onClick={() => {
                                     const newTitle = prompt('Nhập tiêu đề mới cho banner:', b.title);
                                     if (newTitle) setBanners(prev => prev.map(item => item.id === b.id ? { ...item, title: newTitle } : item));
@@ -1927,7 +2185,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                                 >
                                   <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleDeleteBanner(b.id, b.title)}
                                   style={{ border: 'none', background: 'transparent', padding: 4, color: TX2, cursor: 'pointer' }}
                                 >
@@ -1940,9 +2198,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                       </div>
 
                       {/* Dashed upload container */}
-                      <div 
+                      <div
                         onClick={handleUploadBanner}
-                        style={{ 
+                        style={{
                           border: `2px dashed ${BORDER}`, borderRadius: '12px', padding: '24px 16px', textAlign: 'center',
                           marginTop: '20px', cursor: 'pointer', transition: 'all 0.15s', background: BG
                         }}
@@ -2211,11 +2469,185 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
         </Modal.Footer>
       </Modal>
 
+      {/* ─── OWNER DETAILS MODAL ─── */}
+      <Modal
+        show={showOwnerDetailsModal}
+        onHide={() => {
+          setShowOwnerDetailsModal(false);
+          setSelectedOwnerForView(null);
+        }}
+        centered
+        size="lg"
+      >
+        <Modal.Header closeButton style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <Modal.Title style={{ fontSize: '18px', fontWeight: 800, color: TX }}>
+            Thông tin chi tiết Chủ sân
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4" style={{ backgroundColor: BG }}>
+          {selectedOwnerForView && (
+            <Row className="g-4">
+              {/* Left Column: General info */}
+              <Col md={6}>
+                <Card style={{ border: `1px solid ${BORDER}`, borderRadius: '12px', height: '100%' }}>
+                  <Card.Body className="p-4">
+                    <div className="d-flex align-items-center gap-3 mb-4">
+                      <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: selectedOwnerForView.avatarBg, color: W, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '18px' }}>
+                        {selectedOwnerForView.initials}
+                      </div>
+                      <div>
+                        <h4 style={{ fontSize: '18px', fontWeight: 800, color: TX, margin: 0 }}>{selectedOwnerForView.name}</h4>
+                        <span style={{ fontSize: '11px', color: TX2 }}>ID: {selectedOwnerForView.id}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div className="d-flex align-items-start gap-2.5">
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: TX2 }}>mail</span>
+                        <div>
+                          <div style={{ fontSize: '11px', color: TX2, fontWeight: 700 }}>EMAIL</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: TX }}>{selectedOwnerForView.email || 'Chưa thiết lập'}</div>
+                        </div>
+                      </div>
+
+                      <div className="d-flex align-items-start gap-2.5">
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: TX2 }}>phone</span>
+                        <div>
+                          <div style={{ fontSize: '11px', color: TX2, fontWeight: 700 }}>SỐ ĐIỆN THOẠI</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: TX }}>{selectedOwnerForView.phone || 'Chưa thiết lập'}</div>
+                        </div>
+                      </div>
+
+                      <div className="d-flex align-items-start gap-2.5">
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: TX2 }}>sports_tennis</span>
+                        <div>
+                          <div style={{ fontSize: '11px', color: TX2, fontWeight: 700 }}>SỐ LƯỢNG SÂN ĐANG QUẢN LÝ</div>
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: PRIMARY }}>{selectedOwnerForView.venues} sân</div>
+                        </div>
+                      </div>
+
+                      <div className="d-flex align-items-start gap-2.5">
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: TX2 }}>verified_user</span>
+                        <div>
+                          <div style={{ fontSize: '11px', color: TX2, fontWeight: 700 }}>TRẠNG THÁI</div>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700,
+                              background: selectedOwnerForView.status === 'verified' ? '#e6fcf0' : selectedOwnerForView.status === 'pending' ? '#f1f5f9' : '#fee2e2',
+                              color: selectedOwnerForView.status === 'verified' ? '#15803d' : selectedOwnerForView.status === 'pending' ? '#475569' : '#ef4444',
+                              marginTop: '4px'
+                            }}
+                          >
+                            {selectedOwnerForView.status === 'verified' ? 'ĐÃ XÁC MINH' : selectedOwnerForView.status === 'pending' ? 'CHỜ DUYỆT' : 'TẠM KHÓA'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              {/* Right Column: Payout details & QR */}
+              <Col md={6}>
+                <Card style={{ border: `1px solid ${BORDER}`, borderRadius: '12px', height: '100%' }}>
+                  <Card.Body className="p-4 d-flex flex-column justify-content-between">
+                    <div>
+                      <h5 style={{ fontSize: '14px', fontWeight: 800, color: TX, borderBottom: `1px solid ${BORDER}`, paddingBottom: '8px', marginBottom: '16px' }}>
+                        Thông tin tài khoản nhận tiền
+                      </h5>
+
+                      {selectedOwnerForView.bankName ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div>
+                            <div style={{ fontSize: '11px', color: TX2, fontWeight: 700 }}>NGÂN HÀNG</div>
+                            <div style={{ fontSize: '13px', fontWeight: 800, color: PRIMARY }}>{selectedOwnerForView.bankName}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', color: TX2, fontWeight: 700 }}>SỐ TÀI KHOẢN</div>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: TX, letterSpacing: '0.5px' }}>{selectedOwnerForView.bankAccountNumber}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', color: TX2, fontWeight: 700 }}>TÊN CHỦ TÀI KHOẢN</div>
+                            <div style={{ fontSize: '13px', fontWeight: 800, color: TX }}>{selectedOwnerForView.bankAccountName}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-muted" style={{ fontSize: '13px', fontStyle: 'italic', marginBottom: '16px' }}>
+                          Chủ sân chưa cấu hình tài khoản ngân hàng.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                      <div style={{ fontSize: '11px', color: TX2, fontWeight: 700, marginBottom: '10px' }}>MÃ QR CHUYỂN KHOẢN</div>
+                      {selectedOwnerForView.bankQrCode ? (
+                        <div
+                          style={{
+                            border: `1px solid ${BORDER}`,
+                            borderRadius: '12px',
+                            padding: '12px',
+                            background: '#fff',
+                            width: '100%',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <img
+                            src={selectedOwnerForView.bankQrCode}
+                            alt="Mã QR Chủ sân"
+                            style={{
+                              width: '100%',
+                              maxHeight: '280px',
+                              objectFit: 'contain',
+                              cursor: 'zoom-in',
+                              borderRadius: '8px'
+                            }}
+                            onClick={() => window.open(selectedOwnerForView.bankQrCode, '_blank')}
+                            title="Click để mở ảnh QR đầy đủ"
+                          />
+                          <div style={{ fontSize: '10px', color: TX2, marginTop: '6px' }}>
+                            Click vào ảnh để phóng to
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            height: '180px',
+                            background: '#f1f5f9',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#94a3b8'
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '48px' }}>qr_code_2</span>
+                          <span style={{ fontSize: '12px', marginTop: '8px', fontWeight: 600 }}>Chưa có ảnh QR Code</span>
+                        </div>
+                      )}
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{ borderTop: `1px solid ${BORDER}`, background: '#f8fafc' }}>
+          <Button
+            variant="secondary"
+            style={{ borderRadius: '8px', fontWeight: 700, fontSize: '13px', padding: '8px 20px' }}
+            onClick={() => {
+              setShowOwnerDetailsModal(false);
+              setSelectedOwnerForView(null);
+            }}
+          >
+            Đóng lại
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
     </div>
   );
-};
 
-
-
-
-
+}

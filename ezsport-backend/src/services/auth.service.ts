@@ -90,23 +90,27 @@ class AuthService {
     phone?: string;
     role?: string;
   }) {
-    const existing = await User.findOne({ username });
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+
+    const existing = await User.findOne({ username: cleanUsername });
     if (existing) throw new Error("Username đã tồn tại");
 
-    if (email) {
-      const existingEmail = await User.findOne({ email });
+    if (cleanEmail) {
+      const existingEmail = await User.findOne({ email: cleanEmail });
       if (existingEmail) throw new Error("Email đã được đăng ký bởi tài khoản khác");
     }
 
     const hashed = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
-      username,
+      username: cleanUsername,
       fullName,
-      email,
+      email: cleanEmail,
       password: hashed,
       phone,
       role: role as any,
+      status: role === UserRole.OWNER ? UserStatus.INACTIVE : UserStatus.ACTIVE,
     });
 
     return {
@@ -122,11 +126,19 @@ class AuthService {
   }
 
   async login({ username, password }: { username: string; password: string }) {
-    const user = await User.findOne({ username });
+    const cleanUsername = username.trim().toLowerCase();
+    const user = await User.findOne({ username: cleanUsername });
     if (!user || !user.password) throw new Error("Không tìm thấy tài khoản");
 
     if (user.status === UserStatus.BANNED) {
       throw new Error("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+    }
+
+    if (user.status === UserStatus.INACTIVE) {
+      if (user.role === UserRole.OWNER) {
+        throw new Error("Tài khoản chủ sân của bạn đang chờ quản trị viên phê duyệt.");
+      }
+      throw new Error("Tài khoản của bạn chưa được kích hoạt.");
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -167,14 +179,15 @@ class AuthService {
     if (!payload?.email) throw new Error("Google payload invalid");
 
     const { email, name, picture } = payload;
+    const cleanEmail = email.trim().toLowerCase();
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: cleanEmail });
     if (!user) {
-      
+      const defaultUsername = cleanEmail.split('@')[0];
       user = await User.create({
-        username: email.split('@')[0],
-        fullName: name || email.split('@')[0],
-        email,
+        username: defaultUsername,
+        fullName: name || defaultUsername,
+        email: cleanEmail,
         password: '',
         avatar: picture,
         role: UserRole.PLAYER,
@@ -184,6 +197,13 @@ class AuthService {
 
     if (user.status === UserStatus.BANNED) {
       throw new Error("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+    }
+
+    if (user.status === UserStatus.INACTIVE) {
+      if (user.role === UserRole.OWNER) {
+        throw new Error("Tài khoản chủ sân của bạn đang chờ quản trị viên phê duyệt.");
+      }
+      throw new Error("Tài khoản của bạn chưa được kích hoạt.");
     }
 
     const accessToken = this.generateToken({
