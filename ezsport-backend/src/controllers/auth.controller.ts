@@ -74,6 +74,19 @@ export const register = async (req: Request, res: Response) => {
         errors: error.issues,
       });
     }
+    if (error.code === 11000 || error.message?.includes("11000") || error.message?.includes("duplicate key")) {
+      let field = "Dữ liệu";
+      const errMsg = error.message || "";
+      const errStr = JSON.stringify(error);
+      if (errMsg.includes("email") || errStr.includes("email")) {
+        field = "Email";
+      } else if (errMsg.includes("username") || errStr.includes("username")) {
+        field = "Tên đăng nhập";
+      }
+      return res.status(400).json({
+        message: `${field} đã được sử dụng. Vui lòng thử lại.`
+      });
+    }
     res.status(400).json({
       message: error.message
     });

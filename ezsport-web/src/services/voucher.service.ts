@@ -14,6 +14,7 @@ export interface Voucher {
   target: string;
   expiresAt?: string;
   active: boolean;
+  createdAt?: string;
 }
 
 export interface UserVoucher {

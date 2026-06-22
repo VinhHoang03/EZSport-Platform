@@ -1,161 +1,285 @@
-  import React, { useState, useCallback, useEffect } from 'react';
-  import { W } from '../../utils/theme';
-  import { useAuth } from '../../context/AuthContext';
-  import { venueService, courtService, type Venue, type Court } from '../../services/venue.service';
-  import { OwnerVenuesTab } from './venues/OwnerVenuesTab';
-  import { CourtManagerSection } from './venues/CourtManagerSection';
-  import { CreateCourtModal } from './venues/CreateCourtModal';
-  import { OwnerOverviewTab } from './dashboard/OwnerDashboard';
-  import { BookingCalendar } from './bookings/BookingCalendar';
-  import { BookingDetail } from './bookings/BookingDetail';
-  import { OwnerRevenue } from './analytics/OwnerRevenue';
-  import { OwnerMessage } from './chats/OwnerMessage';
-  import api from '../../api/api';
+import React, { useState, useCallback, useEffect } from 'react';
+import { W } from '../../utils/theme';
+import { useAuth } from '../../context/AuthContext';
+import { venueService, courtService, type Venue, type Court } from '../../services/venue.service';
+import { OwnerVenuesTab } from './venues/OwnerVenuesTab';
+import { CourtManagerSection } from './venues/CourtManagerSection';
+import { CreateCourtModal } from './venues/CreateCourtModal';
+import { OwnerOverviewTab } from './dashboard/OwnerDashboard';
+import { BookingCalendar } from './bookings/BookingCalendar';
+import { BookingDetail } from './bookings/BookingDetail';
+import { OwnerRevenue } from './analytics/OwnerRevenue';
+import { OwnerMessage } from './chats/OwnerMessage';
+import { PaymentConfigTab } from './PaymentConfigTab';
+import api from '../../api/api';
 
-  interface OwnerDashboardProps {
-    onGoHome: () => void;
-  }
+interface OwnerDashboardProps {
+  onGoHome: () => void;
+}
 
-  interface Booking {
-    id: string;
-    name: string;
-    phone: string;
-    email: string;
-    avatar: string;
-    court: string;
-    date: string;
-    timeSlot: string;
-    duration: string;
-    paymentMethod: string;
-    amount: string;
-    status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED';
-    notes: string;
-    top: number;
-    height: number;
-    column: number;
-    courtId?: string;
-  }
+interface Booking {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  avatar: string;
+  court: string;
+  date: string;
+  timeSlot: string;
+  duration: string;
+  paymentMethod: string;
+  amount: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED';
+  notes: string;
+  top: number;
+  height: number;
+  column: number;
+  courtId?: string;
+}
 
-  export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
-    const [activeMenu, setActiveMenu] = useState('bookings');
-    const { logout, user } = useAuth();
+export const OwnerPage: React.FC<OwnerDashboardProps> = ({ onGoHome }) => {
+  const [activeMenu, setActiveMenu] = useState('bookings');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { logout, user } = useAuth();
 
-    const [bookingsList, setBookingsList] = useState<Booking[]>([]);
-    const [loadingBookings, setLoadingBookings] = useState(false);
-    const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [bookingsList, setBookingsList] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-    const [showCreateCourtModal, setShowCreateCourtModal] = useState(false);
-    const [selectedVenueForCourt, setSelectedVenueForCourt] = useState<Venue | null>(null);
-    const [creatingCourt, setCreatingCourt] = useState(false);
+  const [showCreateCourtModal, setShowCreateCourtModal] = useState(false);
+  const [selectedVenueForCourt, setSelectedVenueForCourt] = useState<Venue | null>(null);
+  const [creatingCourt, setCreatingCourt] = useState(false);
 
-    // Fetch real bookings for all courts owned by this owner
-    const fetchOwnerBookings = useCallback(async () => {
-      setLoadingBookings(true);
-      try {
-        const venues = await venueService.getMyVenues({ active: 'all' });
-        if (!venues.length) return;
+  const fetchOwnerBookings = useCallback(async () => {
+    setLoadingBookings(true);
+    try {
+      const venues = await venueService.getMyVenues({ active: 'all' });
+      if (!venues.length) return;
 
-        const allCourts: Court[] = [];
-        for (const venue of venues) {
-          const courts = await courtService.getCourts({ venue: venue._id, active: 'all' });
-          allCourts.push(...courts);
+      const allCourts: Court[] = [];
+      for (const venue of venues) {
+        const courts = await courtService.getCourts({ venue: venue._id, active: 'all' });
+        allCourts.push(...courts);
+      }
+
+      const allBookings: Booking[] = [];
+      for (const court of allCourts) {
+        try {
+          const res = await api.get(`/bookings/court/${court._id}/bookings?limit=100`);
+          const courtBookings: any[] = res.data.data || [];
+          courtBookings.forEach((b: any) => {
+            const [startH, startM] = (b.startTime || '06:00').split(':').map(Number);
+            const [endH, endM] = (b.endTime || '07:00').split(':').map(Number);
+            const top = Math.max(0, (startH - 6) * 60 + startM);
+            const height = Math.max(30, (endH - startH) * 60 + (endM - startM));
+
+            allBookings.push({
+              id: b._id,
+              name: b.bookerName || 'Khách',
+              phone: b.bookerPhone || '',
+              email: b.bookerEmail || '',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(b.bookerName || 'K')}&background=1a6b3c&color=fff`,
+              court: court.name,
+              date: b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('vi-VN') : '',
+              timeSlot: `${b.startTime} - ${b.endTime}`,
+              duration: `${b.duration}h`,
+              paymentMethod: b.paymentMethod || 'card',
+              amount: `${(b.totalPrice || 0).toLocaleString('vi-VN')}đ`,
+              status: b.status || 'PENDING',
+              notes: b.notes || '',
+              top,
+              height,
+              column: 0,
+              courtId: court._id,
+            } as any);
+          });
+        } catch {
+          // skip court if fetch fails
+        }
+      }
+      setBookingsList(allBookings);
+    } catch (err) {
+      console.error('Failed to fetch owner bookings:', err);
+    } finally {
+      setLoadingBookings(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeMenu === 'bookings') {
+      fetchOwnerBookings();
+    }
+  }, [activeMenu, fetchOwnerBookings]);
+
+  const openCreateCourtModal = (venue: Venue) => {
+    setSelectedVenueForCourt(venue);
+    setShowCreateCourtModal(true);
+  };
+
+  const closeCreateCourtModal = () => {
+    setShowCreateCourtModal(false);
+    setSelectedVenueForCourt(null);
+  };
+
+  const handleCreateCourt = async (payloads: (FormData | any)[]) => {
+    if (!selectedVenueForCourt) return;
+    setCreatingCourt(true);
+    try {
+      await courtService.createCourt(payloads);
+      alert('Tạo sân thành công.');
+      closeCreateCourtModal();
+    } catch (error: any) {
+      alert(error?.response?.data?.message || 'Lỗi tạo sân.');
+      throw error;
+    } finally {
+      setCreatingCourt(false);
+    }
+  };
+
+  const handleStatusUpdate = (id: string, newStatus: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED') => {
+    setBookingsList(prev =>
+      prev.map(b => (b.id === id ? { ...b, status: newStatus } : b))
+    );
+    if (selectedBooking && selectedBooking.id === id) {
+      setSelectedBooking(prev => (prev ? { ...prev, status: newStatus } : null));
+    }
+  };
+
+  const navigateTo = (id: string) => {
+    setActiveMenu(id);
+    setSelectedBooking(null);
+    setSidebarOpen(false); // đóng sidebar khi chọn menu trên mobile
+  };
+
+  const menuItems = [
+    { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
+    { id: 'bookings', icon: 'calendar_month', label: 'Lịch đặt' },
+    { id: 'revenue', icon: 'payments', label: 'Doanh thu' },
+    { id: 'venue_info', icon: 'info', label: 'Địa điểm' },
+    { id: 'hours_prices', icon: 'schedule', label: 'Giờ & Giá' },
+    { id: 'messages', icon: 'chat', label: 'Tin nhắn' },
+    { id: 'payment_config', icon: 'account_balance', label: 'Nhận tiền' },
+  ];
+
+  // Bottom nav chỉ hiển thị 5 mục chính
+  const bottomNavItems = [
+    { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
+    { id: 'bookings', icon: 'calendar_month', label: 'Lịch đặt' },
+    { id: 'revenue', icon: 'payments', label: 'Doanh thu' },
+    { id: 'venue_info', icon: 'home_work', label: 'Địa điểm' },
+    { id: 'messages', icon: 'chat', label: 'Khác' },
+  ];
+
+  const userInitials = user?.fullName
+    ?.split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'QA';
+
+  return (
+    <>
+      {/* ═══ CSS-in-JS responsive styles ═══ */}
+      <style>{`
+        .owner-sidebar {
+          width: 260px;
+          min-width: 260px;
+          background-color: #0f3d22;
+          color: #fff;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+          z-index: 100;
+          transition: transform 0.3s ease;
+          height: 100vh;
+          position: relative;
+        }
+        .owner-hamburger {
+          display: none;
+        }
+        .owner-mobile-header {
+          display: none;
+        }
+        .owner-bottom-nav {
+          display: none;
+        }
+        .owner-main-content {
+          padding-bottom: 0;
+        }
+        .owner-sidebar-overlay {
+          display: none;
         }
 
-        const allBookings: Booking[] = [];
-        for (const court of allCourts) {
-          try {
-            const res = await api.get(`/bookings/court/${court._id}/bookings?limit=100`);
-            const courtBookings: any[] = res.data.data || [];
-            courtBookings.forEach((b: any) => {
-              const [startH, startM] = (b.startTime || '06:00').split(':').map(Number);
-              const [endH, endM] = (b.endTime || '07:00').split(':').map(Number);
-              const top = Math.max(0, (startH - 6) * 60 + startM);
-              const height = Math.max(30, (endH - startH) * 60 + (endM - startM));
-
-              allBookings.push({
-                id: b._id,
-                name: b.bookerName || 'Khách',
-                phone: b.bookerPhone || '',
-                email: b.bookerEmail || '',
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(b.bookerName || 'K')}&background=1a6b3c&color=fff`,
-                court: court.name,
-                date: b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('vi-VN') : '',
-                timeSlot: `${b.startTime} - ${b.endTime}`,
-                duration: `${b.duration}h`,
-                paymentMethod: b.paymentMethod || 'card',
-                amount: `${(b.totalPrice || 0).toLocaleString('vi-VN')}đ`,
-                status: b.status || 'PENDING',
-                notes: b.notes || '',
-                top,
-                height,
-                column: 0,
-                courtId: court._id,
-              } as any);
-            });
-          } catch {
-            // skip court if fetch fails
+        @media (max-width: 768px) {
+          .owner-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 280px;
+            min-width: 280px;
+            transform: translateX(-100%);
+            z-index: 1050;
+          }
+          .owner-sidebar.open {
+            transform: translateX(0);
+          }
+          .owner-sidebar-overlay {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1040;
+          }
+          .owner-hamburger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            color: #0f3d22;
+          }
+          .owner-hamburger:hover {
+            background: rgba(15,61,34,0.08);
+          }
+          .owner-mobile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            min-height: 60px;
+          }
+          .owner-bottom-nav {
+            display: flex;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-top: 1px solid #e2e8f0;
+            z-index: 100;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+          }
+          .owner-main-content {
+            padding-bottom: 72px;
+          }
+          .owner-layout-root {
+            flex-direction: column !important;
           }
         }
-        setBookingsList(allBookings);
-      } catch (err) {
-        console.error('Failed to fetch owner bookings:', err);
-      } finally {
-        setLoadingBookings(false);
-      }
-    }, []);
+      `}</style>
 
-    useEffect(() => {
-      if (activeMenu === 'bookings') {
-        fetchOwnerBookings();
-      }
-    }, [activeMenu, fetchOwnerBookings]);
-
-    const openCreateCourtModal = (venue: Venue) => {
-      setSelectedVenueForCourt(venue);
-      setShowCreateCourtModal(true);
-    };
-
-    const closeCreateCourtModal = () => {
-      setShowCreateCourtModal(false);
-      setSelectedVenueForCourt(null);
-    };
-
-    const handleCreateCourt = async (payloads: (FormData | any)[]) => {
-      if (!selectedVenueForCourt) return;
-      setCreatingCourt(true);
-      try {
-        await courtService.createCourt(payloads);
-        alert('Tạo sân thành công.');
-        closeCreateCourtModal();
-      } catch (error: any) {
-        alert(error?.response?.data?.message || 'Lỗi tạo sân.');
-        throw error;
-      } finally {
-        setCreatingCourt(false);
-      }
-    };
-
-    const handleStatusUpdate = (id: string, newStatus: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED') => {
-      setBookingsList(prev =>
-        prev.map(b => (b.id === id ? { ...b, status: newStatus } : b))
-      );
-      if (selectedBooking && selectedBooking.id === id) {
-        setSelectedBooking(prev => (prev ? { ...prev, status: newStatus } : null));
-      }
-    };
-
-    const menuItems = [
-      { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
-      { id: 'bookings', icon: 'calendar_month', label: 'Lịch đặt sân' },
-      { id: 'revenue', icon: 'payments', label: 'Doanh thu' },
-      { id: 'venue_info', icon: 'info', label: 'Quản lí địa điểm' },
-      { id: 'hours_prices', icon: 'schedule', label: 'Giờ & Giá' },
-      { id: 'messages', icon: 'chat', label: 'Tin nhắn' },
-    ];
-
-    return (
       <div
+        className="owner-layout-root"
         style={{
           display: 'flex',
           height: '100vh',
@@ -165,18 +289,17 @@
           fontFamily: "'Inter', sans-serif",
         }}
       >
+        {/* ─── SIDEBAR OVERLAY (mobile) ─── */}
+        {sidebarOpen && (
+          <div
+            className="owner-sidebar-overlay"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* ─── SIDEBAR ─── */}
-        <div
-          style={{
-            width: '260px',
-            backgroundColor: '#0f3d22',
-            color: W,
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '4px 0 24px rgba(0,0,0,0.1)',
-            zIndex: 10,
-          }}
-        >
+        <div className={`owner-sidebar${sidebarOpen ? ' open' : ''}`}>
+          {/* Logo */}
           <div
             className="d-flex align-items-center justify-content-center cursor-pointer"
             onClick={onGoHome}
@@ -193,6 +316,7 @@
             />
           </div>
 
+          {/* User info */}
           <div className="px-4 mb-4">
             <div
               style={{
@@ -213,37 +337,21 @@
               ) : (
                 <div
                   style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    background: '#22c55e',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: W,
-                    fontWeight: 700,
-                    fontSize: '14px',
+                    width: '40px', height: '40px', borderRadius: '50%',
+                    background: '#22c55e', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', color: W, fontWeight: 700, fontSize: '14px',
                   }}
                 >
-                  {user?.fullName
-                    ?.split(' ')
-                    .map((n: string) => n[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase() || 'QA'}
+                  {userInitials}
                 </div>
               )}
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 700 }}>{user?.fullName || 'Chủ sân'}</div>
                 <div
                   style={{
-                    fontSize: '11px',
-                    color: 'rgba(255,255,255,0.6)',
-                    background: 'rgba(0,0,0,0.3)',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    display: 'inline-block',
-                    marginTop: '4px',
+                    fontSize: '11px', color: 'rgba(255,255,255,0.6)',
+                    background: 'rgba(0,0,0,0.3)', padding: '2px 6px',
+                    borderRadius: '4px', display: 'inline-block', marginTop: '4px',
                   }}
                 >
                   Chủ sân
@@ -252,21 +360,15 @@
             </div>
           </div>
 
+          {/* Menu items */}
           <div className="flex-grow-1 px-3" style={{ overflowY: 'auto' }}>
             {menuItems.map(item => (
               <div
                 key={item.id}
-                onClick={() => {
-                  setActiveMenu(item.id);
-                  setSelectedBooking(null);
-                }}
+                onClick={() => navigateTo(item.id)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '12px 16px', borderRadius: '8px', cursor: 'pointer',
                   marginBottom: '4px',
                   background: activeMenu === item.id ? 'rgba(255,255,255,0.15)' : 'transparent',
                   color: activeMenu === item.id ? W : 'rgba(255,255,255,0.7)',
@@ -283,48 +385,66 @@
             ))}
           </div>
 
+          {/* Logout */}
           <div className="p-4 mt-auto">
             <div
-              onClick={() => {
-                logout();
-                onGoHome();
-              }}
+              onClick={() => { logout(); onGoHome(); }}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                color: 'rgba(255,255,255,0.7)',
-                cursor: 'pointer',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                transition: 'all 0.2s',
+                display: 'flex', alignItems: 'center', gap: '12px',
+                color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+                padding: '12px 16px', borderRadius: '8px', transition: 'all 0.2s',
               }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                logout
-              </span>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>logout</span>
               <span style={{ fontSize: '14px', fontWeight: 500 }}>Đăng xuất</span>
             </div>
           </div>
         </div>
 
         {/* ─── MAIN CONTENT ─── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
+          {/* Mobile Header */}
+          <div className="owner-mobile-header">
+            <button className="owner-hamburger" onClick={() => setSidebarOpen(true)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '26px', color: '#0f3d22' }}>menu</span>
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f3d22' }}>
+                {menuItems.find(m => m.id === activeMenu)?.label || 'Dashboard'}
+              </span>
+            </div>
+            <div
+              onClick={() => { logout(); onGoHome(); }}
+              style={{ cursor: 'pointer', padding: '6px' }}
+            >
+              {user?.avatar ? (
+                <img src={user.avatar} alt="avatar" style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{
+                  width: '34px', height: '34px', borderRadius: '50%', background: '#0f3d22',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 700, fontSize: '12px',
+                }}>
+                  {userInitials}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
             {/* Main Scrollable Body */}
             <div
+              className="owner-main-content"
               style={{
                 flex: 1,
                 overflowY: 'auto',
                 padding: activeMenu === 'overview' ? '32px' : '24px',
               }}
             >
-              {activeMenu === 'overview' && (
-                <OwnerOverviewTab onNavigate={setActiveMenu} />
-              )}
+              {activeMenu === 'overview' && <OwnerOverviewTab onNavigate={setActiveMenu} />}
 
               {activeMenu === 'bookings' && (
                 <BookingCalendar
@@ -349,9 +469,11 @@
               {activeMenu === 'hours_prices' && <CourtManagerSection />}
 
               {activeMenu === 'messages' && <OwnerMessage />}
+
+              {activeMenu === 'payment_config' && <PaymentConfigTab />}
             </div>
 
-            {/* ─── BOOKING DETAIL SIDE DRAWER ─── */}
+            {/* Booking Detail Side Drawer */}
             {activeMenu === 'bookings' && selectedBooking && (
               <BookingDetail
                 booking={selectedBooking}
@@ -367,11 +489,70 @@
               onCreateCourt={handleCreateCourt}
               submitting={creatingCourt}
             />
-
           </div>
         </div>
-      </div>
-    );
-  };
 
-  export default OwnerPage;
+        {/* ─── BOTTOM NAVIGATION (mobile only) ─── */}
+        <div className="owner-bottom-nav">
+          {bottomNavItems.map(item => {
+            const isActive = item.id === 'messages'
+              ? ['messages', 'hours_prices', 'payment_config'].includes(activeMenu)
+              : activeMenu === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (item.id === 'messages') {
+                    // "Khác" mở sidebar để chọn thêm
+                    setSidebarOpen(true);
+                  } else {
+                    navigateTo(item.id);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px 4px',
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  gap: '2px',
+                  color: isActive ? '#0f3d22' : '#94a3b8',
+                  transition: 'color 0.15s',
+                }}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{
+                    fontSize: '22px',
+                    fontVariationSettings: isActive ? "'FILL' 1, 'wght' 600" : "'FILL' 0, 'wght' 400",
+                  }}
+                >
+                  {item.id === 'messages' ? 'menu' : item.icon}
+                </span>
+                <span style={{ fontSize: '10px', fontWeight: isActive ? 700 : 500 }}>
+                  {item.id === 'messages' ? 'Thêm' : item.label}
+                </span>
+                {isActive && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    width: '40px',
+                    height: '3px',
+                    background: '#0f3d22',
+                    borderRadius: '3px 3px 0 0',
+                  }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default OwnerPage;

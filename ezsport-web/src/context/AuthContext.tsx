@@ -10,6 +10,10 @@ interface User {
   role?: string;
   loyaltyPoints?: number;
   createdAt?: string;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankQrCode?: string;
 }
 
 interface AuthContextType {

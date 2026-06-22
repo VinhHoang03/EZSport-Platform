@@ -5,7 +5,7 @@ import { authService } from '../../services/auth.service';
 import { ROUTES } from '../../constants';
 import AuthLayout from '../../layouts/AuthLayout';
 
-type AccountType = 'player' | 'owner' | 'shop';
+type AccountType = 'player' | 'owner';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -149,7 +149,6 @@ const RegisterPage: React.FC = () => {
             {([
               { type: 'player' as AccountType, title: 'Người chơi', desc: 'Tìm sân, đặt lịch, tham gia giải đấu', icon: 'person' },
               { type: 'owner' as AccountType, title: 'Chủ sân', desc: 'Đăng sân, quản lý lịch, tăng doanh thu', icon: 'stadium' },
-              { type: 'shop' as AccountType, title: 'Cửa hàng', desc: 'Bán đồ thể thao, tiếp cận người chơi', icon: 'shopping_bag' },
             ]).map(opt => {
               const sel = accountType === opt.type;
               return (
