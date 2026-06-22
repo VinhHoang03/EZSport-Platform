@@ -104,7 +104,7 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated, currentPage, user]);
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
-  const [authInitialAccountType, setAuthInitialAccountType] = useState<'player' | 'owner' | 'shop'>('player');
+  const [authInitialAccountType, setAuthInitialAccountType] = useState<'player' | 'owner'>('player');
 
   // Smart logo click: if logged in, go to correct home for role. If not, go to landing.
   const handleLogoClick = () => {

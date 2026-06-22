@@ -38,11 +38,10 @@ export const createPlaymate = async (req: Request, res: Response) => {
       data: playmate,
     });
   } catch (error: any) {
-    if (error.errors) {
-      // Zod validation error
+    if (error.name === "ZodError" || error.issues) {
       return res.status(400).json({
-        message: error.errors[0]?.message || "Dữ liệu đầu vào không hợp lệ",
-        errors: error.errors,
+        message: error.issues?.[0]?.message || "Dữ liệu đầu vào không hợp lệ",
+        errors: error.issues,
       });
     }
     console.error("Error in createPlaymate:", error);

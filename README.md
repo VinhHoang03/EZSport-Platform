@@ -59,14 +59,52 @@ VITE_API_URL=http://localhost:5000/api
 ### Run Development
 
 ```bash
-# Terminal 1 - Backend
-cd ezsport-backend
+# Chạy cả backend + web cùng lúc từ root (không cần cd)
 npm run dev
 
-# Terminal 2 - Frontend
-cd ezsport-web
-npm run dev
+# Hoặc chạy riêng lẻ
+npm run backend:dev   # chỉ backend
+npm run web:dev       # chỉ web
 ```
+
+---
+
+## 📜 Scripts Reference
+
+Tất cả lệnh chạy từ thư mục **root** `EZSport-Platform/`, không cần `cd` vào từng folder.
+
+### Development
+
+| Script | Mô tả |
+|--------|-------|
+| `npm run dev` | Chạy **cả backend + web** song song |
+| `npm run backend:dev` | Chỉ chạy backend với hot reload |
+| `npm run web:dev` | Chỉ chạy Vite dev server |
+
+### Build
+
+| Script | Mô tả |
+|--------|-------|
+| `npm run build` | Build cả backend + web |
+| `npm run backend:build` | Build backend TypeScript |
+| `npm run web:build` | Build web production |
+| `npm run backend:start` | Chạy backend bản đã build |
+| `npm run web:preview` | Preview web bản đã build |
+
+### Git
+
+| Script | Mô tả |
+|--------|-------|
+| `npm run git:status` | Xem trạng thái thay đổi |
+| `npm run git:commit -- "message"` | Add all + commit với message |
+| `npm run git:push` | Push lên remote |
+| `npm run git:sync` | Add + commit "sync" + push 1 lệnh |
+
+### Install
+
+| Script | Mô tả |
+|--------|-------|
+| `npm run install:all` | Cài dependencies cho cả backend + web |
 
 ---
 

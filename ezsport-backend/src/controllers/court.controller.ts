@@ -5,10 +5,20 @@ import Venue from "../models/venue.model";
 import { CourtService } from "../services/court.service";
 
 
+const ALLOWED_SPORTS = ['badminton', 'pickleball'];
+
 const parseSportTypes = (raw: any): string[] => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.map(String);
   try { return JSON.parse(raw); } catch { return [String(raw)]; }
+};
+
+const validateSportTypes = (sportTypes: string[]): string | null => {
+  const invalid = sportTypes.filter(s => !ALLOWED_SPORTS.includes(s.toLowerCase()));
+  if (invalid.length > 0) {
+    return `Môn thể thao không hợp lệ: "${invalid.join('", "')}". Hệ thống chỉ hỗ trợ: ${ALLOWED_SPORTS.join(', ')}.`;
+  }
+  return null;
 };
 
 const parsePricingRules = (raw: any) => {
@@ -103,8 +113,10 @@ export const createCourt = async (req: Request, res: Response) => {
 
     body.sportTypes = parseSportTypes(body.sportTypes ?? body.sportType);
     if (!body.sportTypes.length) {
-      return res.status(400).json({ message: "sportTypes is required" });
+      return res.status(400).json({ message: "sportTypes là bắt buộc" });
     }
+    const sportError = validateSportTypes(body.sportTypes);
+    if (sportError) return res.status(400).json({ message: sportError });
 
     if (!body.emoji) {
       const emojiMap: Record<string, string> = {
@@ -142,6 +154,8 @@ export const updateCourt = async (req: Request, res: Response) => {
 
     if (body.sportTypes || body.sportType) {
       body.sportTypes = parseSportTypes(body.sportTypes ?? body.sportType);
+      const sportError = validateSportTypes(body.sportTypes);
+      if (sportError) return res.status(400).json({ message: sportError });
     }
 
     if (files.length) {

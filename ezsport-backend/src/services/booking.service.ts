@@ -66,6 +66,14 @@ class BookingService {
         }
       }
 
+      const venueOpen = toMinutes(venue.openTime || "06:00");
+      const venueClose = toMinutes(venue.closeTime || "22:00");
+      const bookingStart = toMinutes(bookingData.startTime);
+      const bookingEnd = toMinutes(bookingData.endTime);
+      if (bookingStart < venueOpen || bookingEnd > venueClose || bookingStart >= bookingEnd) {
+        throw new Error("Khung gio dat san khong nam trong gio mo cua cua dia diem");
+      }
+
       const conflictingBooking = await Booking.findOne({
         courtId: bookingData.courtId,
         bookingDate: {
@@ -394,6 +402,8 @@ class BookingService {
     await this.cleanupStalePayOSBookings();
     const court = await Court.findById(courtId);
     if (!court) throw new Error("Sân không tồn tại");
+    const venue = await Venue.findById(court.venue);
+    if (!venue) throw new Error("Dia diem khong ton tai");
 
     // Get all active bookings (excluding unpaid MoMo/PayOS bookings) for this court on the date
     const bookings = await Booking.find({
@@ -418,29 +428,21 @@ class BookingService {
     const isPastDate = targetDateStr < todayStr;
 
     const slots: { time: string; available: boolean; price?: number }[] = [];
-    // Default hours: 06:00 - 24:00 (to allow 23:00 slot for bookings)
-    const startHour = 6;
-    const startMin = 0;
-    const endHour = 24;
-    const endMin = 0;
+    const venueOpen = toMinutes(venue.openTime || "06:00");
+    const venueClose = toMinutes(venue.closeTime || "22:00");
+    let currentMinuteOfDay = venueOpen;
 
-    let currentHour = startHour;
-    let currentMin = startMin;
-
-    while (
-      currentHour < endHour ||
-      (currentHour === endHour && currentMin < endMin)
-    ) {
+    while (currentMinuteOfDay + slotDuration * 60 <= venueClose) {
+      const currentHour = Math.floor(currentMinuteOfDay / 60);
+      const currentMin = currentMinuteOfDay % 60;
       const timeStr = `${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`;
+      const slotStart = currentMinuteOfDay;
+      const slotEnd = currentMinuteOfDay + slotDuration * 60;
 
       // Check if this slot conflicts with any booking
       const conflictingBooking = bookings.find((booking) => {
-        const bookingStart = parseInt(booking.startTime.split(":").join(""));
-        const bookingEnd = parseInt(booking.endTime.split(":").join(""));
-        const slotStart = parseInt(timeStr.split(":").join(""));
-        const slotEnd = parseInt(
-          `${String(currentHour + Math.floor((currentMin + slotDuration * 60) / 60)).padStart(2, "0")}${String((currentMin + slotDuration * 60) % 60).padStart(2, "0")}`.slice(0, 4)
-        );
+        const bookingStart = toMinutes(booking.startTime);
+        const bookingEnd = toMinutes(booking.endTime);
 
         return slotStart < bookingEnd && slotEnd > bookingStart;
       });
@@ -451,7 +453,7 @@ class BookingService {
       } else if (isToday) {
         const currentHourNow = now.getHours();
         const currentMinuteNow = now.getMinutes();
-        if (currentHour < currentHourNow || (currentHour === currentHourNow && currentMin < currentMinuteNow)) {
+        if (currentHour < currentHourNow || (currentHour === currentHourNow && currentMin <= currentMinuteNow)) {
           available = false;
         }
       }
@@ -463,11 +465,7 @@ class BookingService {
       });
 
       // Move to next slot
-      currentMin += slotDuration * 60;
-      if (currentMin >= 60) {
-        currentHour += Math.floor(currentMin / 60);
-        currentMin = currentMin % 60;
-      }
+      currentMinuteOfDay += slotDuration * 60;
     }
 
     return slots;

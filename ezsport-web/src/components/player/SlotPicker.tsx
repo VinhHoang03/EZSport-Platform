@@ -44,6 +44,13 @@ const toMinutes = (time: string) => {
   return hour * 60 + minute;
 };
 
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selectedDate, selectedStartTime, openTime = '06:00', closeTime = '22:00' }) => {
   const days = getNextDays();
   const [activeDate, setActiveDate] = useState(selectedDate || days[0].value);
@@ -51,6 +58,12 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
   const [duration, setDuration] = useState(1);
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!courtId || !activeDate) return;
@@ -80,16 +93,25 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
     return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
   };
 
+  const isPastSlot = (startTime: string) => {
+    if (activeDate !== toDateKey(now)) return false;
+    return toMinutes(startTime) <= now.getHours() * 60 + now.getMinutes();
+  };
+
+  const isInsideVenueHours = (startTime: string, dur: number) => {
+    const startMinutes = toMinutes(startTime);
+    const endMinutes = startMinutes + dur * 60;
+    const openMinutes = toMinutes(openTime);
+    const closeMinutes = toMinutes(closeTime);
+    return startMinutes >= openMinutes && endMinutes <= closeMinutes;
+  };
+
   // Check if a time slot is available for the selected duration
   const isSlotAvailableForDuration = (startTime: string, dur: number): boolean => {
     const startIdx = slots.findIndex(s => s.time === startTime);
     if (startIdx === -1) return false;
 
-    const startMinutes = toMinutes(startTime);
-    const endMinutes = startMinutes + dur * 60;
-    const openMinutes = toMinutes(openTime);
-    const closeMinutes = toMinutes(closeTime);
-    if (startMinutes < openMinutes || endMinutes > closeMinutes) return false;
+    if (!isInsideVenueHours(startTime, dur) || isPastSlot(startTime)) return false;
 
     // Check if start slot is available
     if (!slots[startIdx].available) return false;
@@ -104,6 +126,8 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
     return true;
   };
 
+  const visibleSlots = slots.filter(s => isInsideVenueHours(s.time, 1));
+  const selectableSlots = visibleSlots.filter(s => isSlotAvailableForDuration(s.time, duration));
 
   const selectedSlot = slots.find((s) => s.time === activeTime);
   const basePrice = (selectedSlot?.price ?? 0) * duration;
@@ -145,12 +169,22 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
           <div className="text-center py-3"><Spinner size="sm" variant="success" /></div>
         ) : (
           <div className="d-flex gap-2 flex-wrap">
-            {slots
-              .filter(s => s.available && isSlotAvailableForDuration(s.time, duration)) // ✅ CHECK CẢ DURATION
-              .map((s) => (
+            {visibleSlots
+              .map((s) => {
+                const selectable = isSlotAvailableForDuration(s.time, duration);
+                const disabledReason = isPastSlot(s.time)
+                  ? 'Đã qua giờ'
+                  : !s.available
+                    ? 'Đã có người đặt'
+                    : !isInsideVenueHours(s.time, duration)
+                      ? 'Vượt giờ đóng cửa'
+                      : 'Không đủ slot liên tiếp';
+
+                return (
                 <button
                   key={s.time}
                   onClick={() => {
+                    if (!selectable) return;
                     setActiveTime(s.time);
                     onSlotSelect({
                       date: activeDate,
@@ -160,21 +194,26 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
                       basePrice: (s.price ?? 0) * duration,
                     });
                   }}
+                  disabled={!selectable}
+                  title={!selectable ? disabledReason : ''}
                   style={{
                     border: activeTime === s.time ? '2px solid #16a34a' : '1.5px solid #e5e7eb',
                     borderRadius: '10px',
                     padding: '7px 14px',
-                    background: activeTime === s.time ? '#f0fdf4' : '#fff',
-                    color: activeTime === s.time ? '#16a34a' : '#374151',
+                    background: selectable ? (activeTime === s.time ? '#f0fdf4' : '#fff') : '#f3f4f6',
+                    color: selectable ? (activeTime === s.time ? '#16a34a' : '#9ca3af') : '#9ca3af',
                     fontWeight: activeTime === s.time ? 700 : 400,
                     fontSize: '13px',
-                    cursor: 'pointer',
+                    cursor: selectable ? 'pointer' : 'not-allowed',
+                    opacity: selectable ? 1 : 0.58,
+                    textDecoration: selectable ? 'none' : 'line-through',
                   }}
                 >
                   {s.time}
                 </button>
-              ))}
-            {slots.filter(s => s.available && isSlotAvailableForDuration(s.time, duration)).length === 0 && (
+              );
+            })}
+            {selectableSlots.length === 0 && (
               <div style={{ 
                 width: '100%', 
                 textAlign: 'center', 
@@ -198,7 +237,7 @@ const SlotPicker: React.FC<SlotPickerProps> = ({ courtId, onSlotSelect, selected
         <p className="fw-semibold mb-2" style={{ fontSize: '14px', color: '#374151' }}>Thời lượng</p>
         <div className="d-flex gap-2">
           {DURATIONS.map((d) => {
-            const availableSlotsForDuration = slots.filter(s => s.available && isSlotAvailableForDuration(s.time, d)).length;
+            const availableSlotsForDuration = visibleSlots.filter(s => isSlotAvailableForDuration(s.time, d)).length;
             const isDisabled = availableSlotsForDuration === 0;
             
             return (

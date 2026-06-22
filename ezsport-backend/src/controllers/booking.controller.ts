@@ -16,8 +16,9 @@ class BookingController {
       if (!validation.success) {
         const firstError = validation.error.issues[0];
         return res.status(400).json({
-          message: "Validation failed",
+          message: firstError.message || "Dữ liệu đặt sân không hợp lệ",
           error: firstError.message,
+          errors: validation.error.issues,
         });
       }
 
@@ -174,8 +175,9 @@ class BookingController {
       if (!validation.success) {
         const firstError = validation.error.issues[0];
         return res.status(400).json({
-          message: "Validation failed",
+          message: firstError.message || "Dữ liệu cập nhật không hợp lệ",
           error: firstError.message,
+          errors: validation.error.issues,
         });
       }
 
