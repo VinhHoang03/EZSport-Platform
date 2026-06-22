@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row } from 'react-bootstrap';
 import CourtList from '../../../components/player/VenueList';
 import LeftFilterSidebar from '../../../components/player/LeftFilterSidebar';
-import MapComponent from '../../../components/shared/MapComponent';
 import api from '../../../api/api';
 
 // Haversine formula — same as App.tsx
@@ -43,9 +42,7 @@ const VenuesPage: React.FC = () => {
   // User GPS location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Routing state
-  const [routingDestination, setRoutingDestination] = useState<{ lat: number; lng: number } | null>(null);
-  const [routeSummary, setRouteSummary] = useState<{ distance: number; time: number } | null>(null);
+
 
   // Filter states
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
@@ -96,27 +93,7 @@ const VenuesPage: React.FC = () => {
       : court.distance,
   }));
 
-  // Directions handler — sets routing destination and auto-requests GPS if not yet available
-  const handleDirections = useCallback((lat: number, lng: number) => {
-    setRoutingDestination({ lat, lng });
-    setRouteSummary(null);
-    if (!userLocation && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => console.warn('[VenuesPage] Geolocation error:', err),
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }
-  }, [userLocation]);
 
-  const handleClearRoute = useCallback(() => {
-    setRoutingDestination(null);
-    setRouteSummary(null);
-  }, []);
-
-  const handleRouteInfo = useCallback((distance: number, time: number) => {
-    setRouteSummary({ distance, time });
-  }, []);
 
   // Apply filters on courts WITH real distances
   const filteredCourts = courtsWithDistance.filter(court => {
@@ -135,9 +112,22 @@ const VenuesPage: React.FC = () => {
       const dist = parseFloat(calcDistance(userLocation.lat, userLocation.lng, court.lat, court.lng));
       if (dist > maxDistance) return false;
     }
-    const priceNum = parseInt((court.price || '').replace(/[^0-9]/g, ''), 10) || 0;
-    if (priceMin && priceNum < parseInt(priceMin, 10)) return false;
-    if (priceMax && priceNum > parseInt(priceMax, 10)) return false;
+    // Extract the FIRST number from price string (e.g. "150.000 - 200.000 VNĐ/Giờ" → 150000)
+    const firstNumStr = (court.price || '').replace(/\./g, '').replace(/,/g, '').match(/\d+/)?.[0] || '0';
+    const priceNum = parseInt(firstNumStr, 10) || 0;
+    if (priceMin) {
+      // Strip Vietnamese thousands separators (dots/commas) from user input
+      const cleanMin = priceMin.replace(/\./g, '').replace(/,/g, '');
+      const minVal = parseInt(cleanMin, 10);
+      const normalizedMin = minVal > 0 && minVal < 10000 ? minVal * 1000 : minVal;
+      if (priceNum < normalizedMin) return false;
+    }
+    if (priceMax) {
+      const cleanMax = priceMax.replace(/\./g, '').replace(/,/g, '');
+      const maxVal = parseInt(cleanMax, 10);
+      const normalizedMax = maxVal > 0 && maxVal < 10000 ? maxVal * 1000 : maxVal;
+      if (priceNum > normalizedMax) return false;
+    }
     if (court.rating < minRating) return false;
     return true;
   });
@@ -151,67 +141,86 @@ const VenuesPage: React.FC = () => {
   }
 
   return (
-    <div className="d-flex h-100 overflow-hidden">
-      {/* Left Filter Sidebar */}
-      <div className="h-100 flex-shrink-0 border-end bg-white" style={{ width: '280px' }}>
-        <div className="h-100 overflow-auto">
-          <LeftFilterSidebar
-            selectedSports={selectedSports}
-            onSportsChange={setSelectedSports}
-            maxDistance={maxDistance}
-            onDistanceChange={setMaxDistance}
-            priceMin={priceMin}
-            priceMax={priceMax}
-            onPriceMinChange={setPriceMin}
-            onPriceMaxChange={setPriceMax}
-            selectedAmenities={selectedAmenities}
-            onAmenitiesChange={setSelectedAmenities}
-            minRating={minRating}
-            onRatingChange={setMinRating}
-            onApplyFilters={() => {}}
-            onResetFilters={() => {
-              setSelectedSports([]);
-              setMaxDistance(15);
-              setPriceMin('');
-              setPriceMax('');
-              setSelectedAmenities([]);
-              setMinRating(0);
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Court List + Map */}
-      <div className="flex-grow-1 h-100 overflow-hidden">
-        <Row className="h-100 g-0">
-          {/* VenueList renders its own Col md={7} directly */}
+    <>
+      {/* ── Mobile layout: stacked vertically (accordion filter on top, list below) ── */}
+      <div className="d-flex flex-column d-md-none h-100 overflow-auto bg-white">
+        <LeftFilterSidebar
+          collapsible
+          selectedSports={selectedSports}
+          onSportsChange={setSelectedSports}
+          maxDistance={maxDistance}
+          onDistanceChange={setMaxDistance}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          onPriceMinChange={setPriceMin}
+          onPriceMaxChange={setPriceMax}
+          selectedAmenities={selectedAmenities}
+          onAmenitiesChange={setSelectedAmenities}
+          minRating={minRating}
+          onRatingChange={setMinRating}
+          onApplyFilters={() => {}}
+          onResetFilters={() => {
+            setSelectedSports([]);
+            setMaxDistance(15);
+            setPriceMin('');
+            setPriceMax('');
+            setSelectedAmenities([]);
+            setMinRating(0);
+          }}
+        />
+        <div style={{ flex: 1 }}>
           <CourtList
             venues={filteredCourts}
             layout="horizontal"
             currentLocationName={userLocation ? 'Vị trí của bạn' : 'Đà Nẵng, Việt Nam'}
             onDetailClick={(id) => navigate(`/venues/${id}`)}
             onBookingClick={(id) => navigate(`/venues/${id}`)}
-            onDirectionsClick={handleDirections}
           />
-          {/* Map column */}
-          <div className="col-md-5 h-100 position-relative bg-light">
-            <div className="position-absolute h-100 w-100">
-              <MapComponent
-                venues={filteredCourts}
-                onLocationFound={(lat, lng) => setUserLocation({ lat, lng })}
-                userLocation={userLocation}
-                routingDestination={routingDestination}
-                routeSummary={routeSummary}
-                onClearRoute={handleClearRoute}
-                onDirectionsClick={handleDirections}
-                onRouteInfo={handleRouteInfo}
-                isNavigating={!!routingDestination}
-              />
-            </div>
-          </div>
-        </Row>
+        </div>
       </div>
-    </div>
+
+      {/* ── Desktop layout: left sidebar + right list ── */}
+      <div className="d-none d-md-flex h-100 overflow-hidden">
+        <div className="h-100 flex-shrink-0 border-end bg-white" style={{ width: '280px' }}>
+          <div className="h-100 overflow-auto">
+            <LeftFilterSidebar
+              selectedSports={selectedSports}
+              onSportsChange={setSelectedSports}
+              maxDistance={maxDistance}
+              onDistanceChange={setMaxDistance}
+              priceMin={priceMin}
+              priceMax={priceMax}
+              onPriceMinChange={setPriceMin}
+              onPriceMaxChange={setPriceMax}
+              selectedAmenities={selectedAmenities}
+              onAmenitiesChange={setSelectedAmenities}
+              minRating={minRating}
+              onRatingChange={setMinRating}
+              onApplyFilters={() => {}}
+              onResetFilters={() => {
+                setSelectedSports([]);
+                setMaxDistance(15);
+                setPriceMin('');
+                setPriceMax('');
+                setSelectedAmenities([]);
+                setMinRating(0);
+              }}
+            />
+          </div>
+        </div>
+        <div className="flex-grow-1 h-100 overflow-hidden">
+          <Row className="h-100 g-0">
+            <CourtList
+              venues={filteredCourts}
+              layout="horizontal"
+              currentLocationName={userLocation ? 'Vị trí của bạn' : 'Đà Nẵng, Việt Nam'}
+              onDetailClick={(id) => navigate(`/venues/${id}`)}
+              onBookingClick={(id) => navigate(`/venues/${id}`)}
+            />
+          </Row>
+        </div>
+      </div>
+    </>
   );
 };
 

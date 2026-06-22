@@ -261,9 +261,22 @@ const App: React.FC = () => {
     }
 
     // 3. Filter by Price Min / Max
-    const priceNum = parseInt((venue.price || '').replace(/[^0-9]/g, ''), 10) || 0;
-    if (priceMin && priceNum < parseInt(priceMin, 10)) return false;
-    if (priceMax && priceNum > parseInt(priceMax, 10)) return false;
+    // Extract FIRST number from price string (e.g. "150.000 - 200.000 VNĐ/Giờ" → 150000)
+    const firstNumStr = (venue.price || '').replace(/\./g, '').replace(/,/g, '').match(/\d+/)?.[0] || '0';
+    const priceNum = parseInt(firstNumStr, 10) || 0;
+    if (priceMin) {
+      // Strip Vietnamese thousands separators (dots/commas) then normalize short values (e.g. 150 → 150000)
+      const cleanMin = priceMin.replace(/\./g, '').replace(/,/g, '');
+      const minVal = parseInt(cleanMin, 10);
+      const normalizedMin = minVal > 0 && minVal < 10000 ? minVal * 1000 : minVal;
+      if (priceNum < normalizedMin) return false;
+    }
+    if (priceMax) {
+      const cleanMax = priceMax.replace(/\./g, '').replace(/,/g, '');
+      const maxVal = parseInt(cleanMax, 10);
+      const normalizedMax = maxVal > 0 && maxVal < 10000 ? maxVal * 1000 : maxVal;
+      if (priceNum > normalizedMax) return false;
+    }
 
     // 4. Filter by Rating
     if ((venue.rating ?? 0) < minRating) return false;
@@ -394,43 +407,6 @@ const App: React.FC = () => {
                     navigate(`/venues/${id}`);
                   }}
                 />
-
-                {/* Cột phải: Map Component */}
-                <Col md={5} className="h-100 position-relative bg-light">
-                  <div className="position-absolute h-100 w-100">
-                    <MapComponent
-                      venues={filteredVenues}
-                      onLocationFound={handleLocationSelect}
-                      userLocation={userLocation}
-                      routingDestination={routingDestination}
-                      routeSummary={routeSummary}
-                      onClearRoute={handleClearRoute}
-                      onDirectionsClick={(lat, lng) => {
-                        const venue = processedVenues.find(v => v.lat === lat && v.lng === lng);
-                        handleDirections(lat, lng, venue?.name);
-                      }}
-                      onRouteInfo={handleRouteInfo}
-                      isNavigating={isNavigating}
-                    />
-                  </div>
-
-                  {/* Search this area button */}
-                  <div className="position-absolute start-50 translate-middle-x" style={{ bottom: '24px', zIndex: 1000 }}>
-                    <Button
-                      variant="white"
-                      className="rounded-pill shadow-lg fw-bold px-4 py-3 d-flex align-items-center gap-2 border"
-                      style={{
-                        background: '#ffffff',
-                        color: '#0f172a',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13.5px'
-                      }}
-                    >
-                      <span className="material-symbols-outlined text-success" style={{ color: '#1a6b3c' }}>explore</span>
-                      Tìm quanh đây
-                    </Button>
-                  </div>
-                </Col>
 
               </Row>
             </div>
