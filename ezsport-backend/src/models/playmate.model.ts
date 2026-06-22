@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface IPlaymate extends Document {
   creator: mongoose.Types.ObjectId;
-  sport: "Pickleball" | "Cầu lông" | "Bóng đá" | "Tennis";
+  sport: "Pickleball" | "Cầu lông";
   creatorLevel: "Mới chơi" | "Trung bình" | "Khá / Pro";
   title: string;
   description?: string;
@@ -21,7 +21,7 @@ const playmateSchema = new Schema<IPlaymate>(
     creator: { type: Schema.Types.ObjectId, ref: "User", required: true },
     sport: {
       type: String,
-      enum: ["Pickleball", "Cầu lông", "Bóng đá", "Tennis"],
+      enum: ["Pickleball", "Cầu lông"],
       required: true,
     },
     creatorLevel: {

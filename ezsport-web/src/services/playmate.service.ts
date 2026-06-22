@@ -13,7 +13,7 @@ export interface UserSummary {
 export interface Playmate {
   _id: string;
   creator: UserSummary;
-  sport: 'Pickleball' | 'Cầu lông' | 'Bóng đá' | 'Tennis';
+  sport: 'Pickleball' | 'Cầu lông';
   creatorLevel: 'Mới chơi' | 'Trung bình' | 'Khá / Pro';
   title: string;
   description?: string;
@@ -28,7 +28,7 @@ export interface Playmate {
 }
 
 export interface CreatePlaymatePayload {
-  sport: 'Pickleball' | 'Cầu lông' | 'Bóng đá' | 'Tennis';
+  sport: 'Pickleball' | 'Cầu lông';
   creatorLevel: 'Mới chơi' | 'Trung bình' | 'Khá / Pro';
   title: string;
   description?: string;

@@ -41,7 +41,7 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
 
   // Modal creation states
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
-  const [newSport, setNewSport] = useState<'Pickleball' | 'Cầu lông' | 'Bóng đá' | 'Tennis'>('Pickleball');
+  const [newSport, setNewSport] = useState<'Pickleball' | 'Cầu lông'>('Pickleball');
   const [newTitle, setNewTitle] = useState<string>('');
   const [newDesc, setNewDesc] = useState<string>('');
   const [newVenue, setNewVenue] = useState<string>('');
@@ -364,7 +364,7 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                 <div className="mb-4">
                   <label className="text-secondary small fw-bold uppercase mb-2 d-block">Bộ môn thể thao</label>
                   <div className="d-flex flex-wrap gap-2">
-                    {['Tất cả', 'Pickleball', 'Cầu lông', 'Bóng đá', 'Tennis'].map(sport => {
+                    {['Tất cả', 'Pickleball', 'Cầu lông'].map(sport => {
                       const isActive = selectedSport === sport;
                       return (
                         <button
@@ -493,8 +493,6 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                             >
                               <option value="Pickleball">Pickleball</option>
                               <option value="Cầu lông">Cầu lông</option>
-                              <option value="Bóng đá">Bóng đá</option>
-                              <option value="Tennis">Tennis</option>
                             </Form.Select>
                           </Form.Group>
                         </Col>
@@ -927,8 +925,6 @@ export const PlaymatesPage: React.FC<PlaymatesPageProps> = () => {
                   >
                     <option value="Pickleball">Pickleball</option>
                     <option value="Cầu lông">Cầu lông</option>
-                    <option value="Bóng đá">Bóng đá</option>
-                    <option value="Tennis">Tennis</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
