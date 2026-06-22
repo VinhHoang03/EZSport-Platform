@@ -98,12 +98,34 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
       setSaveError('Tên không được để trống.');
       return;
     }
+
+    // Validate email if provided
+    if (editForm.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(editForm.email.trim())) {
+        setSaveError('Email không hợp lệ.');
+        return;
+      }
+    }
+
+    // Validate phone if provided
+    let cleanPhone = editForm.phone.trim();
+    if (cleanPhone) {
+      cleanPhone = cleanPhone.replace(/[\s.-]/g, '');
+      const phoneRegex = /^(0)?[3|5|7|8|9]\d{8}$/;
+      if (!phoneRegex.test(cleanPhone)) {
+        setSaveError('Số điện thoại không hợp lệ (phải gồm 9 hoặc 10 chữ số).');
+        return;
+      }
+      cleanPhone = cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone;
+    }
+
     try {
       setSaving(true);
       setSaveError('');
       const updated = await userService.updateProfile({
         fullName: editForm.fullName.trim(),
-        phone: editForm.phone.trim(),
+        phone: cleanPhone,
         email: editForm.email.trim(),
         avatarFile: avatarFile ?? undefined,
       });

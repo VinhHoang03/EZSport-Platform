@@ -239,6 +239,23 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
       return;
     }
 
+    // Validate inputs
+    if (!bookerName.trim()) {
+      setError('Họ và tên người nhận không được để trống');
+      return;
+    }
+    const cleanPhone = bookerPhone.replace(/[\s.-]/g, '');
+    const phoneRegex = /^(0)?[3|5|7|8|9]\d{8}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      setError('Số điện thoại người nhận không hợp lệ (phải gồm 9 hoặc 10 chữ số)');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(bookerEmail.trim())) {
+      setError('Email người nhận không hợp lệ');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -256,9 +273,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         pointsUsed: usePoints && canUsePoints ? selectedPoints : 0,
         totalPrice: total,
         paymentMethod: paymentMethod,
-        bookerName: bookerName,
-        bookerPhone: bookerPhone.replace(/\s/g, ''),
-        bookerEmail: bookerEmail,
+        bookerName: bookerName.trim(),
+        bookerPhone: cleanPhone,
+        bookerEmail: bookerEmail.trim(),
         voucherCode: appliedVoucher?.code || undefined,
         notes: '',
         comboType: comboType,
@@ -481,11 +498,32 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                     variant="link"
                     onClick={() => {
                       const name = prompt('Nhập họ và tên:', bookerName);
+                      if (name !== null) {
+                        if (!name.trim()) {
+                          alert('Họ và tên không được để trống.');
+                        } else {
+                          setBookerName(name.trim());
+                        }
+                      }
                       const phone = prompt('Nhập số điện thoại:', bookerPhone);
+                      if (phone !== null) {
+                        const cleanPhone = phone.replace(/[\s.-]/g, '');
+                        const phoneRegex = /^(0)?[3|5|7|8|9]\d{8}$/;
+                        if (!phoneRegex.test(cleanPhone)) {
+                          alert('Số điện thoại không hợp lệ (phải gồm 9 hoặc 10 chữ số).');
+                        } else {
+                          setBookerPhone(cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone);
+                        }
+                      }
                       const email = prompt('Nhập email:', bookerEmail);
-                      if (name) setBookerName(name);
-                      if (phone) setBookerPhone(phone);
-                      if (email) setBookerEmail(email);
+                      if (email !== null) {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(email.trim())) {
+                          alert('Email không hợp lệ.');
+                        } else {
+                          setBookerEmail(email.trim());
+                        }
+                      }
                     }}
                     className="text-success fw-bold p-0 shadow-none border-0"
                     style={{ color: '#1a6b3c !important', textDecoration: 'none', fontSize: '14px' }}
