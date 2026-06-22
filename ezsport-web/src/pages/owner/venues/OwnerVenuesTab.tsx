@@ -39,13 +39,10 @@ const MapEventsHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: numbe
 const SPORT_OPTIONS = [
   { value: 'badminton', label: 'Cầu lông', emoji: '🏸' },
   { value: 'pickleball', label: 'Pickleball', emoji: '🏓' },
-  { value: 'soccer', label: 'Bóng đá', emoji: '⚽' },
-  { value: 'tennis', label: 'Tennis', emoji: '🎾' },
-  { value: 'basketball', label: 'Bóng rổ', emoji: '🏀' },
 ];
 
 const SPORT_EMOJI: Record<string, string> = {
-  badminton: '🏸', pickleball: '🏓', soccer: '⚽', tennis: '🎾', basketball: '🏀',
+  badminton: '🏸', pickleball: '🏓',
 };
 
 const DEFAULT_AMENITIES: Amenity[] = [

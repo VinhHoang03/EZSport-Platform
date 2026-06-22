@@ -590,15 +590,27 @@ export const LandingPage: React.FC<{
           </motion.div>
           <div className="landing-feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 22 }}>
             {[
-              { emoji: '⚡', title: 'Đặt sân thông minh bằng AI', text: 'Thuật toán gợi ý khung giờ đặt sân tối ưu dựa trên lịch sử hoạt động của bạn.' },
-              { emoji: '🗺️', title: 'Bản đồ trực quan', text: 'Xem các sân thể thao còn trống quanh thành phố của bạn theo thời gian thực dễ dàng.' },
-              { emoji: '🛍️', title: 'Cửa hàng thể thao', text: 'Mua sắm dụng cụ tập luyện, đặt lịch huấn luyện viên và cập nhật sự kiện thể thao.' },
-              { emoji: '📊', title: 'Quản lý chuyên nghiệp', text: 'Công cụ đắc lực dành cho chủ sân quản lý thành viên, doanh thu và định giá linh hoạt.' },
+              { icon: 'auto_awesome', title: 'Đặt sân thông minh bằng AI', text: 'Thuật toán gợi ý khung giờ đặt sân tối ưu dựa trên lịch sử hoạt động của bạn.', iconColor: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)' },
+              { icon: 'explore', title: 'Bản đồ trực quan', text: 'Xem các sân thể thao còn trống quanh thành phố của bạn theo thời gian thực dễ dàng.', iconColor: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)' },
+              { icon: 'shopping_bag', title: 'Cửa hàng thể thao', text: 'Mua sắm dụng cụ tập luyện, đặt lịch huấn luyện viên và cập nhật sự kiện thể thao.', iconColor: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)' },
+              { icon: 'analytics', title: 'Quản lý chuyên nghiệp', text: 'Công cụ đắc lực dành cho chủ sân quản lý thành viên, doanh thu và định giá linh hoạt.', iconColor: '#8b5cf6', bgColor: 'rgba(139, 92, 246, 0.1)' },
             ].map((f, i) => (
               <motion.div key={f.title} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                 whileHover={{ y: -8 }}
                 style={{ background: W, borderRadius: 24, padding: '32px 28px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', transition: 'box-shadow 0.3s' }}>
-                <div style={{ fontSize: 36, marginBottom: 16 }}>{f.emoji}</div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  background: f.bgColor,
+                  color: f.iconColor,
+                  marginBottom: 20
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 28 }}>{f.icon}</span>
+                </div>
                 <h3 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 800, color: TX }}>{f.title}</h3>
                 <p style={{ margin: 0, fontSize: 14, color: TX2, lineHeight: 1.7 }}>{f.text}</p>
               </motion.div>

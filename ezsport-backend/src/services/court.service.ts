@@ -35,9 +35,6 @@ type Intent = 'greeting' | 'identity' | 'thanks' | 'search' | 'faq' | 'support' 
 const SPORT_LABELS: Record<string, string> = {
   badminton: 'cầu lông',
   pickleball: 'pickleball',
-  soccer: 'bóng đá',
-  tennis: 'tennis',
-  basketball: 'bóng rổ',
 };
 
 const DISTRICT_LABELS: Record<string, string> = {
@@ -75,9 +72,6 @@ const detectSportType = (prompt: string): string | undefined => {
   const aliases: Record<string, string[]> = {
     badminton: ['badminton', 'cau long'],
     pickleball: ['pickleball'],
-    soccer: ['soccer', 'football', 'bong da', 'da banh'],
-    tennis: ['tennis', 'quan vot'],
-    basketball: ['basketball', 'bong ro'],
   };
 
   return Object.entries(aliases).find(([, values]) =>
@@ -230,7 +224,7 @@ const buildNeedMoreInfoMessage = (sportType?: string, location?: string, time?: 
   }
 
   if (location && !sportType) {
-    return `Bạn muốn tìm sân ở ${DISTRICT_LABELS[location] || location}. Bạn muốn chơi môn nào: cầu lông, pickleball, bóng đá, tennis hay bóng rổ?`;
+    return `Bạn muốn tìm sân ở ${DISTRICT_LABELS[location] || location}. Bạn muốn chơi môn nào: cầu lông hay pickleball?`;
   }
 
   return `Mình đã hiểu ${known}. Nếu muốn lọc chính xác hơn, bạn có thể thêm khu vực hoặc giờ chơi, ví dụ: "${sportType ? SPORT_LABELS[sportType] : 'cầu lông'} Thanh Khê 20h".`;
@@ -420,7 +414,7 @@ export class CourtService {
       const ezsportKnowledge = `
 === KIẾN THỨC VỀ EZSPORT ===
 
-EZSport là nền tảng đặt sân thể thao trực tuyến tại Đà Nẵng, hỗ trợ các môn: cầu lông, pickleball, bóng đá, tennis, bóng rổ.
+EZSport là nền tảng đặt sân thể thao trực tuyến tại Đà Nẵng, hỗ trợ các môn: cầu lông và pickleball.
 
 QUY TRÌNH ĐẶT SÂN:
 - Người dùng tìm sân qua AI chat hoặc trang bản đồ/danh sách sân.
@@ -479,7 +473,7 @@ Hãy phân tích câu nhập mới nhất của người dùng kết hợp với
 Hãy trả về một đối tượng JSON duy nhất (không có markdown, không có chữ thừa) với các trường sau:
 {
   "intent": "greeting" | "identity" | "thanks" | "search" | "faq" | "support" | "unknown",
-  "sportType": "badminton" | "pickleball" | "soccer" | "tennis" | "basketball" | null,
+  "sportType": "badminton" | "pickleball" | null,
   "location": "Thanh Khê" | "Hải Châu" | "Ngũ Hành Sơn" | "Sơn Trà" | "Liên Chiểu" | "Cẩm Lệ" | "Hòa Vang" | "Hòa Xuân" | "An Khê" | null,
   "date": "YYYY-MM-DD" hoặc null,
   "startTime": "HH:mm" hoặc null,
@@ -500,7 +494,7 @@ PHÂN LOẠI INTENT:
 QUY TẮC QUAN TRỌNG:
 1. Nếu intent là "faq" hoặc "support": Hãy điền "aiExplanation" với câu trả lời ĐẦY ĐỦ, CHÍNH XÁC dựa trên kiến thức EZSport ở trên. Đây là quan trọng nhất - người dùng cần được trả lời cụ thể.
 2. Nếu intent là "search" nhưng KHÔNG có ngày chơi → chuyển thành "unknown" với aiExplanation yêu cầu bổ sung ngày.
-3. sportType: cầu lông/badminton → "badminton", bóng đá → "soccer", tennis → "tennis", bóng rổ → "basketball", pickleball → "pickleball".
+3. sportType: cầu lông/badminton → "badminton", pickleball → "pickleball".
 4. date: Tính chính xác từ ngày hiện tại ${currentDateStr}. Ngày mai → "${tomorrowDateStr}". Hôm nay/tối nay → "${currentDateDashStr}".
 5. startTime/endTime: "chiều tối" → "17:00", "buổi sáng" → "08:00", "tối" → "19:00".
 6. comboType: "combo tuần/1 tuần" → "week", "combo tháng/1 tháng" → "month", không đề cập → null.`;

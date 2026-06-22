@@ -186,6 +186,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
 
   // Load lịch sử chat từ server khi mở chatbot (chỉ khi đã login)
   const loadChatHistory = useCallback(async () => {
@@ -427,6 +428,22 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
         .find((msg) => msg.sender === 'user' && hasSearchContext(msg.text))?.text || '';
       slot = parseSlotFromPrompt(latestSearchText);
     }
+
+    if (!slot) {
+      const aiMsgId = Math.random().toString(36).substring(7);
+      const aiMessage: Message = {
+        id: aiMsgId,
+        sender: 'ai',
+        text: `Tôi thấy bạn muốn đặt sân "${rec.name}". Bạn muốn chơi vào ngày nào và khung giờ nào? Vui lòng cho tôi biết (ví dụ: 18h tối nay hoặc 8h sáng mai) để tôi chuẩn bị đơn thanh toán nhé! 😊`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, aiMessage]);
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
+      return;
+    }
+
     const duration = slot?.duration || 1;
     const pricePerHour = rec.pricePerHour || parsePriceValue(rec.price);
     const basePrice = pricePerHour * duration;
@@ -808,6 +825,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
             {/* Input Bar */}
             <div className="p-3 bg-white border-top flex-shrink-0 d-flex gap-2 align-items-center">
               <input
+                ref={chatInputRef}
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}

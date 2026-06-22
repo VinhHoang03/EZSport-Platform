@@ -38,7 +38,6 @@ const VenueList: React.FC<VenueListProps> = ({
   onBookingClick
 }) => {
   const [sortBy, setSortBy] = useState('Gần tôi nhất');
-  const [viewMode, setViewMode] = useState<'list' | 'split'>('split');
   const [activePage, setActivePage] = useState(1);
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
 
@@ -110,7 +109,7 @@ const VenueList: React.FC<VenueListProps> = ({
   const paginatedVenues = sortedVenues.slice((safeActivePage - 1) * ITEMS_PER_PAGE, safeActivePage * ITEMS_PER_PAGE);
 
   return (
-    <Col md={7} className="h-100 d-flex flex-column bg-white border-end" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <Col md={12} className="h-100 d-flex flex-column bg-white" style={{ fontFamily: "'Inter', sans-serif" }}>
       
       {/* ── Search & Filter Header ── */}
       <div className="p-4 border-bottom" style={{ background: '#ffffff' }}>
@@ -148,43 +147,6 @@ const VenueList: React.FC<VenueListProps> = ({
               <option>Giá thấp nhất</option>
               <option>Đánh giá cao nhất</option>
             </Form.Select>
-
-            {/* List / Map View togglers */}
-            <div 
-              className="d-flex align-items-center rounded-pill p-1 shadow-sm"
-              style={{ background: '#f1f5f9', border: '1px solid #e2e8f0' }}
-            >
-              <div 
-                onClick={() => setViewMode('list')}
-                className="rounded-circle d-flex align-items-center justify-content-center cursor-pointer"
-                style={{ 
-                  width: '28px', 
-                  height: '28px', 
-                  background: viewMode === 'list' ? '#ffffff' : 'transparent',
-                  color: viewMode === 'list' ? '#1a6b3c' : '#64748b',
-                  boxShadow: viewMode === 'list' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.2s ease',
-                  cursor: 'pointer'
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>menu</span>
-              </div>
-              <div 
-                onClick={() => setViewMode('split')}
-                className="rounded-circle d-flex align-items-center justify-content-center cursor-pointer"
-                style={{ 
-                  width: '28px', 
-                  height: '28px', 
-                  background: viewMode === 'split' ? '#ffffff' : 'transparent',
-                  color: viewMode === 'split' ? '#1a6b3c' : '#64748b',
-                  boxShadow: viewMode === 'split' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.2s ease',
-                  cursor: 'pointer'
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>map</span>
-              </div>
-            </div>
           </div>
         </div>
 

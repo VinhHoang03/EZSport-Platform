@@ -34,14 +34,33 @@ const RegisterPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Email không hợp lệ');
+      return;
+    }
+
+    // Validate phone number
+    const cleanPhone = phoneNumber.replace(/[\s.-]/g, '');
+    const phoneRegex = /^(0)?[3|5|7|8|9]\d{8}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      setError('Số điện thoại không hợp lệ (phải gồm 9 hoặc 10 chữ số)');
+      return;
+    }
+
     if (password !== confirmPassword) { setError('Mật khẩu xác nhận không khớp'); return; }
     if (!agreeTerms) { setError('Bạn phải đồng ý với Điều khoản sử dụng và Chính sách bảo mật'); return; }
     setLoading(true);
     try {
       await authService.register({
-        username, email, password,
+        username,
+        email: email.trim(),
+        password,
         fullName: `${ho} ${ten}`.trim(),
         role: accountType === 'owner' ? 'owner' : 'player',
+        phone: cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone,
       });
       setStep(3);
     } catch (err: any) {

@@ -770,3 +770,20 @@ h1 {
   z-index: 99999 !important;
 }
 
+/* ── VenueCard Responsive (horizontal layout) ── */
+/* On screens wider than 480px: image sits to the left, max 220px wide */
+@media (min-width: 481px) {
+  .venue-card-img {
+    max-width: 220px !important;
+    height: 165px !important;
+  }
+}
+
+/* On small mobile screens: image spans full width and stacks above info */
+@media (max-width: 480px) {
+  .venue-card-img {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 180px !important;
+  }
+}

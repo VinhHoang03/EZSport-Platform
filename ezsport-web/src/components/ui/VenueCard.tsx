@@ -73,10 +73,22 @@ const VenueCard: React.FC<VenueCardProps> = ({
         }}
         onClick={() => onDetailClick?.(id)}
       >
-        <div style={{ display: 'flex', gap: 0 }}>
+        {/* Mobile: stacked vertically | Desktop: side by side */}
+        <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}>
 
-          {/* Left: Image */}
-          <div style={{ position: 'relative', width: '220px', minWidth: '220px', height: '165px', flexShrink: 0, overflow: 'hidden' }}>
+          {/* Image */}
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            minWidth: 0,
+            maxWidth: '220px',
+            height: '165px',
+            flexShrink: 0,
+            overflow: 'hidden',
+            // On very small screens, take full width
+          }}
+            className="venue-card-img"
+          >
             <img
               src={resolveVenueImage(image, sportType)}
               alt={name}
@@ -120,30 +132,32 @@ const VenueCard: React.FC<VenueCardProps> = ({
             </div>
           </div>
 
-          {/* Right: Info */}
-          <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
+          {/* Right: Info — takes remaining width, min 0 to prevent overflow */}
+          <div style={{ flex: 1, minWidth: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
 
             {/* Top row: name + price */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-              <div style={{ minWidth: 0 }}>
-                <h6 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.4px', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h6 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.4px', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {name}
                 </h6>
-                {/* Rating + location */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-                  <span style={{ fontSize: 13, color: '#f59e0b', lineHeight: 1 }}>★</span>
+                {/* Rating + distance */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, color: '#f59e0b' }}>★</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{rating || '0'}</span>
                   <span style={{ fontSize: 11, color: '#94a3b8' }}>(120 đánh giá)</span>
-                  <span style={{ color: '#e2e8f0' }}>•</span>
                   {distance && parseFloat(distance) > 0 && (
-                    <span title="Khoảng cách đường thẳng" style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>{distance} ↗</span>
+                    <>
+                      <span style={{ color: '#e2e8f0' }}>•</span>
+                      <span title="Khoảng cách" style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>{distance} ↗</span>
+                    </>
                   )}
                 </div>
               </div>
-              {/* Price */}
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Từ</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: '#15803d', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+              {/* Price — truncated on small screens */}
+              <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: '45%' }}>
+                <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>Từ</div>
+                <div style={{ fontSize: 13, fontWeight: 900, color: '#15803d', letterSpacing: '-0.3px', lineHeight: 1.2, wordBreak: 'break-word' }}>
                   {formattedPrice}
                 </div>
                 <div style={{ fontSize: 10, color: '#94a3b8' }}>/giờ</div>
@@ -151,8 +165,8 @@ const VenueCard: React.FC<VenueCardProps> = ({
             </div>
 
             {/* Address */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#94a3b8' }}>location_on</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#94a3b8', flexShrink: 0 }}>location_on</span>
               <span style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{location}</span>
             </div>
 
@@ -160,7 +174,7 @@ const VenueCard: React.FC<VenueCardProps> = ({
             <div style={{ height: 1, background: '#f1f5f9', margin: '10px 0' }} />
 
             {/* Bottom row: status + CTAs */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {/* Status pill */}
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -169,18 +183,19 @@ const VenueCard: React.FC<VenueCardProps> = ({
                 borderRadius: 999, padding: '4px 10px',
                 fontSize: 11, fontWeight: 700,
                 color: active ? '#15803d' : '#e11d48',
+                flexShrink: 0,
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? '#22c55e' : '#f43f5e', display: 'inline-block' }} />
                 {active ? 'Còn chỗ' : 'Hết chỗ'}
               </div>
 
               {/* Buttons */}
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); onDetailClick?.(id); }}
                   style={{
                     background: 'transparent', border: '1.5px solid #1a6b3c', borderRadius: 999,
-                    padding: '7px 16px', fontSize: 12, fontWeight: 700, color: '#1a6b3c',
+                    padding: '6px 12px', fontSize: 12, fontWeight: 700, color: '#1a6b3c',
                     cursor: 'pointer', transition: 'all 0.2s',
                     whiteSpace: 'nowrap'
                   }}
@@ -191,13 +206,13 @@ const VenueCard: React.FC<VenueCardProps> = ({
                   onClick={(e) => { e.stopPropagation(); onBookingClick?.(id); }}
                   style={{
                     background: '#1a6b3c', border: 'none', borderRadius: 999,
-                    padding: '7px 18px', fontSize: 12, fontWeight: 800, color: '#fff',
+                    padding: '6px 14px', fontSize: 12, fontWeight: 800, color: '#fff',
                     cursor: 'pointer', transition: 'all 0.2s',
                     boxShadow: '0 4px 14px rgba(26,107,60,0.3)',
                     whiteSpace: 'nowrap'
                   }}
                 >
-                   Đặt ngay
+                  Đặt ngay
                 </button>
               </div>
             </div>

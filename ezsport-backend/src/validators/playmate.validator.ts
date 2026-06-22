@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createPlaymateSchema = z.object({
-  sport: z.enum(["Pickleball", "Cầu lông", "Bóng đá", "Tennis"], {
+  sport: z.enum(["Pickleball", "Cầu lông"], {
     message: "Bộ môn thể thao không hợp lệ hoặc để trống"
   }),
   creatorLevel: z.enum(["Mới chơi", "Trung bình", "Khá / Pro"], {
@@ -16,7 +16,7 @@ export const createPlaymateSchema = z.object({
 });
 
 export const updatePlaymateSchema = z.object({
-  sport: z.enum(["Pickleball", "Cầu lông", "Bóng đá", "Tennis"]).optional(),
+  sport: z.enum(["Pickleball", "Cầu lông"]).optional(),
   creatorLevel: z.enum(["Mới chơi", "Trung bình", "Khá / Pro"]).optional(),
   title: z.string().min(5).max(100).optional(),
   description: z.string().optional(),

@@ -24,7 +24,7 @@ export interface IVenue extends Document {
   lng: number;
 
   // Sport
-  sportTypes: string[];   // ['badminton', 'pickleball'] — replaces single sportType
+  sportTypes: string[];   // ['badminton', 'pickleball'] — chỉ hỗ trợ 2 môn này
   emoji: string;
 
   // Pricing
@@ -92,7 +92,7 @@ const VenueSchema: Schema = new Schema<IVenue>(
     lng:          { type: Number, required: true },
 
     // Sport
-    sportTypes:   { type: [String], required: true },
+    sportTypes:   { type: [String], required: true, enum: ['badminton', 'pickleball'] },
     emoji:        { type: String, default: '🏟️' },
 
     // Pricing
