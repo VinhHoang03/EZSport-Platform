@@ -97,10 +97,28 @@ export const updateVoucher = async (req: Request, res: Response) => {
   }
 };
 
-export const listAvailableVouchers = async (_req: Request, res: Response) => {
+export const listAvailableVouchers = async (req: Request, res: Response) => {
+  const userId = req.user?.id || req.id;
+  const user = await User.findById(userId);
+
   const vouchers = await Voucher.find({ active: true }).sort({ pointCost: 1, createdAt: -1 });
+  const filtered = vouchers.filter((v) => {
+    if (isExpired(v.expiresAt)) return false;
+    if (v.redeemedCount >= v.quantity) return false;
+
+    // Check target group eligibility
+    if (v.target === "Người dùng mới") {
+      if (!user) return false;
+      const daysSinceRegistration = (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceRegistration > 7) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return res.json({
-    data: vouchers.filter((v) => !isExpired(v.expiresAt) && v.redeemedCount < v.quantity),
+    data: filtered,
   });
 };
 
@@ -126,11 +144,20 @@ export const redeemVoucher = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Voucher đã hết lượt đổi" });
     }
 
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Check target group eligibility
+    if (voucher.target === "Người dùng mới") {
+      const daysSinceRegistration = (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceRegistration > 7) {
+        return res.status(400).json({ message: "Voucher này chỉ dành cho người dùng mới (đăng ký trong vòng 7 ngày)" });
+      }
+    }
+
     const existing = await UserVoucher.findOne({ userId, voucherId });
     if (existing) return res.status(400).json({ message: "Bạn đã đổi voucher này rồi" });
 
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
     if ((user.loyaltyPoints || 0) < voucher.pointCost) {
       return res.status(400).json({ message: "Bạn không đủ điểm để đổi voucher này" });
     }
@@ -167,9 +194,25 @@ export const validateVoucher = async (req: Request, res: Response) => {
   if (voucher.usedCount >= voucher.quantity) {
     return res.status(400).json({ message: "Voucher đã hết lượt sử dụng" });
   }
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json({ message: "Người dùng không tồn tại" });
+  }
+
+  // Check target group eligibility
+  if (voucher.target === "Người dùng mới") {
+    const daysSinceRegistration = (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceRegistration > 7) {
+      return res.status(400).json({ message: "Voucher này chỉ dành cho người dùng mới (đăng ký trong vòng 7 ngày)" });
+    }
+  }
+
   if (voucher.pointCost > 0) {
     const owned = await UserVoucher.findOne({ userId, voucherId: voucher._id, status: "available" });
     if (!owned) return res.status(400).json({ message: "Bạn cần đổi voucher này bằng điểm trước khi sử dụng" });
+  } else {
+    const hasUsed = await UserVoucher.findOne({ userId, voucherId: voucher._id });
+    if (hasUsed) return res.status(400).json({ message: "Bạn đã sử dụng voucher này rồi" });
   }
 
   const discount = calculateDiscount(voucher, orderValue);
