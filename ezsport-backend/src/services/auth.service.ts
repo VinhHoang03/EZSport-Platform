@@ -111,6 +111,7 @@ class AuthService {
       phone,
       role: role as any,
       status: role === UserRole.OWNER ? UserStatus.INACTIVE : UserStatus.ACTIVE,
+      loyaltyPoints: 100, // Tặng 100 điểm cho người dùng mới
     });
 
     return {
@@ -192,6 +193,7 @@ class AuthService {
         avatar: picture,
         role: UserRole.PLAYER,
         status: UserStatus.ACTIVE,
+        loyaltyPoints: 100, // Tặng 100 điểm cho người dùng mới đăng ký qua Google
       });
     }
 
