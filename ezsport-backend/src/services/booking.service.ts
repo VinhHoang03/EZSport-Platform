@@ -141,6 +141,14 @@ class BookingService {
         throw new Error(`Don hang toi thieu ${voucher.minOrderValue.toLocaleString("vi-VN")}d`);
       }
 
+      // Check target group eligibility
+      if (voucher.target === "Người dùng mới") {
+        const daysSinceRegistration = (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceRegistration > 7) {
+          throw new Error("Voucher này chỉ dành cho người dùng mới (đăng ký trong vòng 7 ngày)");
+        }
+      }
+
       const rawDiscount = voucher.type === "percent"
         ? Math.floor((orderValue - comboDiscount) * (voucher.value / 100))
         : voucher.value;
@@ -150,6 +158,11 @@ class BookingService {
         userVoucher = await UserVoucher.findOne({ userId, voucherId: voucher._id, status: "available" });
         if (!userVoucher) {
           throw new Error("Ban can doi voucher nay bang diem truoc khi su dung");
+        }
+      } else {
+        const hasUsed = await UserVoucher.findOne({ userId, voucherId: voucher._id });
+        if (hasUsed) {
+          throw new Error("Bạn đã sử dụng voucher này rồi");
         }
       }
     }
