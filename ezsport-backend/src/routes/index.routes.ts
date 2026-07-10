@@ -12,6 +12,7 @@ import reviewRoutes from "./review.routes";
 import voucherRoutes from "./voucher.routes";
 import playmateRoutes from "./playmate.routes";
 import userRatingRoutes from "./userRating.routes";
+import productRoutes from "./product.routes";
 
 export default function route(app: Application): void {
     app.use("/api/auth", authRoutes);
@@ -28,4 +29,5 @@ export default function route(app: Application): void {
     app.use("/api/vouchers", voucherRoutes);
     app.use("/api/playmates", playmateRoutes);
     app.use("/api/user-ratings", userRatingRoutes);
+    app.use("/api/products", productRoutes);
 }

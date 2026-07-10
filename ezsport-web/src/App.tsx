@@ -19,6 +19,7 @@ import { OwnerPage } from './pages/owner/OwnerPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { PlaymatesPage } from './components/player/PlaymatesPage';
 import { AIChatbot } from './components/shared/AIChatbot';
+import { ShopPage } from './pages/shop/ShopPage';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from './constants';
 import { useBookingStore } from './store/bookingStore';
@@ -87,18 +88,20 @@ const App: React.FC = () => {
   const routerLocation = useLocation();
 
   // Detect reset-password route from URL path — now handled by router
-  const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'venue-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates'>('landing');
+  const [currentPage, setCurrentPage] = useState<'landing' | 'app' | 'auth' | 'venues' | 'venue-detail' | 'checkout' | 'booking-success' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates' | 'shop-dashboard'>('landing');
   const [selectedVenueId, setSelectedVenueId] = useState<number | string | null>(null);
 
   // Redirect on page change: if authenticated and on a guest-only page, send to the right home
   // Redirect from public pages to the proper authenticated home page.
   useEffect(() => {
-    if (isAuthenticated && (currentPage === 'landing' || currentPage === 'auth')) {
+    if (isAuthenticated && user && (currentPage === 'landing' || currentPage === 'auth' || currentPage === 'app')) {
       if (user?.role === 'admin') {
         setCurrentPage('admin-dashboard');
       } else if (user?.role === 'owner') {
         setCurrentPage('owner-dashboard');
-      } else {
+      } else if (user?.role === 'shop') {
+        setCurrentPage('shop-dashboard');
+      } else if (currentPage !== 'app') {
         setCurrentPage('app');
       }
     }
@@ -314,6 +317,8 @@ const App: React.FC = () => {
             setCurrentPage('admin-dashboard');
           } else if (role === 'owner') {
             setCurrentPage('owner-dashboard');
+          } else if (role === 'shop') {
+            setCurrentPage('shop-dashboard');
           } else {
             setCurrentPage('venues');
           }
@@ -520,6 +525,14 @@ const App: React.FC = () => {
     );
   }
 
+  if (currentPage === 'shop-dashboard') {
+    return (
+      <ShopPage
+        onGoHome={() => setCurrentPage('landing')}
+      />
+    );
+  }
+
   // ── Render 2: Original 2-Column Map Dashboard (App Home Page) ──
   return (
     <div className="vh-100 d-flex flex-column bg-white">
@@ -534,6 +547,7 @@ const App: React.FC = () => {
             playmates: ROUTES.PLAYMATES,
             profile: ROUTES.PROFILE,
             landing: ROUTES.LANDING,
+            shops: ROUTES.SHOPS,
           };
           if (map[page]) navigate(map[page]);
         }}

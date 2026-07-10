@@ -9,7 +9,7 @@ export type BookingStatus =
 
 export interface IBooking extends Document {
   userId: mongoose.Types.ObjectId;
-  courtId: mongoose.Types.ObjectId;
+  courtId?: mongoose.Types.ObjectId;
   bookingDate: Date;
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
@@ -33,6 +33,15 @@ export interface IBooking extends Document {
   comboId?: mongoose.Types.ObjectId;
   comboType?: 'week' | 'month';
   deletedByUser?: boolean;
+  products?: {
+    productId: mongoose.Types.ObjectId;
+    name: string;
+    price: number;
+    priceTypeApplied: 'standard' | 'discounted';
+    quantity: number;
+    type: 'sell' | 'rent';
+    chargeType?: 'per_booking' | 'per_hour';
+  }[];
 }
 
 const bookingSchema = new Schema<IBooking>(
@@ -50,7 +59,6 @@ const bookingSchema = new Schema<IBooking>(
     courtId: {
       type: Schema.Types.ObjectId,
       ref: "Court",
-      required: true,
       index: true,
     },
     bookingDate: {
@@ -140,6 +148,20 @@ const bookingSchema = new Schema<IBooking>(
     comboType: {
       type: String,
       enum: ["week", "month"],
+    },
+    products: {
+      type: [
+        {
+          productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+          name: { type: String, required: true },
+          price: { type: Number, required: true },
+          priceTypeApplied: { type: String, enum: ['standard', 'discounted'], required: true },
+          quantity: { type: Number, required: true, min: 1 },
+          type: { type: String, enum: ['sell', 'rent'], required: true },
+          chargeType: { type: String, enum: ['per_booking', 'per_hour'] }
+        }
+      ],
+      default: []
     },
   },
   { timestamps: true }

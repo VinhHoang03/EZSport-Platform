@@ -1,7 +1,7 @@
 import api from '../api/api';
 
 export interface CreateBookingPayload {
-  courtId: string;
+  courtId?: string;   // optional — not required for standalone shop orders
   venueId?: string;
   bookingDate: Date;
   startTime: string;
@@ -20,6 +20,15 @@ export interface CreateBookingPayload {
   bookerEmail?: string;
   notes?: string;
   comboType?: 'week' | 'month';
+  products?: {
+    productId: string;
+    name: string;
+    type?: 'sell' | 'rent';
+    chargeType?: 'per_booking' | 'per_hour';
+    quantity: number;
+    price: number;
+    priceWithCourt?: number;
+  }[];
 }
 
 export interface Booking extends CreateBookingPayload {
@@ -161,7 +170,7 @@ export const bookingService = {
 
     const { data } = await api.get(`/bookings/venue/${venueId}/bookings?${params.toString()}`);
     return {
-      bookings: data.data,
+      bookings: data.bookings || [],
       pagination: data.pagination,
     };
   },

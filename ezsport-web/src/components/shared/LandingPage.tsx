@@ -199,7 +199,14 @@ export const LandingPage: React.FC<{
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: TX }}>{user?.fullName || user?.username}</span>
                   <span style={{ fontSize: 11, color: TX2, fontWeight: 500 }}>
-                    {user?.role === 'owner' ? 'Chủ sân' : user?.role === 'admin' ? 'Quản trị viên' : 'Người chơi'}
+                    {user?.role === 'owner' 
+                      ? 'Chủ sân' 
+                      : user?.role === 'admin' 
+                      ? 'Quản trị viên' 
+                      : user?.role === 'shop' 
+                      ? 'Cửa hàng' 
+                      : 'Người chơi'
+                    }
                   </span>
                 </div>
                 <span className="material-symbols-outlined" style={{ fontSize: 20, color: TX2 }}>

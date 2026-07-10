@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Container, Nav, Navbar, Button, Dropdown } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -8,8 +8,8 @@ interface NavigationProps {
   onAddCourtClick?: () => void;
   onLogoClick?: () => void;
   onLoginClick?: () => void;
-  onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;
-  currentPage?: 'landing' | 'app' | 'auth' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates' | string;
+  onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates' | 'shops' | string) => void;
+  currentPage?: 'landing' | 'app' | 'auth' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates' | 'shops' | string;
   onRegisterOwnerClick?: () => void;
 }
  
@@ -27,73 +27,13 @@ const CustomToggle = React.forwardRef<HTMLDivElement, any>(({ children, onClick 
 ));
 
 const Navigation: React.FC<NavigationProps> = ({ 
-  onLogoClick, onLoginClick, onPageChange, currentPage, onRegisterOwnerClick 
+  onAddCourtClick, onLogoClick, onLoginClick, onPageChange, currentPage, onRegisterOwnerClick 
 }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const isPlayer = !user?.role || user?.role === 'player';
-
-  const playerNavLinks = [
-    { page: 'venues' as const, label: 'Tìm sân' },
-    { page: 'app' as const, label: 'Bản đồ đặt sân' },
-    { page: 'playmates' as const, label: 'Tìm người chơi cùng' },
-  ];
-
-  const handleMobileNav = (page: any) => {
-    onPageChange?.(page);
-    setMobileMenuOpen(false);
-  };
-
+ 
   return (
     <>
-      <style>{`
-        .mobile-drawer-overlay {
-          display: none;
-        }
-        .mobile-drawer {
-          display: none;
-        }
-        @media (max-width: 767.98px) {
-          .mobile-menu-btn {
-            display: flex !important;
-          }
-          .mobile-drawer-overlay {
-            display: block;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 1099;
-            backdrop-filter: blur(2px);
-          }
-          .mobile-drawer {
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: min(300px, 85vw);
-            height: 100%;
-            background: #fff;
-            z-index: 1100;
-            box-shadow: -8px 0 32px rgba(0,0,0,0.15);
-            padding: 0;
-            overflow-y: auto;
-            transform: translateX(100%);
-            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
-          }
-          .mobile-drawer.open {
-            transform: translateX(0);
-          }
-        }
-        @media (min-width: 768px) {
-          .mobile-menu-btn {
-            display: none !important;
-          }
-        }
-      `}</style>
-
       <Navbar 
         bg="white" 
         className="main-navigation px-4 py-3 shadow-sm sticky-top border-bottom"
@@ -130,10 +70,21 @@ const Navigation: React.FC<NavigationProps> = ({
             </div>
           </Navbar.Brand>
           
-          {/* Desktop nav links */}
           <Nav className="me-auto d-none d-md-flex gap-4 ms-5 align-items-center" style={{ fontSize: '17px', fontWeight: 700 }}>
             {user?.role === 'owner' ? (
-              <></>
+              <>
+                {/* <Nav.Link 
+                  onClick={() => onPageChange?.('owner-dashboard')} 
+                  className={currentPage === 'owner-dashboard' ? "text-success pb-1" : "text-secondary hover-text-dark"}
+                  style={{ cursor: 'pointer', color: currentPage === 'owner-dashboard' ? '#1a6b3c !important' : '', borderBottom: currentPage === 'owner-dashboard' ? '2.5px solid #1a6b3c' : '' }}
+                >
+                  Trang quản trị Chủ Sân
+                </Nav.Link>
+                <Nav.Link onClick={onAddCourtClick} className="text-success fw-bold cursor-pointer d-flex align-items-center gap-1 hover-scale" style={{ color: '#1a6b3c !important' }}>
+                  <span className="material-symbols-outlined fs-5">add_circle</span>
+                  Thêm sân
+                </Nav.Link> */}
+              </>
             ) : user?.role === 'admin' ? (
               <>
                 <Nav.Link 
@@ -143,23 +94,63 @@ const Navigation: React.FC<NavigationProps> = ({
                 >
                   Trang quản trị Admin
                 </Nav.Link>
+                <Nav.Link onClick={onAddCourtClick} className="text-success fw-bold cursor-pointer d-flex align-items-center gap-1 hover-scale" style={{ color: '#1a6b3c !important' }}>
+                  <span className="material-symbols-outlined fs-5">add_circle</span>
+                  Thêm sân
+                </Nav.Link>
               </>
             ) : (
               <>
-                {playerNavLinks.map(link => (
-                  <Nav.Link 
-                    key={link.page}
-                    onClick={() => onPageChange?.(link.page)} 
-                    className={currentPage === link.page ? "text-success pb-1" : "text-secondary hover-text-dark"}
-                    style={{ 
-                      color: currentPage === link.page ? '#1a6b3c !important' : '', 
-                      borderBottom: currentPage === link.page ? '2.5px solid #1a6b3c' : '',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {link.label}
-                  </Nav.Link>
-                ))}
+                <Nav.Link 
+                  onClick={() => {
+                    navigate('/venues');
+                    onPageChange?.('venues');
+                  }} 
+                  className={currentPage === 'venues' ? "text-success pb-1" : "text-secondary hover-text-dark"}
+                  style={{ 
+                    color: currentPage === 'venues' ? '#1a6b3c !important' : '', 
+                    borderBottom: currentPage === 'venues' ? '2.5px solid #1a6b3c' : '',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Tìm sân
+                </Nav.Link>
+                <Nav.Link 
+                  onClick={() => onPageChange?.('app')} 
+                  className={currentPage === 'app' ? "text-success pb-1" : "text-secondary hover-text-dark"}
+                  style={{ 
+                    color: currentPage === 'app' ? '#1a6b3c !important' : '', 
+                    borderBottom: currentPage === 'app' ? '2.5px solid #1a6b3c' : '',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Bản đồ đặt sân
+                </Nav.Link>
+                <Nav.Link 
+                  onClick={() => onPageChange?.('playmates')} 
+                  className={currentPage === 'playmates' ? "text-success pb-1" : "text-secondary hover-text-dark"}
+                  style={{ 
+                    color: currentPage === 'playmates' ? '#1a6b3c !important' : '', 
+                    borderBottom: currentPage === 'playmates' ? '2.5px solid #1a6b3c' : '',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Tìm người chơi cùng
+                </Nav.Link>
+                <Nav.Link 
+                  onClick={() => {
+                    navigate('/shops');
+                    onPageChange?.('shops');
+                  }} 
+                  className={currentPage === 'shops' ? "text-success pb-1" : "text-secondary hover-text-dark"}
+                  style={{ 
+                    color: currentPage === 'shops' ? '#1a6b3c !important' : '', 
+                    borderBottom: currentPage === 'shops' ? '2.5px solid #1a6b3c' : '',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cửa hàng
+                </Nav.Link>
                 {!isAuthenticated && (
                   <Nav.Link 
                     onClick={onRegisterOwnerClick || (() => {})} 
@@ -174,9 +165,10 @@ const Navigation: React.FC<NavigationProps> = ({
           </Nav>
   
           <div className="d-flex align-items-center gap-2">
-            {/* Grouped icon pill — only show when logged in (desktop) */}
+
+            {/* Grouped icon pill — only show when logged in */}
             {isAuthenticated && (
-              <div className="navigation-actions d-none d-md-flex" style={{ alignItems: 'center', gap: '2px', background: '#f1f5f9', borderRadius: '999px', padding: '4px 6px' }}>
+              <div className="navigation-actions" style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#f1f5f9', borderRadius: '999px', padding: '4px 6px' }}>
                 {[
                   { icon: 'notifications', title: 'Thông báo' },
                   { icon: 'favorite', title: 'Yêu thích' },
@@ -194,18 +186,19 @@ const Navigation: React.FC<NavigationProps> = ({
               </div>
             )}
 
-            {/* Divider (desktop) */}
-            {isAuthenticated && <div className="d-none d-md-block" style={{ width: '1px', height: '28px', background: '#e2e8f0', margin: '0 2px' }} />}
+            {/* Divider */}
+            {isAuthenticated && <div style={{ width: '1px', height: '28px', background: '#e2e8f0', margin: '0 2px' }} />}
 
-            {/* Desktop user dropdown */}
             {isAuthenticated ? (
-              <Dropdown align="end" className="d-none d-md-block">
+              <Dropdown align="end">
                 <Dropdown.Toggle as={CustomToggle}>
+                  {/* Pill trigger */}
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px 4px 4px', borderRadius: '999px', border: '1.5px solid #e2e8f0', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: 'border-color 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = '#16a34a')}
                     onMouseLeave={e => (e.currentTarget.style.borderColor = '#e2e8f0')}
                   >
+                    {/* Avatar + online dot */}
                     <div style={{ position: 'relative', flexShrink: 0 }}>
                       <img
                         alt={user?.fullName || 'User'}
@@ -214,6 +207,7 @@ const Navigation: React.FC<NavigationProps> = ({
                       />
                       <span style={{ position: 'absolute', bottom: 0, right: 0, width: '9px', height: '9px', borderRadius: '50%', background: '#22c55e', border: '1.5px solid #fff' }} />
                     </div>
+                    {/* Short name */}
                     <span className="navigation-user-name" style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {user?.fullName?.split(' ').slice(-1)[0] || 'Tài khoản'}
                     </span>
@@ -222,6 +216,7 @@ const Navigation: React.FC<NavigationProps> = ({
                 </Dropdown.Toggle>
 
                 <Dropdown.Menu className="shadow-lg border-0 mt-2 p-0" style={{ minWidth: '230px', borderRadius: '16px', overflow: 'hidden' }}>
+                  {/* Gradient header */}
                   <div style={{ padding: '16px', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img
@@ -237,6 +232,8 @@ const Navigation: React.FC<NavigationProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Menu items */}
                   <div style={{ padding: '8px' }}>
                     {[
                       { icon: 'person', label: 'Hồ sơ cá nhân', action: () => navigate(ROUTES.PROFILE) },
@@ -253,7 +250,9 @@ const Navigation: React.FC<NavigationProps> = ({
                         {item.label}
                       </Dropdown.Item>
                     ))}
+
                     <div style={{ height: '1px', background: '#f1f5f9', margin: '6px 4px' }} />
+
                     <Dropdown.Item
                       onClick={() => { logout(); onPageChange?.('landing'); }}
                       className="rounded-3"
@@ -268,170 +267,19 @@ const Navigation: React.FC<NavigationProps> = ({
             ) : (
               <Button
                 variant="success"
-                className="rounded-pill fw-bold border-0 d-none d-md-block"
+                className="rounded-pill fw-bold border-0"
                 style={{ background: '#1a6b3c', color: 'white', fontSize: '14px', padding: '8px 22px', boxShadow: '0 2px 8px rgba(26,107,60,0.25)' }}
                 onClick={onLoginClick}
               >
                 Đăng nhập
               </Button>
             )}
-
-            {/* ─── Mobile: Avatar + Hamburger ─── */}
-            <div className="mobile-menu-btn" style={{ display: 'none', alignItems: 'center', gap: '8px' }}>
-              {isAuthenticated ? (
-                <img
-                  alt={user?.fullName || 'User'}
-                  src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'U')}&background=16a34a&color=fff&size=80&bold=true`}
-                  style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #86efac', cursor: 'pointer' }}
-                  onClick={() => setMobileMenuOpen(true)}
-                />
-              ) : (
-                <Button
-                  variant="success"
-                  size="sm"
-                  className="rounded-pill fw-bold border-0"
-                  style={{ background: '#1a6b3c', color: 'white', fontSize: '13px', padding: '6px 16px' }}
-                  onClick={onLoginClick}
-                >
-                  Đăng nhập
-                </Button>
-              )}
-              <button
-                onClick={() => setMobileMenuOpen(true)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '26px', color: '#0f172a' }}>menu</span>
-              </button>
-            </div>
           </div>
         </Container>
       </Navbar>
-
-      {/* ─── MOBILE DRAWER OVERLAY ─── */}
-      {mobileMenuOpen && (
-        <div className="mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)} />
-      )}
-
-      {/* ─── MOBILE DRAWER MENU ─── */}
-      <div className={`mobile-drawer${mobileMenuOpen ? ' open' : ''}`}>
-        {/* Drawer header */}
-        <div style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9' }}>
-          <img src="/logo3.png" alt="EZSport" style={{ height: '32px', objectFit: 'contain' }} />
-          <button
-            onClick={() => setMobileMenuOpen(false)}
-            style={{ border: 'none', background: '#f1f5f9', cursor: 'pointer', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center' }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#475569' }}>close</span>
-          </button>
-        </div>
-
-        {/* User section */}
-        {isAuthenticated && (
-          <div style={{ padding: '16px', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', borderBottom: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <img
-                alt={user?.fullName || 'User'}
-                src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'U')}&background=16a34a&color=fff&size=80&bold=true`}
-                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #86efac' }}
-              />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', color: '#0f172a' }}>{user?.fullName}</div>
-                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
-                  {user?.email || user?.phone || 'EZSport member'}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Nav links */}
-        <div style={{ padding: '12px 8px', flex: 1 }}>
-          {isPlayer && (
-            <>
-              <div style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Khám phá
-              </div>
-              {playerNavLinks.map(link => (
-                <button
-                  key={link.page}
-                  onClick={() => handleMobileNav(link.page)}
-                  style={{
-                    width: '100%', textAlign: 'left', border: 'none',
-                    padding: '12px 16px', fontSize: '15px', fontWeight: 600,
-                    color: currentPage === link.page ? '#15803d' : '#0f172a',
-                    borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
-                    background: currentPage === link.page ? '#f0fdf4' : 'transparent',
-                  } as any}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: currentPage === link.page ? '#15803d' : '#64748b' }}>
-                    {link.page === 'venues' ? 'sports_tennis' : link.page === 'app' ? 'map' : 'group'}
-                  </span>
-                  {link.label}
-                </button>
-              ))}
-              {!isAuthenticated && (
-                <button
-                  onClick={() => { onRegisterOwnerClick?.(); setMobileMenuOpen(false); }}
-                  style={{
-                    width: '100%', textAlign: 'left', background: 'none', border: 'none',
-                    padding: '12px 16px', fontSize: '15px', fontWeight: 600, color: '#0f172a',
-                    borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
-                  } as any}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#64748b' }}>home_work</span>
-                  Dành cho Chủ Sân
-                </button>
-              )}
-            </>
-          )}
-
-          {isAuthenticated && (
-            <>
-              <div style={{ height: '1px', background: '#f1f5f9', margin: '12px 8px' }} />
-              <div style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Tài khoản
-              </div>
-              {[
-                { icon: 'person', label: 'Hồ sơ cá nhân', action: () => { navigate(ROUTES.PROFILE); setMobileMenuOpen(false); } },
-                { icon: 'event_note', label: 'Lịch sử đặt sân', action: () => { navigate(ROUTES.MY_BOOKINGS); setMobileMenuOpen(false); } },
-                { icon: 'chat', label: 'Tin nhắn', action: () => { navigate(ROUTES.MESSAGES); setMobileMenuOpen(false); } },
-              ].map(item => (
-                <button
-                  key={item.label}
-                  onClick={item.action}
-                  style={{
-                    width: '100%', textAlign: 'left', background: 'none', border: 'none',
-                    padding: '12px 16px', fontSize: '15px', fontWeight: 600, color: '#0f172a',
-                    borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
-                  } as any}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#64748b' }}>{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
-            </>
-          )}
-        </div>
-
-        {/* Logout */}
-        {isAuthenticated && (
-          <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9' }}>
-            <button
-              onClick={() => { logout(); onPageChange?.('landing'); setMobileMenuOpen(false); }}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '12px 16px', background: '#fef2f2', border: 'none',
-                borderRadius: '10px', cursor: 'pointer', color: '#ef4444', fontWeight: 700, fontSize: '14px',
-              } as any}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>logout</span>
-              Đăng xuất
-            </button>
-          </div>
-        )}
-      </div>
     </>
   );
 };
 
 export default Navigation;
+
