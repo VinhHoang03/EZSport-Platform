@@ -26,6 +26,10 @@ const ProfilePageWrapper    = lazy(() => import('../pages/player/ProfilePageWrap
 const PlaymatesWrapper      = lazy(() => import('../pages/player/PlaymatesWrapper'));
 const PlayerMessage         = lazy(() => import('../pages/player/chats/PlayerMessage'));
 const OwnerPageWrapper      = lazy(() => import('../pages/owner/OwnerPageWrapper'));
+const ShopPageWrapper       = lazy(() => import('../pages/shop/ShopPageWrapper'));
+const ShopListPage          = lazy(() => import('../pages/player/shop/ShopListPage'));
+const ShopDetailPage        = lazy(() => import('../pages/player/shop/ShopDetailPage'));
+const ShopCheckoutPage      = lazy(() => import('../pages/player/shop/ShopCheckoutPage'));
 const AdminDashboardWrapper = lazy(() => import('../pages/admin/AdminDashboardWrapper'));
 
 const Loader = () => (
@@ -75,6 +79,9 @@ const router = createBrowserRouter([
         { path: ROUTES.PROFILE,         element: s(ProfilePageWrapper) },
         { path: ROUTES.PLAYMATES,       element: s(PlaymatesWrapper) },
         { path: ROUTES.MESSAGES,        element: s(PlayerMessage) },
+        { path: ROUTES.SHOPS,           element: s(ShopListPage) },
+        { path: ROUTES.SHOP_DETAIL,     element: s(ShopDetailPage) },
+        { path: ROUTES.SHOP_CHECKOUT,   element: s(ShopCheckoutPage) },
         // New booking flow
         { path: ROUTES.BOOKING_SUCCESS_NEW,  element: s(BookingSuccessPage) },
         { path: '/booking/success',          element: s(BookingSuccessPage) },
@@ -92,6 +99,15 @@ const router = createBrowserRouter([
       children: [
         { path: ROUTES.OWNER_PAGE, element: s(OwnerPageWrapper) },
       ],
+    }],
+  },
+
+  // ── Shop ──
+  {
+    element: <ProtectedRoute allowedRoles={['shop']} />,
+    children: [{
+      element: s(ShopPageWrapper), // Render shop page dashboard directly
+      path: ROUTES.SHOP_DASHBOARD
     }],
   },
 

@@ -405,6 +405,51 @@ class BookingController {
     }
   }
 
+  /**
+   * Get all bookings containing products for a venue (for shop dashboard orders tab).
+   * Returns BOTH:
+   *   1. Standalone shop orders (sport: 'Cửa hàng', venueId = this venue, no courtId)
+   *   2. Court bookings that have addon products (courtId belongs to this venue)
+   * GET /bookings/venue/:venueId/bookings
+   */
+  async getVenueBookings(req: Request, res: Response) {
+    try {
+      const { venueId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const page = parseInt(req.query.page as string) || 1;
+
+      // Find all courts that belong to this venue so we can match court-based bookings
+      const Court = require('../models/court.model').default;
+      const courts = await Court.find({ venue: venueId }).select('_id').lean();
+      const courtIds = courts.map((c: any) => c._id);
+
+      // Query: bookings with at least one product, linked to this venue either directly or via a court
+      const bookings = await Booking.find({
+        'products.0': { $exists: true },
+        $or: [
+          { venueId },           // standalone shop orders
+          { courtId: { $in: courtIds } }, // combined court + product orders
+        ]
+      })
+        .populate('userId', 'fullName phone email avatar username')
+        .populate('courtId', 'name venue')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean();
+
+      return res.status(200).json({
+        message: "Lấy danh sách đơn hàng thành công",
+        bookings,
+        pagination: { page, limit, total: bookings.length }
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        message: err.message || "Lỗi lấy danh sách đơn hàng",
+      });
+    }
+  }
+
 
   /**
    * PayOS Webhook Callback (POST /bookings/payos-webhook)

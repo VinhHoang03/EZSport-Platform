@@ -22,7 +22,8 @@ router.delete("/remove-all", bookingController.deleteAllBookingHistory.bind(book
 router.delete("/:id", bookingController.cancelBooking.bind(bookingController));
 router.delete("/:id/remove", bookingController.deleteBookingHistory.bind(bookingController));
 
-// Admin/Owner routes (for managing court bookings)
+// Admin/Owner/Shop routes (for managing court bookings and shop orders)
+router.get("/venue/:venueId/bookings", bookingController.getVenueBookings.bind(bookingController));
 router.get("/court/:courtId/bookings", bookingController.getCourtBookings.bind(bookingController));
 router.patch("/:id/confirm", bookingController.confirmBooking.bind(bookingController));
 router.patch("/:id/cancel-owner", bookingController.cancelBookingByOwner.bind(bookingController));

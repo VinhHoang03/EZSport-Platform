@@ -13,7 +13,7 @@ interface AuthPageProps {
   initialAccountType?: AccountType;
 }
 
-type AccountType = 'player' | 'owner';
+type AccountType = 'player' | 'owner' | 'shop';
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   onBackToLanding,
@@ -66,6 +66,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               const role = result.user.role;
               if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
               else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
+              else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
               else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
             } catch (err: any) {
               setError(err.response?.data?.message || err.message || 'Đăng nhập bằng Google thất bại');
@@ -126,6 +127,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       } else {
         if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
         else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
+        else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
         else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
       }
     } catch (err: any) {
@@ -152,15 +154,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setLoading(true);
     try {
       const fullName = `${ho} ${ten}`.trim();
-      const cleanPhone = phoneNumber.replace(/\s/g, '');
-      const formattedPhone = cleanPhone ? (cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone) : undefined;
       await authService.register({
         username,
         email,
         password,
         fullName,
-        phone: formattedPhone,
-        role: accountType === 'owner' ? 'owner' : 'player'
+        role: accountType
       });
 
       // Move to success step
@@ -168,7 +167,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setRegisterStep(3);
       }, 1000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại, vui lòng kiểm tra lại thông tin');
+      setError(err.response?.data?.message || 'Đăng ký thất bại, tên đăng nhập đã tồn tại');
     } finally {
       setLoading(false);
     }
@@ -616,6 +615,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         title: 'Chủ sân',
                         desc: 'Đăng sân, quản lý lịch, tăng doanh thu',
                         icon: 'stadium'
+                      },
+                      {
+                        type: 'shop' as AccountType,
+                        title: 'Cửa hàng',
+                        desc: 'Bán đồ thể thao, tiếp cận người chơi',
+                        icon: 'shopping_bag'
                       }
                     ].map(opt => {
                       const isSelected = accountType === opt.type;
