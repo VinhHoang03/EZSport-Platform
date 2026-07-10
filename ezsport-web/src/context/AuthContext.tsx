@@ -15,6 +15,10 @@ interface User {
   shopAddress?: string;
   shopLat?: number;
   shopLng?: number;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+  bankQrCode?: string;
 }
 
 interface AuthContextType {
