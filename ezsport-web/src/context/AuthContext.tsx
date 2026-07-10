@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 interface User {
   id: string;
@@ -10,6 +11,10 @@ interface User {
   role?: string;
   loyaltyPoints?: number;
   createdAt?: string;
+  venueIds?: string[];
+  shopAddress?: string;
+  shopLat?: number;
+  shopLng?: number;
 }
 
 interface AuthContextType {
@@ -23,12 +28,49 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const rawBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE = rawBase.replace(/\/$/, '') + (rawBase.endsWith('/api') ? '' : '/api');
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+
+  // On mount: re-fetch user profile from server to sync latest changes (venueIds, etc.)
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) return;
+
+    axios.get(`${API_BASE}/users/me`, {
+      headers: { Authorization: `Bearer ${storedToken}` }
+    })
+      .then(res => {
+        const serverUser = res.data?.data;
+        if (!serverUser) return;
+        const normalized: User = {
+          id: serverUser._id || serverUser.id,
+          username: serverUser.username,
+          email: serverUser.email,
+          fullName: serverUser.fullName,
+          phone: serverUser.phone,
+          avatar: serverUser.avatar,
+          role: serverUser.role,
+          loyaltyPoints: serverUser.loyaltyPoints,
+          createdAt: serverUser.createdAt,
+          venueIds: serverUser.venueIds?.map((v: any) => (typeof v === 'string' ? v : v._id || v.toString())) || [],
+          shopAddress: serverUser.shopAddress,
+          shopLat: serverUser.shopLat,
+          shopLng: serverUser.shopLng,
+        };
+        setUser(normalized);
+        localStorage.setItem('user', JSON.stringify(normalized));
+      })
+      .catch(() => {
+        // If token is invalid/expired, silently ignore — user will be asked to re-login
+      });
+  }, []); // run once on mount
 
   const login = (userData: User, newToken: string) => {
     setUser(userData);

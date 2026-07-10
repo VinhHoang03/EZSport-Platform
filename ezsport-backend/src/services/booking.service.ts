@@ -5,6 +5,7 @@ import Voucher from "../models/voucher.model";
 import UserVoucher from "../models/userVoucher.model";
 import Venue from "../models/venue.model";
 import { calculateDistance } from "../utils/distance.util";
+import Product from "../models/product.model";
 
 const toMinutes = (time: string): number => {
   const [hour = 0, minute = 0] = String(time || "00:00").split(":").map(Number);
@@ -30,71 +31,74 @@ class BookingService {
     const user = await User.findById(userId);
     if (!user) throw new Error("Người dùng không tồn tại");
 
-    const court = await Court.findById(bookingData.courtId);
-    if (!court) throw new Error("Sân không tồn tại");
+    const court = bookingData.courtId ? await Court.findById(bookingData.courtId) : null;
+    const venueId = court ? court.venue : bookingData.venueId;
+    const venue = venueId ? await Venue.findById(venueId) : null;
 
-    const venue = await Venue.findById(court.venue);
+    if (bookingData.courtId && !court) throw new Error("Sân không tồn tại");
     if (!venue) throw new Error("Địa điểm không tồn tại");
 
     const now = new Date();
-    const sessionsCount = bookingData.comboType === "month" ? 4 : (bookingData.comboType === "week" ? 2 : 1);
+    const sessionsCount = court && (bookingData.comboType === "month" ? 4 : (bookingData.comboType === "week" ? 2 : 1)) || 1;
     const bookingDates: Date[] = [];
     for (let i = 0; i < sessionsCount; i++) {
-      const d = new Date(bookingData.bookingDate);
+      const d = new Date(bookingData.bookingDate || now);
       d.setDate(d.getDate() + i * 7);
       bookingDates.push(d);
     }
 
-    for (const bDate of bookingDates) {
-      const targetDateStr = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, "0")}-${String(bDate.getDate()).padStart(2, "0")}`;
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      
-      const isPastDate = targetDateStr < todayStr;
-      const isToday = targetDateStr === todayStr;
-      
-      if (isPastDate) {
-        throw new Error(`Không thể đặt sân trong quá khứ (${targetDateStr})`);
-      }
-      
-      if (isToday) {
-        const [slotHour, slotMinute] = bookingData.startTime.split(":").map(Number);
-        const currentHourNow = now.getHours();
-        const currentMinuteNow = now.getMinutes();
+    if (court) {
+      for (const bDate of bookingDates) {
+        const targetDateStr = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, "0")}-${String(bDate.getDate()).padStart(2, "0")}`;
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         
-        if (slotHour < currentHourNow || (slotHour === currentHourNow && slotMinute <= currentMinuteNow)) {
-          throw new Error("Không thể đặt khung giờ đã trôi qua");
+        const isPastDate = targetDateStr < todayStr;
+        const isToday = targetDateStr === todayStr;
+        
+        if (isPastDate) {
+          throw new Error(`Không thể đặt sân trong quá khứ (${targetDateStr})`);
         }
-      }
-
-      const conflictingBooking = await Booking.findOne({
-        courtId: bookingData.courtId,
-        bookingDate: {
-          $gte: new Date(bDate),
-          $lt: new Date(new Date(bDate).getTime() + 86400000),
-        },
-        $and: [
-          {
-            $or: [
-              { startTime: bookingData.startTime },
-              { endTime: bookingData.endTime },
-              {
-                startTime: { $lt: bookingData.endTime },
-                endTime: { $gt: bookingData.startTime },
-              },
-            ]
-          },
-          {
-            $or: [
-              { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
-              { status: "PENDING", paymentMethod: { $nin: ["momo", "payos"] } }
-            ]
+        
+        if (isToday) {
+          const [slotHour, slotMinute] = bookingData.startTime.split(":").map(Number);
+          const currentHourNow = now.getHours();
+          const currentMinuteNow = now.getMinutes();
+          
+          if (slotHour < currentHourNow || (slotHour === currentHourNow && slotMinute <= currentMinuteNow)) {
+            throw new Error("Không thể đặt khung giờ đã trôi qua");
           }
-        ]
-      });
+        }
 
-      if (conflictingBooking) {
-        const formattedDate = bDate.toLocaleDateString("vi-VN");
-        throw new Error(`Sân đã bị đặt vào ngày ${formattedDate} trong khung giờ này`);
+        const conflictingBooking = await Booking.findOne({
+          courtId: bookingData.courtId,
+          bookingDate: {
+            $gte: new Date(bDate),
+            $lt: new Date(new Date(bDate).getTime() + 86400000),
+          },
+          $and: [
+            {
+              $or: [
+                { startTime: bookingData.startTime },
+                { endTime: bookingData.endTime },
+                {
+                  startTime: { $lt: bookingData.endTime },
+                  endTime: { $gt: bookingData.startTime },
+                },
+              ]
+            },
+            {
+              $or: [
+                { status: { $in: ["CONFIRMED", "CHECKED_IN"] } },
+                { status: "PENDING", paymentMethod: { $nin: ["momo", "payos"] } }
+              ]
+            }
+          ]
+        });
+
+        if (conflictingBooking) {
+          const formattedDate = bDate.toLocaleDateString("vi-VN");
+          throw new Error(`Sân đã bị đặt vào ngày ${formattedDate} trong khung giờ này`);
+        }
       }
     }
 
@@ -156,7 +160,57 @@ class BookingService {
       await user.save();
     }
 
-    const finalTotal = Math.max(orderValue - comboDiscount - discount - pointsDiscount, 0);
+    // Tích hợp kiểm tra và tính tiền sản phẩm
+    let productsTotal = 0;
+    const processedProducts: any[] = [];
+    const productsPayload = bookingData.products || [];
+
+    for (const prod of productsPayload) {
+      const dbProduct = await Product.findById(prod.productId);
+      if (!dbProduct) {
+        throw new Error(`Sản phẩm/dịch vụ ${prod.name || prod.productId} không tồn tại`);
+      }
+      if (dbProduct.stock < prod.quantity) {
+        throw new Error(`Sản phẩm ${dbProduct.name} không đủ tồn kho (còn lại: ${dbProduct.stock})`);
+      }
+
+      // Xác định giá áp dụng:
+      // So sánh venueId của sản phẩm với venueId của sân đấu (court.venue)
+      const isSameVenue = court && dbProduct.venueId.toString() === court.venue.toString();
+      let priceToApply = dbProduct.price;
+      let priceTypeApplied: 'standard' | 'discounted' = 'standard';
+
+      if (isSameVenue && dbProduct.type === 'rent' && dbProduct.priceWithCourt !== undefined) {
+        priceToApply = dbProduct.priceWithCourt;
+        priceTypeApplied = 'discounted';
+      }
+
+      // Tính tổng tiền:
+      // Nếu thuê theo giờ: price * quantity * duration
+      // Nếu bán hoặc thuê theo lượt: price * quantity
+      let itemTotal = priceToApply * prod.quantity;
+      if (dbProduct.type === 'rent' && dbProduct.chargeType === 'per_hour') {
+        itemTotal = priceToApply * prod.quantity * bookingData.duration;
+      }
+
+      productsTotal += itemTotal;
+
+      processedProducts.push({
+        productId: dbProduct._id,
+        name: dbProduct.name,
+        price: priceToApply,
+        priceTypeApplied,
+        quantity: prod.quantity,
+        type: dbProduct.type,
+        chargeType: dbProduct.chargeType
+      });
+
+      // Khấu trừ kho hàng
+      dbProduct.stock -= prod.quantity;
+      await dbProduct.save();
+    }
+
+    const finalTotal = Math.max(orderValue + productsTotal - comboDiscount - discount - pointsDiscount, 0);
 
     const mongoose = require("mongoose");
     const comboId = sessionsCount > 1 ? new mongoose.Types.ObjectId() : undefined;
@@ -169,12 +223,12 @@ class BookingService {
 
       const sessionBooking = await Booking.create({
         userId,
-        courtId: bookingData.courtId,
+        courtId: bookingData.courtId || undefined,
         bookingDate: bDate,
-        startTime: bookingData.startTime,
-        endTime: bookingData.endTime,
-        duration: bookingData.duration,
-        sport: bookingData.sport,
+        startTime: bookingData.startTime || "12:00",
+        endTime: bookingData.endTime || "13:00",
+        duration: bookingData.duration || 1,
+        sport: bookingData.sport || "Shop",
         basePrice: singleBasePrice,
         serviceFee: isFirst ? serviceFee : 0,
         discount: isFirst ? (discount + comboDiscount) : 0,
@@ -191,6 +245,7 @@ class BookingService {
         status: "PENDING",
         comboId,
         comboType: bookingData.comboType,
+        products: isFirst ? processedProducts : [],
       });
 
       if (isFirst) {
@@ -675,6 +730,18 @@ class BookingService {
       { new: true }
     ).populate("userId courtId");
 
+    // Hoàn trả tồn kho cho dụng cụ thuê (rent) khi hoàn thành đơn chơi
+    if (booking.products && booking.products.length > 0) {
+      for (const item of booking.products) {
+        if (item.type === 'rent') {
+          await Product.findByIdAndUpdate(item.productId, {
+            $inc: { stock: item.quantity }
+          }).catch((err) => console.error(`Failed to return rental stock for ${item.name}:`, err));
+          console.log(`[BookingService] Returned rental item ${item.name} stock by ${item.quantity} on completion.`);
+        }
+      }
+    }
+
     return updated;
   }
 
@@ -762,6 +829,16 @@ class BookingService {
           { status: "available", $unset: { usedBookingId: 1, usedAt: 1 } }
         );
         console.log(`[BookingService] Restored voucher ${booking.voucherCode} for user ${booking.userId}`);
+      }
+
+      // 3. Hoàn trả tồn kho cho tất cả sản phẩm (cả bán và thuê) khi đơn đặt sân bị hủy
+      if (booking.products && booking.products.length > 0) {
+        for (const item of booking.products) {
+          await Product.findByIdAndUpdate(item.productId, {
+            $inc: { stock: item.quantity }
+          }).catch((err) => console.error(`Failed to refund product stock for ${item.name}:`, err));
+          console.log(`[BookingService] Restored product/rental ${item.name} stock by ${item.quantity} due to cancellation.`);
+        }
       }
     } catch (err) {
       console.error("[BookingService] Error refunding resources:", err);

@@ -66,6 +66,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               const role = result.user.role;
               if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
               else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
+              else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
               else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
             } catch (err: any) {
               setError(err.response?.data?.message || err.message || 'Đăng nhập bằng Google thất bại');
@@ -126,6 +127,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       } else {
         if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
         else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
+        else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
         else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
       }
     } catch (err: any) {
@@ -157,7 +159,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         email,
         password,
         fullName,
-        role: accountType === 'owner' ? 'owner' : 'player'
+        role: accountType
       });
 
       // Move to success step

@@ -6,6 +6,7 @@ import { bookingService } from '../../services/booking.service';
 import { courtService, venueService, type Court, type Venue } from '../../services/venue.service';
 import { voucherService, type Voucher } from '../../services/voucher.service';
 import { useAuth } from '../../context/AuthContext';
+import { productService, type Product } from '../../services/product.service';
 
 interface CheckoutPageProps {
   venueId: number | string;
@@ -33,6 +34,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   const [paymentMethod, setPaymentMethod] = useState<'payos' | 'cash'>('payos');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Products selection states
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
 
   // User's available loyalty points
   const userPoints = Number(user?.loyaltyPoints) || 0;
@@ -62,7 +67,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
   const [bookerEmail, setBookerEmail] = useState<string>(draft?.bookerEmail || user?.email || 'an.nguyen@email.com');
 
   useEffect(() => {
-    if (!draft?.slot) {
+    if (!draft?.slot && draft?.sport !== 'Cửa hàng') {
       setError('Khong tim thay thong tin dat san. Vui long chon lai.');
     }
   }, [draft]);
@@ -141,6 +146,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
     };
   }, [venueId, draft?.courtId]);
 
+  // Fetch active products for the venue
+  useEffect(() => {
+    if (!venueData?._id) return;
+    productService.getProductsByVenue(venueData._id)
+      .then((prods) => {
+        setAvailableProducts(prods);
+        const saved = sessionStorage.getItem('preselected_products');
+        if (saved) {
+          try {
+            setSelectedQuantities(JSON.parse(saved));
+            sessionStorage.removeItem('preselected_products');
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      })
+      .catch((err) => console.error('Failed to load venue products:', err));
+  }, [venueData]);
+
   const selectedSport = draft?.sport || courtData?.sportTypes?.[0] || venueData?.sportTypes?.[0] || '';
   const selectedBasePrice = draft?.basePrice || (courtData?.pricePerHour ?? venueData?.pricePerHour ?? 0) * (draft?.slot?.duration || 1);
 
@@ -194,7 +218,30 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
       : appliedVoucher.value)
     : 0;
   const pointsVal = usePoints && canUsePoints ? pointsDiscountValue : 0;
-  const total = Math.max(0, subtotal + serviceFee - comboDiscount - discountVal - pointsVal);
+  const getProductPrice = (p: Product) => {
+    const isSameVenue = venueData && p.venueId === venueData._id;
+    const hasSlotBooked = !!draft?.slot;
+    if (isSameVenue && hasSlotBooked && p.type === 'rent' && p.priceWithCourt !== undefined) {
+      return p.priceWithCourt;
+    }
+    return p.price;
+  };
+
+  const getProductCost = (p: Product, qty: number) => {
+    const price = getProductPrice(p);
+    const duration = draft?.slot?.duration || 1;
+    if (p.type === 'rent' && p.chargeType === 'per_hour') {
+      return price * qty * duration;
+    }
+    return price * qty;
+  };
+
+  const productsTotal = availableProducts.reduce((acc, p) => {
+    const qty = selectedQuantities[p._id] || 0;
+    return acc + getProductCost(p, qty);
+  }, 0);
+
+  const total = Math.max(0, subtotal + serviceFee + productsTotal - comboDiscount - discountVal - pointsVal);
 
   const handleApplyVoucher = async (code: string) => {
     if (!code.trim()) {
@@ -243,6 +290,18 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
     setError(null);
 
     try {
+      const productsPayload = Object.entries(selectedQuantities)
+        .filter(([_, qty]) => qty > 0)
+        .map(([prodId, qty]) => {
+          const prod = availableProducts.find(p => p._id === prodId)!;
+          return {
+            productId: prod._id,
+            name: prod.name,
+            price: getProductPrice(prod),
+            quantity: qty
+          };
+        });
+
       const bookingPayload = {
         courtId: courtData._id,
         bookingDate: new Date(draft.slot.date),
@@ -262,6 +321,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
         voucherCode: appliedVoucher?.code || undefined,
         notes: '',
         comboType: comboType,
+        products: productsPayload,
       };
 
       const createdBooking = await bookingService.createBooking(bookingPayload);
@@ -472,6 +532,135 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                   </div>
                 )}
               </Card>
+
+              {/* Block 1.7: Dịch vụ & Dụng cụ đi kèm (Bán & Cho thuê) */}
+              {availableProducts.length > 0 && (
+                <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
+                  <h5 className="fw-bold text-dark mb-1" style={{ fontWeight: 800 }}>Dịch vụ & Dụng cụ đi kèm</h5>
+                  <p className="text-muted small mb-4" style={{ fontSize: '13px' }}>
+                    Chọn thêm nước uống hoặc thuê phụ kiện chơi (Nhận giá ưu đãi khi thuê kèm sân)
+                  </p>
+
+                  <Row className="g-3">
+                    {/* Bán đứt Group */}
+                    {availableProducts.some(p => p.type === 'sell') && (
+                      <Col xs={12}>
+                        <h6 className="fw-bold text-secondary mb-2.5 d-flex align-items-center gap-1.5" style={{ fontSize: '14px' }}>
+                          <span className="material-symbols-outlined fs-5">local_cafe</span> Mua đồ uống & bóng chơi
+                        </h6>
+                        <Row className="g-3">
+                          {availableProducts.filter(p => p.type === 'sell').map(p => {
+                            const qty = selectedQuantities[p._id] || 0;
+                            return (
+                              <Col md={6} key={p._id}>
+                                <div className="p-3 border rounded-4 d-flex justify-content-between align-items-center bg-white" style={{ borderRadius: '16px' }}>
+                                  <div className="d-flex align-items-center gap-2.5">
+                                    <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', background: '#f1f5f9' }}>
+                                      {p.image ? <img src={p.image} alt={p.name} className="w-100 h-100 object-fit-cover" /> : <span className="material-symbols-outlined text-muted">shopping_bag</span>}
+                                    </div>
+                                    <div>
+                                      <span className="fw-bold text-dark d-block" style={{ fontSize: '13.5px' }}>{p.name}</span>
+                                      <span className="text-success fw-bold" style={{ fontSize: '13px' }}>{p.price.toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                  </div>
+                                  <div className="d-flex align-items-center gap-2">
+                                    <Button
+                                      variant="light"
+                                      size="sm"
+                                      className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                      style={{ width: '28px', height: '28px', color: '#000' }}
+                                      onClick={() => setSelectedQuantities(prev => ({ ...prev, [p._id]: Math.max(0, qty - 1) }))}
+                                      disabled={qty === 0}
+                                    >
+                                      -
+                                    </Button>
+                                    <span className="fw-bold px-1" style={{ fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                                    <Button
+                                      variant="light"
+                                      size="sm"
+                                      className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                      style={{ width: '28px', height: '28px', color: '#000' }}
+                                      onClick={() => setSelectedQuantities(prev => ({ ...prev, [p._id]: Math.min(p.stock, qty + 1) }))}
+                                      disabled={qty >= p.stock}
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                </div>
+                              </Col>
+                            );
+                          })}
+                        </Row>
+                      </Col>
+                    )}
+
+                    {/* Cho thuê Group */}
+                    {availableProducts.some(p => p.type === 'rent') && (
+                      <Col xs={12} className="mt-4">
+                        <h6 className="fw-bold text-secondary mb-2.5 d-flex align-items-center gap-1.5" style={{ fontSize: '14px' }}>
+                          <span className="material-symbols-outlined fs-5">sports_tennis</span> Thuê dụng cụ
+                        </h6>
+                        <Row className="g-3">
+                          {availableProducts.filter(p => p.type === 'rent').map(p => {
+                            const qty = selectedQuantities[p._id] || 0;
+                            const hasDiscount = p.priceWithCourt !== undefined && p.priceWithCourt < p.price;
+                            const priceToDisplay = hasDiscount ? p.priceWithCourt! : p.price;
+
+                            return (
+                              <Col md={6} key={p._id}>
+                                <div className="p-3 border rounded-4 d-flex justify-content-between align-items-center bg-white" style={{ borderRadius: '16px', borderColor: hasDiscount ? '#dcfce7' : '#cbd5e1' }}>
+                                  <div className="d-flex align-items-center gap-2.5">
+                                    <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', background: '#f1f5f9' }}>
+                                      {p.image ? <img src={p.image} alt={p.name} className="w-100 h-100 object-fit-cover" /> : <span className="material-symbols-outlined text-muted">sports_tennis</span>}
+                                    </div>
+                                    <div>
+                                      <span className="fw-bold text-dark d-block" style={{ fontSize: '13.5px' }}>{p.name}</span>
+                                      <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                        <span className="text-success fw-bold" style={{ fontSize: '13px' }}>
+                                          {priceToDisplay.toLocaleString('vi-VN')}đ
+                                          {p.chargeType === 'per_hour' ? '/giờ' : '/lượt'}
+                                        </span>
+                                        {hasDiscount && (
+                                          <Badge className="bg-success text-white px-1.5 py-0.5 rounded-pill" style={{ fontSize: '8px' }}>
+                                            Ưu đãi kèm sân
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="d-flex align-items-center gap-2">
+                                    <Button
+                                      variant="light"
+                                      size="sm"
+                                      className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                      style={{ width: '28px', height: '28px', color: '#000' }}
+                                      onClick={() => setSelectedQuantities(prev => ({ ...prev, [p._id]: Math.max(0, qty - 1) }))}
+                                      disabled={qty === 0}
+                                    >
+                                      -
+                                    </Button>
+                                    <span className="fw-bold px-1" style={{ fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                                    <Button
+                                      variant="light"
+                                      size="sm"
+                                      className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                      style={{ width: '28px', height: '28px', color: '#000' }}
+                                      onClick={() => setSelectedQuantities(prev => ({ ...prev, [p._id]: Math.min(p.stock, qty + 1) }))}
+                                      disabled={qty >= p.stock}
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                </div>
+                              </Col>
+                            );
+                          })}
+                        </Row>
+                      </Col>
+                    )}
+                  </Row>
+                </Card>
+              )}
 
               {/* Block 2: Thông tin người đặt */}
               <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
@@ -869,6 +1058,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
                       </div>
                     )}
 
+                    {productsTotal > 0 && (
+                      <div className="d-flex justify-content-between text-secondary">
+                        <span>Dịch vụ & Dụng cụ mua thêm</span>
+                        <span className="fw-semibold text-dark">
+                          +{productsTotal.toLocaleString('vi-VN')}đ
+                        </span>
+                      </div>
+                    )}
+
                     <div className="d-flex justify-content-between text-secondary">
                       <span>Phí dịch vụ</span>
                       <span className="fw-semibold text-dark">
@@ -906,7 +1104,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ venueId, onBackClick
 
                   <Button
                     onClick={handleConfirmPayment}
-                    disabled={isSubmitting || !draft?.slot || !courtData?._id}
+                    disabled={isSubmitting || (!draft?.slot && productsTotal === 0)}
                     className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-1 d-flex align-items-center justify-content-center gap-2"
                     style={{
                       background: '#0f172a',

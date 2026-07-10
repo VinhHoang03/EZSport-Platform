@@ -34,12 +34,16 @@ export const updateProfile = async (req: Request, res: Response) => {
     const userId = req.user?.id || req.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { fullName, phone, email } = req.body;
+    const { fullName, phone, email, venueIds, shopAddress, shopLat, shopLng } = req.body;
     const updateData: any = {};
 
     if (fullName) updateData.fullName = fullName;
     if (phone !== undefined) updateData.phone = phone;
     if (email !== undefined) updateData.email = email;
+    if (venueIds !== undefined) updateData.venueIds = venueIds;
+    if (shopAddress !== undefined) updateData.shopAddress = shopAddress;
+    if (shopLat !== undefined) updateData.shopLat = shopLat;
+    if (shopLng !== undefined) updateData.shopLng = shopLng;
 
     // Handle avatar upload (Cloudinary via multer)
     if (req.file?.path) {
@@ -64,6 +68,19 @@ export const updateProfile = async (req: Request, res: Response) => {
         checkInCount,
         playmateCount,
       }
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET /api/users/shops
+export const getShops = async (req: Request, res: Response) => {
+  try {
+    const shops = await User.find({ role: "shop" }).select("-password");
+    res.status(200).json({
+      message: "Get shops success",
+      data: shops
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });

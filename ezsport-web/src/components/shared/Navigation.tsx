@@ -8,8 +8,8 @@ interface NavigationProps {
   onAddCourtClick?: () => void;
   onLogoClick?: () => void;
   onLoginClick?: () => void;
-  onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates') => void;
-  currentPage?: 'landing' | 'app' | 'auth' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates' | string;
+  onPageChange?: (page: 'landing' | 'app' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates' | 'shops' | string) => void;
+  currentPage?: 'landing' | 'app' | 'auth' | 'venues' | 'profile' | 'owner-dashboard' | 'admin-dashboard' | 'playmates' | 'shops' | string;
   onRegisterOwnerClick?: () => void;
 }
  
@@ -102,7 +102,10 @@ const Navigation: React.FC<NavigationProps> = ({
             ) : (
               <>
                 <Nav.Link 
-                  onClick={() => onPageChange?.('venues')} 
+                  onClick={() => {
+                    navigate('/venues');
+                    onPageChange?.('venues');
+                  }} 
                   className={currentPage === 'venues' ? "text-success pb-1" : "text-secondary hover-text-dark"}
                   style={{ 
                     color: currentPage === 'venues' ? '#1a6b3c !important' : '', 
@@ -133,6 +136,20 @@ const Navigation: React.FC<NavigationProps> = ({
                   }}
                 >
                   Tìm người chơi cùng
+                </Nav.Link>
+                <Nav.Link 
+                  onClick={() => {
+                    navigate('/shops');
+                    onPageChange?.('shops');
+                  }} 
+                  className={currentPage === 'shops' ? "text-success pb-1" : "text-secondary hover-text-dark"}
+                  style={{ 
+                    color: currentPage === 'shops' ? '#1a6b3c !important' : '', 
+                    borderBottom: currentPage === 'shops' ? '2.5px solid #1a6b3c' : '',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cửa hàng
                 </Nav.Link>
                 {!isAuthenticated && (
                   <Nav.Link 

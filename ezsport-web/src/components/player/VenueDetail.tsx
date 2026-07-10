@@ -7,6 +7,7 @@ import { courtService, venueService, type Court, type Venue } from '../../servic
 import { conversationService } from '../../services/conversation.service';
 import { reviewService, type Review, type ReviewsResponse } from '../../services/review.service';
 import { ROUTES } from '../../constants';
+import { productService, type Product } from '../../services/product.service';
 
 type BookingDetails = {
   venueId: number | string;
@@ -39,6 +40,15 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
   const [selectedCourtId, setSelectedCourtId] = useState<string>('');
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [creatingChat, setCreatingChat] = useState(false);
+
+  // Shop sub-tab states
+  const [activeSubTab, setActiveSubTab] = useState<'booking' | 'shop'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') === 'shop' || params.get('mode') === 'shop' ? 'shop' : 'booking';
+  });
+  const [venueProducts, setVenueProducts] = useState<Product[]>([]);
+  const [standaloneQuantities, setStandaloneQuantities] = useState<Record<string, number>>({});
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(false);
 
   // Review states
   const [reviewsData, setReviewsData] = useState<ReviewsResponse | null>(null);
@@ -136,6 +146,16 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
       reviewService.checkCanReview(resolvedId).then(setCanReview);
     }
   }, [venueId, venueData?._id]);
+
+  // Fetch shop products when shop sub-tab is chosen
+  useEffect(() => {
+    if (activeSubTab !== 'shop' || !venueData?._id) return;
+    setLoadingProducts(true);
+    productService.getProductsByVenue(String(venueData._id))
+      .then(setVenueProducts)
+      .catch((err) => console.error('Failed to load shop products:', err))
+      .finally(() => setLoadingProducts(false));
+  }, [activeSubTab, venueData?._id]);
 
   const handleSubmitReview = async () => {
     const resolvedId = venueData?._id ? String(venueData._id) : String(venueId);
@@ -259,6 +279,30 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
       alert('Không thể tạo hội thoại. Vui lòng thử lại.');
     } finally {
       setCreatingChat(false);
+    }
+  };
+
+  const handleStandaloneCheckout = () => {
+    const hasItems = Object.values(standaloneQuantities).some(qty => qty > 0);
+    if (!hasItems) {
+      alert('Vui lòng chọn ít nhất 1 sản phẩm để thanh toán!');
+      return;
+    }
+
+    // Save preselected products to sessionStorage
+    sessionStorage.setItem('preselected_products', JSON.stringify(standaloneQuantities));
+
+    if (onConfirmBooking) {
+      onConfirmBooking({
+        venueId: String(venueData?._id || venueId),
+        slot: undefined,
+        courtId: undefined as any,
+        courtName: venue.name,
+        courtAddress: venue.location,
+        courtImage: venue.image,
+        sport: 'Cửa hàng',
+        basePrice: 0,
+      } as any);
     }
   };
 
@@ -411,14 +455,44 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
             </Col>
           </Row>
 
+          {/* Sub-tabs toggler */}
+          <div className="d-flex border-bottom mb-4 bg-white p-2 rounded-4 shadow-sm" style={{ gap: '10px' }}>
+            <Button
+              variant={activeSubTab === 'booking' ? 'success' : 'light'}
+              onClick={() => setActiveSubTab('booking')}
+              className="rounded-pill px-4 fw-bold shadow-none"
+              style={{
+                background: activeSubTab === 'booking' ? '#1a6b3c' : 'transparent',
+                borderColor: 'transparent',
+                color: activeSubTab === 'booking' ? '#fff' : '#64748b'
+              }}
+            >
+              📅 Đặt sân đấu
+            </Button>
+            <Button
+              variant={activeSubTab === 'shop' ? 'success' : 'light'}
+              onClick={() => setActiveSubTab('shop')}
+              className="rounded-pill px-4 fw-bold shadow-none"
+              style={{
+                background: activeSubTab === 'shop' ? '#1a6b3c' : 'transparent',
+                borderColor: 'transparent',
+                color: activeSubTab === 'shop' ? '#fff' : '#64748b'
+              }}
+            >
+              🛍️ Cửa hàng & Dịch vụ
+            </Button>
+          </div>
+
           {/* Main Content Details Panel */}
           <Row className="g-4">
 
             {/* Left Main column (65%) */}
             <Col lg={8}>
 
-              {/* Title and Base information Card */}
-              <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
+              {activeSubTab === 'booking' ? (
+                <>
+                  {/* Title and Base information Card */}
+                  <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
                 <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
                   <div>
                     <h3 className="fw-bold text-dark mb-2" style={{ fontWeight: 800 }}>{venue.name}</h3>
@@ -690,172 +764,386 @@ export const VenueDetail: React.FC<VenueDetailProps> = ({ venueId, onBackClick, 
                   </div>
                 </div>
               </div>
+            </>
+              ) : (
+                /* Products list for Shop tab */
+                <Card className="border-0 shadow-sm p-4 mb-4" style={{ borderRadius: '24px' }}>
+                  <h5 className="fw-bold text-dark mb-1" style={{ fontWeight: 800 }}>Sản phẩm & Dịch vụ của Cửa hàng</h5>
+                  <p className="text-muted small mb-4" style={{ fontSize: '13px' }}>
+                    Chọn các mặt hàng bạn muốn đặt mua lẻ trực tiếp từ shop.
+                  </p>
 
+                  {loadingProducts ? (
+                    <div className="text-center py-5"><Spinner variant="success" /></div>
+                  ) : venueProducts.length === 0 ? (
+                    <div className="text-center py-5 text-muted">
+                      <span className="material-symbols-outlined fs-2 mb-2">storefront</span>
+                      <p className="small">Cửa hàng hiện chưa cập nhật sản phẩm nào.</p>
+                    </div>
+                  ) : (
+                    <Row className="g-3">
+                      {/* Sellable Products */}
+                      {venueProducts.some(p => p.type === 'sell') && (
+                        <Col xs={12}>
+                          <h6 className="fw-bold text-secondary mb-3 d-flex align-items-center gap-1.5" style={{ fontSize: '14.5px' }}>
+                            <span className="material-symbols-outlined fs-5">local_cafe</span> Đồ uống & bóng chơi (Mua lẻ)
+                          </h6>
+                          <Row className="g-3">
+                            {venueProducts.filter(p => p.type === 'sell').map(p => {
+                              const qty = standaloneQuantities[p._id] || 0;
+                              return (
+                                <Col md={6} key={p._id}>
+                                  <div className="p-3 border rounded-4 d-flex justify-content-between align-items-center bg-white" style={{ borderRadius: '16px' }}>
+                                    <div className="d-flex align-items-center gap-2.5">
+                                      <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '45px', height: '45px', background: '#f1f5f9' }}>
+                                        {p.image ? <img src={p.image} alt={p.name} className="w-100 h-100 object-fit-cover" /> : <span className="material-symbols-outlined text-muted">shopping_bag</span>}
+                                      </div>
+                                      <div>
+                                        <span className="fw-bold text-dark d-block" style={{ fontSize: '13.5px' }}>{p.name}</span>
+                                        <span className="text-success fw-bold" style={{ fontSize: '13px' }}>{p.price.toLocaleString('vi-VN')}đ</span>
+                                      </div>
+                                    </div>
+                                    <div className="d-flex align-items-center gap-2">
+                                      <Button
+                                        variant="light"
+                                        size="sm"
+                                        className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                        style={{ width: '28px', height: '28px', color: '#000' }}
+                                        onClick={() => setStandaloneQuantities(prev => ({ ...prev, [p._id]: Math.max(0, qty - 1) }))}
+                                        disabled={qty === 0}
+                                      >
+                                        -
+                                      </Button>
+                                      <span className="fw-bold px-1" style={{ fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                                      <Button
+                                        variant="light"
+                                        size="sm"
+                                        className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                        style={{ width: '28px', height: '28px', color: '#000' }}
+                                        onClick={() => setStandaloneQuantities(prev => ({ ...prev, [p._id]: Math.min(p.stock, qty + 1) }))}
+                                        disabled={qty >= p.stock}
+                                      >
+                                        +
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Col>
+                              );
+                            })}
+                          </Row>
+                        </Col>
+                      )}
+
+                      {/* Rentable Products */}
+                      {venueProducts.some(p => p.type === 'rent') && (
+                        <Col xs={12} className="mt-4">
+                          <h6 className="fw-bold text-secondary mb-3 d-flex align-items-center gap-1.5" style={{ fontSize: '14.5px' }}>
+                            <span className="material-symbols-outlined fs-5">sports_tennis</span> Thuê phụ kiện chơi lẻ
+                          </h6>
+                          <Row className="g-3">
+                            {venueProducts.filter(p => p.type === 'rent').map(p => {
+                              const qty = standaloneQuantities[p._id] || 0;
+                              return (
+                                <Col md={6} key={p._id}>
+                                  <div className="p-3 border rounded-4 d-flex justify-content-between align-items-center bg-white" style={{ borderRadius: '16px' }}>
+                                    <div className="d-flex align-items-center gap-2.5">
+                                      <div className="rounded-3 overflow-hidden d-flex align-items-center justify-content-center" style={{ width: '45px', height: '45px', background: '#f1f5f9' }}>
+                                        {p.image ? <img src={p.image} alt={p.name} className="w-100 h-100 object-fit-cover" /> : <span className="material-symbols-outlined text-muted">sports_tennis</span>}
+                                      </div>
+                                      <div>
+                                        <span className="fw-bold text-dark d-block" style={{ fontSize: '13.5px' }}>{p.name}</span>
+                                        <span className="text-success fw-bold" style={{ fontSize: '13px' }}>
+                                          {p.price.toLocaleString('vi-VN')}đ
+                                          {p.chargeType === 'per_hour' ? '/giờ' : '/lượt'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="d-flex align-items-center gap-2">
+                                      <Button
+                                        variant="light"
+                                        size="sm"
+                                        className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                        style={{ width: '28px', height: '28px', color: '#000' }}
+                                        onClick={() => setStandaloneQuantities(prev => ({ ...prev, [p._id]: Math.max(0, qty - 1) }))}
+                                        disabled={qty === 0}
+                                      >
+                                        -
+                                      </Button>
+                                      <span className="fw-bold px-1" style={{ fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                                      <Button
+                                        variant="light"
+                                        size="sm"
+                                        className="rounded-circle border p-1 d-flex align-items-center justify-content-center"
+                                        style={{ width: '28px', height: '28px', color: '#000' }}
+                                        onClick={() => setStandaloneQuantities(prev => ({ ...prev, [p._id]: Math.min(p.stock, qty + 1) }))}
+                                        disabled={qty >= p.stock}
+                                      >
+                                        +
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Col>
+                              );
+                            })}
+                          </Row>
+                        </Col>
+                      )}
+                    </Row>
+                  )}
+                </Card>
+              )}
             </Col>
 
             {/* Right Sticky booking widget column (35%) */}
             <Col lg={4}>
               <div className="sticky-top" style={{ top: '110px', zIndex: 10 }}>
-                <Card
-                  className="border-0 shadow-lg overflow-hidden w-100"
-                  style={{
-                    borderRadius: '24px',
-                    borderTop: '6px solid #1a6b3c'
-                  }}
-                >
-                  <Card.Body className="p-4">
+                {activeSubTab === 'booking' ? (
+                  <Card
+                    className="border-0 shadow-lg overflow-hidden w-100"
+                    style={{
+                      borderRadius: '24px',
+                      borderTop: '6px solid #1a6b3c'
+                    }}
+                  >
+                    <Card.Body className="p-4">
 
-                    {/* Price display header */}
-                    <div className="d-flex justify-content-between align-items-center mb-4">
-                      <div>
-                        <span className="text-muted small d-block" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          {selectedSlot ? 'GIÁ ĐÃ CHỌN' : 'BẮT ĐẦU TỪ'}
-                        </span>
-                        <span className="fw-extrabold text-success fs-3" style={{ color: '#1a6b3c', fontWeight: 900 }}>
-                          {formatVND(selectedSlot ? selectedSlot.basePrice / selectedSlot.duration : pricePerHour)}
-                          <span className="text-muted fw-normal" style={{ fontSize: '14px' }}>/ giờ</span>
-                        </span>
-                        {selectedSlot && selectedSlot.duration > 1 && (
-                          <div className="text-muted small mt-1" style={{ fontSize: '12px' }}>
-                            {selectedSlot.duration}h = {formatVND(selectedSlot.basePrice)}
+                      {/* Price display header */}
+                      <div className="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                          <span className="text-muted small d-block" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            {selectedSlot ? 'GIÁ ĐÃ CHỌN' : 'BẮT ĐẦU TỪ'}
+                          </span>
+                          <span className="fw-extrabold text-success fs-3" style={{ color: '#1a6b3c', fontWeight: 900 }}>
+                            {formatVND(selectedSlot ? selectedSlot.basePrice / selectedSlot.duration : pricePerHour)}
+                            <span className="text-muted fw-normal" style={{ fontSize: '14px' }}>/ giờ</span>
+                          </span>
+                          {selectedSlot && selectedSlot.duration > 1 && (
+                            <div className="text-muted small mt-1" style={{ fontSize: '12px' }}>
+                              {selectedSlot.duration}h = {formatVND(selectedSlot.basePrice)}
+                            </div>
+                          )}
+                        </div>
+                        <Badge className="bg-light text-dark border py-2 px-3 rounded-pill fw-bold d-flex align-items-center gap-1">
+                          <span className="material-symbols-outlined text-warning" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>flash_on</span>
+                          Đặt ngay
+                        </Badge>
+                      </div>
+                      {courts.length > 0 && (
+                        <div className="mb-4">
+                          <p className="fw-semibold mb-2" style={{ fontSize: '13px', color: '#374151' }}>Chọn sân</p>
+                          <div className="d-flex flex-column gap-2">
+                            {courts.map((court) => {
+                              // Calculate court price based on selected time slot
+                              let displayPrice = court.pricePerHour || 0;
+                              
+                              if (selectedSlot?.startTime && court.pricingRules && court.pricingRules.length > 0) {
+                                // Convert time to minutes
+                                const [hour, minute] = selectedSlot.startTime.split(':').map(Number);
+                                const timeInMinutes = hour * 60 + minute;
+                                
+                                // Find matching pricing rule
+                                const matchingRule = court.pricingRules.find((rule: any) => {
+                                  if (rule.isActive === false) return false;
+                                  const [startH, startM] = rule.startTime.split(':').map(Number);
+                                  const [endH, endM] = rule.endTime.split(':').map(Number);
+                                  const ruleStart = startH * 60 + startM;
+                                  const ruleEnd = endH * 60 + endM;
+                                  return timeInMinutes >= ruleStart && timeInMinutes < ruleEnd;
+                                });
+                                
+                                if (matchingRule) {
+                                  displayPrice = Number(matchingRule.price || displayPrice);
+                                }
+                              }
+                              
+                              return (
+                                <button
+                                  key={court._id}
+                                  type="button"
+                                  onClick={() => setSelectedCourtId(court._id)}
+                                  className="text-start"
+                                  style={{
+                                    border: selectedCourtId === court._id ? '2px solid #16a34a' : '1px solid #e5e7eb',
+                                    borderRadius: '14px',
+                                    background: selectedCourtId === court._id ? '#f0fdf4' : '#fff',
+                                    padding: '10px 12px',
+                                    color: '#111827',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <div className="d-flex justify-content-between align-items-center">
+                                    <strong style={{ fontSize: '13px' }}>{court.name}</strong>
+                                    <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700 }}>
+                                      {displayPrice.toLocaleString('vi-VN')}đ/giờ
+                                    </span>
+                                  </div>
+                                  <div className="text-muted" style={{ fontSize: '12px' }}>{court.sportTypes?.join(', ')}</div>
+                                </button>
+                              );
+                            })}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Slot picker from Figma design */}
+                      <div className="mb-4">
+                        <SlotPicker
+                          courtId={selectedCourtId || String(venueId)}
+                          onSlotSelect={handleSlotSelect}
+                          openTime={venueData?.openTime}
+                          closeTime={venueData?.closeTime}
+                        />
+                      </div>
+
+                      {/* Booking Action Button */}
+                      <Button
+                        onClick={handleBooking}
+                        className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-3"
+                        style={{
+                          background: selectedSlot ? '#1a6b3c' : '#94d3b6',
+                          color: '#ffffff',
+                          fontSize: '15px',
+                          boxShadow: selectedSlot ? '0 8px 24px rgba(26, 107, 60, 0.3)' : 'none'
+                        }}
+                        disabled={!selectedSlot}
+                      >
+                        Xác nhận đặt sân
+                      </Button>
+
+                      {/* Chat with Owner Button */}
+                      <Button
+                        onClick={handleChatWithOwner}
+                        disabled={creatingChat}
+                        variant="outline-success"
+                        className="w-100 py-3 rounded-pill fw-bold hover-scale mb-3"
+                        style={{
+                          fontSize: '14px',
+                          borderWidth: '2px',
+                          borderColor: '#1a6b3c',
+                          color: '#1a6b3c',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          cursor: creatingChat ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {creatingChat ? (
+                          <>
+                            <Spinner animation="border" size="sm" />
+                            <span>Đang tạo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chat</span>
+                            <span>Nhắn tin với chủ sân</span>
+                          </>
+                        )}
+                      </Button>
+
+                      {/* Footer Trust badging */}
+                      <div className="text-center mt-3 pt-2">
+                        <span className="text-muted d-block mb-2" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                          THANH TOÁN AN TOÀN BỞI
+                        </span>
+                        <div className="d-flex justify-content-center align-items-center gap-3 text-muted">
+                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span>
+                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>credit_card</span>
+                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>verified_user</span>
+                        </div>
+                        <span className="text-muted d-block mt-2" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
+                          🛡️ GIAO DỊCH ĐƯỢC MÃ HÓA 256-BIT
+                        </span>
+                      </div>
+
+                    </Card.Body>
+                  </Card>
+                ) : (
+                  /* Standalone Shop widget */
+                  <Card
+                    className="border-0 shadow-lg overflow-hidden w-100"
+                    style={{
+                      borderRadius: '24px',
+                      borderTop: '6px solid #1a6b3c'
+                    }}
+                  >
+                    <Card.Body className="p-4">
+                      <h6 className="fw-extrabold text-dark mb-3" style={{ fontWeight: 800 }}>ĐƠN HÀNG DỊCH VỤ</h6>
+
+                      <div className="d-flex flex-column gap-2 mb-4" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {Object.entries(standaloneQuantities)
+                          .filter(([_, qty]) => qty > 0)
+                          .map(([prodId, qty]) => {
+                            const p = venueProducts.find(prod => prod._id === prodId);
+                            if (!p) return null;
+                            return (
+                              <div key={prodId} className="d-flex justify-content-between text-secondary" style={{ fontSize: '13.5px' }}>
+                                <span>{p.name} (x{qty})</span>
+                                <span className="fw-semibold text-dark">{(p.price * qty).toLocaleString('vi-VN')}đ</span>
+                              </div>
+                            );
+                          })
+                        }
+                        {!Object.values(standaloneQuantities).some(qty => qty > 0) && (
+                          <span className="text-muted small">Chưa có sản phẩm nào được chọn.</span>
                         )}
                       </div>
-                      <Badge className="bg-light text-dark border py-2 px-3 rounded-pill fw-bold d-flex align-items-center gap-1">
-                        <span className="material-symbols-outlined text-warning" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>flash_on</span>
-                        Đặt ngay
-                      </Badge>
-                    </div>
-                    {courts.length > 0 && (
-                      <div className="mb-4">
-                        <p className="fw-semibold mb-2" style={{ fontSize: '13px', color: '#374151' }}>Chọn sân</p>
-                        <div className="d-flex flex-column gap-2">
-                          {courts.map((court) => {
-                            // Calculate court price based on selected time slot
-                            let displayPrice = court.pricePerHour || 0;
-                            
-                            if (selectedSlot?.startTime && court.pricingRules && court.pricingRules.length > 0) {
-                              // Convert time to minutes
-                              const [hour, minute] = selectedSlot.startTime.split(':').map(Number);
-                              const timeInMinutes = hour * 60 + minute;
-                              
-                              // Find matching pricing rule
-                              const matchingRule = court.pricingRules.find((rule: any) => {
-                                if (rule.isActive === false) return false;
-                                const [startH, startM] = rule.startTime.split(':').map(Number);
-                                const [endH, endM] = rule.endTime.split(':').map(Number);
-                                const ruleStart = startH * 60 + startM;
-                                const ruleEnd = endH * 60 + endM;
-                                return timeInMinutes >= ruleStart && timeInMinutes < ruleEnd;
-                              });
-                              
-                              if (matchingRule) {
-                                displayPrice = Number(matchingRule.price || displayPrice);
-                              }
-                            }
-                            
-                            return (
-                              <button
-                                key={court._id}
-                                type="button"
-                                onClick={() => setSelectedCourtId(court._id)}
-                                className="text-start"
-                                style={{
-                                  border: selectedCourtId === court._id ? '2px solid #16a34a' : '1px solid #e5e7eb',
-                                  borderRadius: '14px',
-                                  background: selectedCourtId === court._id ? '#f0fdf4' : '#fff',
-                                  padding: '10px 12px',
-                                  color: '#111827',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <div className="d-flex justify-content-between align-items-center">
-                                  <strong style={{ fontSize: '13px' }}>{court.name}</strong>
-                                  <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 700 }}>
-                                    {displayPrice.toLocaleString('vi-VN')}đ/giờ
-                                  </span>
-                                </div>
-                                <div className="text-muted" style={{ fontSize: '12px' }}>{court.sportTypes?.join(', ')}</div>
-                              </button>
-                            );
-                          })}
-                        </div>
+
+                      <hr className="my-3 opacity-50" />
+
+                      <div className="d-flex justify-content-between align-items-center mb-4">
+                        <span className="text-muted fw-bold small">TỔNG TẠM TÍNH</span>
+                        <span className="fw-extrabold text-success fs-4" style={{ color: '#1a6b3c', fontWeight: 900 }}>
+                          {venueProducts.reduce((acc, p) => acc + (p.price * (standaloneQuantities[p._id] || 0)), 0).toLocaleString('vi-VN')}đ
+                        </span>
                       </div>
-                    )}
 
-                    {/* Slot picker from Figma design */}
-                    <div className="mb-4">
-                      <SlotPicker
-                        courtId={selectedCourtId || String(venueId)}
-                        onSlotSelect={handleSlotSelect}
-                        openTime={venueData?.openTime}
-                        closeTime={venueData?.closeTime}
-                      />
-                    </div>
+                      <Button
+                        onClick={handleStandaloneCheckout}
+                        disabled={!Object.values(standaloneQuantities).some(qty => qty > 0)}
+                        className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-3"
+                        style={{
+                          background: '#1a6b3c',
+                          color: '#ffffff',
+                          fontSize: '15px',
+                          boxShadow: '0 8px 24px rgba(26, 107, 60, 0.3)'
+                        }}
+                      >
+                        Thanh toán Đơn Dịch Vụ lẻ
+                      </Button>
 
-                    {/* Booking Action Button */}
-                    <Button
-                      onClick={handleBooking}
-                      className="w-100 py-3 rounded-pill fw-bold border-0 hover-scale mb-3"
-                      style={{
-                        background: selectedSlot ? '#1a6b3c' : '#94d3b6',
-                        color: '#ffffff',
-                        fontSize: '15px',
-                        boxShadow: selectedSlot ? '0 8px 24px rgba(26, 107, 60, 0.3)' : 'none'
-                      }}
-                      disabled={!selectedSlot}
-                    >
-                      Xác nhận đặt sân
-                    </Button>
-
-                    {/* Chat with Owner Button */}
-                    <Button
-                      onClick={handleChatWithOwner}
-                      disabled={creatingChat}
-                      variant="outline-success"
-                      className="w-100 py-3 rounded-pill fw-bold hover-scale mb-3"
-                      style={{
-                        fontSize: '14px',
-                        borderWidth: '2px',
-                        borderColor: '#1a6b3c',
-                        color: '#1a6b3c',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        cursor: creatingChat ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {creatingChat ? (
-                        <>
-                          <Spinner animation="border" size="sm" />
-                          <span>Đang tạo...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chat</span>
-                          <span>Nhắn tin với chủ sân</span>
-                        </>
-                      )}
-                    </Button>
-
-                    {/* Footer Trust badging */}
-                    <div className="text-center mt-3 pt-2">
-                      <span className="text-muted d-block mb-2" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                        THANH TOÁN AN TOÀN BỞI
-                      </span>
-                      <div className="d-flex justify-content-center align-items-center gap-3 text-muted">
-                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>account_balance_wallet</span>
-                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>credit_card</span>
-                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>verified_user</span>
-                      </div>
-                      <span className="text-muted d-block mt-2" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
-                        🛡️ GIAO DỊCH ĐƯỢC MÃ HÓA 256-BIT
-                      </span>
-                    </div>
-
-                  </Card.Body>
-                </Card>
+                      <Button
+                        onClick={handleChatWithOwner}
+                        disabled={creatingChat}
+                        variant="outline-success"
+                        className="w-100 py-3 rounded-pill fw-bold hover-scale mb-3"
+                        style={{
+                          fontSize: '14px',
+                          borderWidth: '2px',
+                          borderColor: '#1a6b3c',
+                          color: '#1a6b3c',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          cursor: creatingChat ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {creatingChat ? (
+                          <>
+                            <Spinner animation="border" size="sm" />
+                            <span>Đang tạo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chat</span>
+                            <span>Liên hệ hỗ trợ</span>
+                          </>
+                        )}
+                      </Button>
+                    </Card.Body>
+                  </Card>
+                )}
               </div>
             </Col>
 

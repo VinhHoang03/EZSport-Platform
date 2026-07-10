@@ -4,7 +4,10 @@ const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 const phoneRegex = /^[\d\s\-\+]+$/;
 
 export const createBookingSchema = z.object({
-  courtId: z.string().min(1, "Mã sân không được để trống"),
+  // courtId is optional for standalone shop orders (no court booking)
+  courtId: z.string().min(1).optional(),
+  // venueId is required when courtId is absent (standalone shop order needs to know which venue)
+  venueId: z.string().min(1).optional(),
   bookingDate: z.coerce.date().refine(d => !isNaN(d.getTime()), "Ngày đặt sân không hợp lệ"),
   startTime: z.string().regex(timeRegex, "Giờ bắt đầu không hợp lệ (định dạng: HH:mm)"),
   endTime: z.string().regex(timeRegex, "Giờ kết thúc không hợp lệ (định dạng: HH:mm)"),
@@ -22,6 +25,15 @@ export const createBookingSchema = z.object({
   bookerEmail: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
   notes: z.string().optional(),
   comboType: z.enum(["week", "month"]).optional(),
+  // Products: for shop items attached to any booking type
+  products: z.array(z.object({
+    productId: z.string().min(1),
+    name: z.string().optional(),
+    type: z.enum(["sell", "rent"]).optional(),
+    chargeType: z.enum(["per_booking", "per_hour"]).optional(),
+    quantity: z.number().int().min(1),
+    price: z.number().min(0).optional(),
+  })).optional(),
 });
 
 export const updateBookingSchema = z.object({

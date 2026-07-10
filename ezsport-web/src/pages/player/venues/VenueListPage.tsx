@@ -189,8 +189,14 @@ const VenuesPage: React.FC = () => {
             venues={filteredCourts}
             layout="horizontal"
             currentLocationName={userLocation ? 'Vị trí của bạn' : 'Đà Nẵng, Việt Nam'}
-            onDetailClick={(id) => navigate(`/venues/${id}`)}
-            onBookingClick={(id) => navigate(`/venues/${id}`)}
+            onDetailClick={(id) => {
+              const isShop = window.location.search.includes('mode=shop');
+              navigate(`/venues/${id}${isShop ? '?tab=shop' : ''}`);
+            }}
+            onBookingClick={(id) => {
+              const isShop = window.location.search.includes('mode=shop');
+              navigate(`/venues/${id}${isShop ? '?tab=shop' : ''}`);
+            }}
             onDirectionsClick={handleDirections}
           />
           {/* Map column */}

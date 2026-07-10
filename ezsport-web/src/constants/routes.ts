@@ -16,6 +16,9 @@ export const ROUTES = {
   PROFILE: '/profile',
   PLAYMATES: '/playmates',
   MESSAGES: '/messages',
+  SHOPS: '/shops',
+  SHOP_DETAIL: '/shops/:id',
+  SHOP_CHECKOUT: '/shops/:id/checkout',
 
   // Booking flow
   BOOKING_SUCCESS_NEW: '/booking/success/:bookingId',
@@ -24,6 +27,9 @@ export const ROUTES = {
 
   // Owner
   OWNER_PAGE: '/owner/page',
+
+  // Shop
+  SHOP_DASHBOARD: '/shop/dashboard',
 
   // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',
