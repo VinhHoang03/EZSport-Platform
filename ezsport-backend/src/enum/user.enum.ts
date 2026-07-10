@@ -2,6 +2,7 @@ export enum UserRole {
   ADMIN = "admin",
   OWNER = "owner",
   PLAYER = "player",
+  COACH = "coach",
   SHOP = "shop",
 }
 

@@ -1,5 +1,6 @@
 import { PayOS } from "@payos/node";
 import Booking from "../models/booking.model";
+import CoachBooking from "../models/coachBooking.model";
 
 class PayosService {
   private payOSInstance: PayOS | null = null;
@@ -33,14 +34,19 @@ class PayosService {
   /**
    * Create a new payment link
    */
-  async createPaymentLink(bookingId: string, amount: number, description: string) {
+  async createPaymentLink(bookingId: string, amount: number, description: string, paymentType: "booking" | "coach" = "booking") {
     const orderCode = this.generateOrderCode();
     
     // Save orderCode to booking in DB
-    await Booking.findByIdAndUpdate(bookingId, { payosOrderCode: orderCode });
+    if (paymentType === "coach") {
+      await CoachBooking.findByIdAndUpdate(bookingId, { payosOrderCode: orderCode });
+    } else {
+      await Booking.findByIdAndUpdate(bookingId, { payosOrderCode: orderCode });
+    }
 
-    const returnUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/booking/success`;
-    const cancelUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/booking/success`;
+    const successPath = paymentType === "coach" ? `/coach-bookings/success/${bookingId}` : "/booking/success";
+    const returnUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}${successPath}`;
+    const cancelUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}${successPath}`;
 
     // Ensure description is under 25 chars and alphanumeric, as PayOS bank transfer descriptions have constraints
     const cleanDesc = description

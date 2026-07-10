@@ -3,6 +3,8 @@ import bookingService from "../services/booking.service";
 import { createBookingSchema, updateBookingSchema } from "../validators/booking.validator";
 import payosService from "../services/payos.service";
 import Booking from "../models/booking.model";
+import CoachBooking from "../models/coachBooking.model";
+import coachService from "../services/coach.service";
 
 class BookingController {
   /**
@@ -468,17 +470,18 @@ class BookingController {
       console.log(`[BookingController.handlePayOSWebhook] Webhook verified. orderCode: ${orderCode}, code: ${code}`);
 
       const booking = await Booking.findOne({ payosOrderCode: orderCode });
-      if (!booking) {
-        console.error(`[BookingController.handlePayOSWebhook] Booking not found for orderCode: ${orderCode}`);
+      const coachBooking = booking ? null : await CoachBooking.findOne({ payosOrderCode: orderCode });
+      if (!booking && !coachBooking) {
+        console.error(`[BookingController.handlePayOSWebhook] Payment target not found for orderCode: ${orderCode}`);
         return res.status(404).json({ message: "Booking not found" });
       }
 
       if (code === "00") {
-        console.log(`[BookingController.handlePayOSWebhook] Payment SUCCESS for booking ${booking._id}`);
-        await bookingService.updatePaymentStatus(booking._id.toString(), "CONFIRMED");
+        if (coachBooking) await coachService.markPaymentPaid(coachBooking._id.toString());
+        else await bookingService.updatePaymentStatus(booking!._id.toString(), "CONFIRMED");
       } else {
-        console.warn(`[BookingController.handlePayOSWebhook] Payment FAILED/CANCELLED for booking ${booking._id}, code: ${code}`);
-        await bookingService.updatePaymentStatus(booking._id.toString(), "CANCELLED");
+        if (coachBooking) await coachService.markPaymentFailed(coachBooking._id.toString());
+        else await bookingService.updatePaymentStatus(booking!._id.toString(), "CANCELLED");
       }
 
       return res.status(200).json({ success: true });

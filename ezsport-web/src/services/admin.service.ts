@@ -7,7 +7,7 @@ export interface UserAdminInfo {
   email?: string;
   phone?: string;
   avatar?: string;
-  role: 'admin' | 'owner' | 'player';
+  role: 'admin' | 'owner' | 'player' | 'coach';
   status: 'active' | 'inactive' | 'banned';
   createdAt: string;
   lastLogin?: string;
@@ -49,6 +49,17 @@ export interface AdminSportMixData {
   percent: number;
 }
 
+export interface CoachReviewRequest {
+  _id: string;
+  userId: { _id: string; fullName: string; email?: string; phone?: string; avatar?: string };
+  sports: string[];
+  specialties: string[];
+  teachingModes: string[];
+  area?: string;
+  pricePerHour: number;
+  reviewStatus: string;
+}
+
 export const adminService = {
   getUsers: async (params?: { role?: string; status?: string }): Promise<UserAdminInfo[]> => {
     const { data } = await api.get('/admin/users', { params });
@@ -63,6 +74,8 @@ export const adminService = {
   deleteUser: async (userId: string): Promise<void> => {
     await api.delete(`/admin/users/${userId}`);
   },
+  getCoachRequests: async (): Promise<CoachReviewRequest[]> => (await api.get('/admin/coaches', { params: { status: 'PENDING_REVIEW' } })).data.data,
+  reviewCoach: async (id: string, status: 'APPROVED' | 'REJECTED', note?: string) => (await api.patch(`/admin/coaches/${id}/review`, { status, note })).data.data,
 
   getStats: async (): Promise<AdminStatsData> => {
     const { data } = await api.get('/analytics/admin/stats');

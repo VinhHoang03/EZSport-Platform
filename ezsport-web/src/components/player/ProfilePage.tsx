@@ -7,6 +7,7 @@ import { userService, type UserProfile } from '../../services/user.service';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants';
 import { VoucherRedemption } from './VoucherRedemption';
+import CoachProfileSection from '../coach/CoachProfileSection';
 
 interface ProfilePageProps {
   onGoHome: () => void;
@@ -349,7 +350,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
                       { label: 'Tên đăng nhập', value: profile?.username, icon: 'person' },
                       { label: 'Email', value: profile?.email, icon: 'email' },
                       { label: 'Số điện thoại', value: profile?.phone, icon: 'phone' },
-                      { label: 'Vai trò', value: profile?.role === 'player' ? 'Người chơi' : profile?.role === 'shop' ? 'Cửa hàng' : profile?.role === 'owner' ? 'Chủ sân' : profile?.role === 'admin' ? 'Quản trị viên' : profile?.role, icon: 'manage_accounts' },
+                      { label: 'Vai trò', value: profile?.role === 'player' ? 'Người chơi' : profile?.role === 'coach' ? 'Huấn luyện viên' : profile?.role === 'shop' ? 'Cửa hàng' : profile?.role === 'owner' ? 'Chủ sân' : profile?.role === 'admin' ? 'Quản trị viên' : profile?.role, icon: 'manage_accounts' },
                       { label: 'Thành viên từ', value: memberSince, icon: 'calendar_today' },
                       { label: 'Số lượt check-in', value: `${profile?.checkInCount ?? 0} lần`, icon: 'where_to_vote' },
                       { label: 'Số trận Playmate', value: `${profile?.playmateCount ?? 0} lần`, icon: 'groups' },
@@ -369,6 +370,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onFindVenues }) => {
                   </Row>
                 </Card.Body>
               </Card>
+
+              {/* Upgrade Banner */}
+              {profile?.role === 'coach' && <CoachProfileSection />}
 
               {/* Upgrade Banner */}
               {tier.next && (

@@ -7,7 +7,7 @@ export interface IUser extends Document {
   password: string;
   phone?: string;
   avatar?: string;
-  role: "admin" | "owner" | "player" | "shop";
+  role: "admin" | "owner" | "player" | "coach" | "shop";
   status: "active" | "inactive" | "banned";
   createdAt: Date;
   updatedAt: Date;

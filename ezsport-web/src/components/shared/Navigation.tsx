@@ -137,6 +137,9 @@ const Navigation: React.FC<NavigationProps> = ({
                 >
                   Tìm người chơi cùng
                 </Nav.Link>
+                <Nav.Link onClick={() => navigate(ROUTES.COACHES)} className="text-secondary hover-text-dark" style={{ cursor: 'pointer' }}>
+                  Huấn luyện viên
+                </Nav.Link>
                 <Nav.Link 
                   onClick={() => {
                     navigate('/shops');
