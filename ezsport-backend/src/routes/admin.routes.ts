@@ -5,6 +5,7 @@ import {
   updateUserStatus,
   deleteUser,
 } from "../controllers/adminUser.controller";
+import coachController from "../controllers/coach.controller";
 
 const router = Router();
 
@@ -31,5 +32,10 @@ router.delete(
   authorizeRoles("admin") as any,
   deleteUser as any
 );
+
+router.get("/coaches", verifyToken as any, authorizeRoles("admin") as any, coachController.adminList.bind(coachController));
+router.patch("/coaches/:id/review", verifyToken as any, authorizeRoles("admin") as any, coachController.adminReview.bind(coachController));
+router.get("/coach-refunds", verifyToken as any, authorizeRoles("admin") as any, coachController.adminRefunds.bind(coachController));
+router.patch("/coach-refunds/:id", verifyToken as any, authorizeRoles("admin") as any, coachController.adminUpdateRefund.bind(coachController));
 
 export default router;
