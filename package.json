@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@payos/node": "^2.0.5",
-    "ezsport-platform": "file:"
+    "ezsport-platform": "file:",
+    "jsqr": "^1.4.0"
   }
 }

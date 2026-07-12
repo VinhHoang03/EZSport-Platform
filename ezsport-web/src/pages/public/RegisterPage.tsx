@@ -5,7 +5,7 @@ import { authService } from '../../services/auth.service';
 import { ROUTES } from '../../constants';
 import AuthLayout from '../../layouts/AuthLayout';
 
-type AccountType = 'player' | 'owner';
+type AccountType = 'player' | 'owner' | 'coach';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -59,7 +59,7 @@ const RegisterPage: React.FC = () => {
         email: email.trim(),
         password,
         fullName: `${ho} ${ten}`.trim(),
-        role: accountType === 'owner' ? 'owner' : 'player',
+        role: accountType,
         phone: cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone,
       });
       setStep(3);
@@ -168,6 +168,7 @@ const RegisterPage: React.FC = () => {
             {([
               { type: 'player' as AccountType, title: 'Người chơi', desc: 'Tìm sân, đặt lịch, tham gia giải đấu', icon: 'person' },
               { type: 'owner' as AccountType, title: 'Chủ sân', desc: 'Đăng sân, quản lý lịch, tăng doanh thu', icon: 'stadium' },
+              { type: 'coach' as AccountType, title: 'Huấn luyện viên', desc: 'Tạo hồ sơ và nhận lịch tập từ người chơi', icon: 'sports' },
             ]).map(opt => {
               const sel = accountType === opt.type;
               return (

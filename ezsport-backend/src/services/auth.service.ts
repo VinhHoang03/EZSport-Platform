@@ -110,6 +110,7 @@ class AuthService {
       password: hashed,
       phone,
       role: role as any,
+      // Coach can log in to complete a profile; public visibility is controlled by CoachProfile.reviewStatus.
       status: role === UserRole.OWNER ? UserStatus.INACTIVE : UserStatus.ACTIVE,
       loyaltyPoints: 100, // Tặng 100 điểm cho người dùng mới
     });

@@ -36,6 +36,7 @@ const LoginPage: React.FC = () => {
               if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
               else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
               else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
+              else if (role === 'coach') navigate(ROUTES.COACH_DASHBOARD);
               else navigate(ROUTES.MAP);
             } catch (err: any) {
               setError(err.response?.data?.message || err.message || 'Đăng nhập bằng Google thất bại');
@@ -87,6 +88,7 @@ const LoginPage: React.FC = () => {
       if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
       else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
       else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
+      else if (role === 'coach') navigate(ROUTES.COACH_DASHBOARD);
       else navigate(ROUTES.MAP);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Tên đăng nhập hoặc mật khẩu không đúng');

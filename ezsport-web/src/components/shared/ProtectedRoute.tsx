@@ -19,6 +19,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
     if (user.role === 'admin') return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
     if (user.role === 'owner') return <Navigate to={ROUTES.OWNER_PAGE} replace />;
     if (user.role === 'shop') return <Navigate to={ROUTES.SHOP_DASHBOARD} replace />;
+    if (user.role === 'coach') return <Navigate to={ROUTES.COACH_DASHBOARD} replace />;
     return <Navigate to={ROUTES.MAP} replace />;
   }
 

@@ -5,7 +5,7 @@ import { voucherService, type Voucher } from '../../services/voucher.service';
 import { venueService, type Venue } from '../../services/venue.service';
 import { CreateVoucherModal, type VoucherFormData } from './CreateVoucherModal';
 import { EditVoucherModal } from './EditVoucherModal';
-import { adminService, type AdminStatsData, type AdminRevenueChartData, type AdminRecentActivity, type AdminSportMixData } from '../../services/admin.service';
+import { adminService, type AdminStatsData, type AdminRevenueChartData, type AdminRecentActivity, type AdminSportMixData, type CoachReviewRequest, type CoachRefundRequest } from '../../services/admin.service';
 
 interface AdminDashboardProps {
   onGoHome: () => void;
@@ -36,6 +36,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   const [owners, setOwners] = useState<any[]>([]);
 
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [coachRequests, setCoachRequests] = useState<CoachReviewRequest[]>([]);
+  const [coachRefunds, setCoachRefunds] = useState<CoachRefundRequest[]>([]);
 
   // States for Marketing & Promotion Management
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -118,6 +120,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
   const menuItems = [
     { id: 'overview', icon: 'dashboard', label: 'Tổng quan' },
     { id: 'owners', icon: 'real_estate_agent', label: 'Quản lý chủ sân' },
+    { id: 'coaches', icon: 'sports', label: 'Duyệt huấn luyện viên' },
+    { id: 'refunds', icon: 'currency_exchange', label: 'Hoàn tiền Coach' },
     { id: 'venues', icon: 'sports_tennis', label: 'Cấu hình Combo & Sân' },
     { id: 'users', icon: 'groups', label: 'Danh bạ người dùng' },
     { id: 'finance', icon: 'payments', label: 'Tài chính & Hoa hồng' },
@@ -245,6 +249,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
       console.error('Lỗi tải danh sách người dùng:', error);
     }
   };
+  const fetchCoachRequests = () => adminService.getCoachRequests().then(setCoachRequests).catch(err => console.error('Lỗi tải Coach:', err));
+  const fetchCoachRefunds = () => adminService.getCoachRefunds().then(setCoachRefunds).catch(err => console.error('Lỗi tải hoàn tiền Coach:', err));
+  const updateCoachRefund = async (refund: CoachRefundRequest, status: 'PROCESSING' | 'REFUNDED' | 'FAILED') => {
+    const transactionReference = status === 'REFUNDED' ? window.prompt('Nhập mã giao dịch hoàn tiền:')?.trim() : undefined;
+    if (status === 'REFUNDED' && !transactionReference) return;
+    const adminNote = status === 'FAILED' ? window.prompt('Lý do hoàn tiền thất bại:')?.trim() : undefined;
+    if (status === 'FAILED' && !adminNote) return;
+    await adminService.updateCoachRefund(refund._id, { status, transactionReference, adminNote });
+    fetchCoachRefunds();
+  };
+  const reviewCoach = async (profile: CoachReviewRequest, status: 'APPROVED' | 'REJECTED') => {
+    const note = status === 'REJECTED' ? window.prompt('Lý do từ chối:') || '' : '';
+    if (status === 'REJECTED' && !note) return;
+    await adminService.reviewCoach(profile._id, status, note);
+    fetchCoachRequests();
+    fetchCoachRefunds();
+  };
 
   const fetchVenues = () => {
     venueService.getVenues()
@@ -258,6 +279,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
       .catch((err) => alert(err?.response?.data?.message || 'Khong the tai danh sach voucher'));
     fetchVenues();
     fetchUsersData();
+    fetchCoachRequests();
     fetchAdminStats();
   }, []);
 
@@ -1855,6 +1877,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onGoHome }) => {
                 </Col>
 
               </Row>
+            </>
+          ) : activeMenu === 'refunds' ? (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <div><h2 style={{ fontSize: 24, fontWeight: 800, color: TX, margin: 0 }}>Hoàn tiền Coach</h2><p style={{ fontSize: 13, color: TX2, margin: '2px 0 0' }}>Yêu cầu hoàn 100% khi Coach từ chối lịch đã thanh toán.</p></div>
+                <Button size="sm" variant="outline-success" onClick={fetchCoachRefunds}>Làm mới</Button>
+              </div>
+              <Card style={{ border: 'none', borderRadius: 16 }}><Card.Body className="p-4">
+                {coachRefunds.length ? <div className="d-flex flex-column gap-3">{coachRefunds.map(refund => <div key={refund._id} className="p-3 rounded-3" style={{ background: BG, border: `1px solid ${BORDER}` }}>
+                  <div className="d-flex flex-column flex-lg-row justify-content-between gap-3">
+                    <div><div style={{ fontWeight: 800, color: TX }}>{refund.playerId?.fullName || 'Player'} · {refund.amount.toLocaleString('vi-VN')}đ</div><div style={{ fontSize: 12, color: TX2 }}>Coach: {refund.coachId?.fullName || 'Coach'} · {refund.bookingId?.sport}</div><div style={{ fontSize: 12, color: TX2 }}>Lý do: {refund.reason}</div>{refund.transactionReference && <div style={{ fontSize: 12, color: PRIMARY }}>Mã giao dịch: {refund.transactionReference}</div>}</div>
+                    <div className="d-flex align-items-center gap-2 flex-wrap"><span className={`badge bg-${refund.status === 'REFUNDED' ? 'success' : refund.status === 'FAILED' ? 'danger' : refund.status === 'PROCESSING' ? 'info' : 'warning'}`}>{refund.status}</span>{refund.status !== 'REFUNDED' && <><Button size="sm" variant="outline-info" onClick={() => updateCoachRefund(refund, 'PROCESSING')}>Đang xử lý</Button><Button size="sm" variant="success" onClick={() => updateCoachRefund(refund, 'REFUNDED')}>Xác nhận đã hoàn</Button><Button size="sm" variant="outline-danger" onClick={() => updateCoachRefund(refund, 'FAILED')}>Thất bại</Button></>}</div>
+                  </div>
+                </div>)}</div> : <div className="text-center py-5 text-muted">Không có yêu cầu hoàn tiền Coach.</div>}
+              </Card.Body></Card>
+            </>
+          ) : activeMenu === 'coaches' ? (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-4"><div><h2 style={{ fontSize: '24px', fontWeight: 800, color: TX, margin: 0 }}>Duyệt huấn luyện viên</h2><p style={{ fontSize: '13px', color: TX2, margin: '2px 0 0' }}>Hồ sơ Coach đã gửi và đang chờ duyệt.</p></div><Button size="sm" variant="outline-success" onClick={fetchCoachRequests}>Làm mới</Button></div>
+              <Card style={{ border: 'none', borderRadius: '16px' }}><Card.Body className="p-4">{coachRequests.length ? <div className="d-flex flex-column gap-3">{coachRequests.map(profile => <div key={profile._id} className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 p-3 rounded-3" style={{ background: BG, border: `1px solid ${BORDER}` }}><div><div style={{ fontWeight: 800, color: TX }}>{profile.userId.fullName}</div><div style={{ fontSize: 12, color: TX2 }}>{profile.userId.email || profile.userId.phone}</div><div style={{ fontSize: 12, color: PRIMARY, marginTop: 4 }}>{profile.sports.join(' · ')} · {profile.specialties.join(' · ')} · {profile.pricePerHour.toLocaleString('vi-VN')}đ/giờ</div></div><div className="d-flex gap-2"><Button size="sm" variant="success" onClick={() => reviewCoach(profile, 'APPROVED')}>Duyệt</Button><Button size="sm" variant="outline-danger" onClick={() => reviewCoach(profile, 'REJECTED')}>Từ chối</Button></div></div>)}</div> : <div className="text-center py-5 text-muted">Không có hồ sơ Coach nào chờ duyệt.</div>}</Card.Body></Card>
             </>
           ) : activeMenu === 'marketing' ? (
             <>

@@ -67,6 +67,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
               else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
               else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
+              else if (role === 'coach') navigate(ROUTES.COACH_DASHBOARD);
               else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
             } catch (err: any) {
               setError(err.response?.data?.message || err.message || 'Đăng nhập bằng Google thất bại');
@@ -128,6 +129,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         if (role === 'admin') navigate(ROUTES.ADMIN_DASHBOARD);
         else if (role === 'owner') navigate(ROUTES.OWNER_PAGE);
         else if (role === 'shop') navigate(ROUTES.SHOP_DASHBOARD);
+        else if (role === 'coach') navigate(ROUTES.COACH_DASHBOARD);
         else navigate(ROUTES.LANDING + '?scrollToVenues=true'); // Redirect to landing page with scroll parameter
       }
     } catch (err: any) {
