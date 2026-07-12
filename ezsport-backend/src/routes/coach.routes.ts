@@ -13,6 +13,7 @@ router.get("/me/bookings", authorizeRoles("coach"), coachController.coachBooking
 router.patch("/bookings/:id/transition", authorizeRoles("coach"), coachController.transition.bind(coachController));
 router.post("/:id/bookings", authorizeRoles("player"), coachController.createBooking.bind(coachController));
 router.get("/player/bookings", authorizeRoles("player"), coachController.playerBookings.bind(coachController));
+router.get("/player/bookings/:id", authorizeRoles("player"), coachController.playerBooking.bind(coachController));
 router.patch("/player/bookings/:id/sync-payment", authorizeRoles("player"), coachController.syncPayment.bind(coachController));
 router.delete("/player/bookings/:id", authorizeRoles("player"), coachController.cancel.bind(coachController));
 router.get("/:id/slots", coachController.getSlots.bind(coachController));

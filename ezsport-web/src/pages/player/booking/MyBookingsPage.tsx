@@ -1,185 +1,166 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Badge, Button, Card, Container, Spinner, Tab, Tabs } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { Container, Card, Badge, Spinner, Tabs, Tab } from 'react-bootstrap';
 import { bookingService, type Booking } from '../../../services/booking.service';
+import { coachService, type CoachBooking } from '../../../services/coach.service';
 
-const STATUS_MAP: Record<string, { label: string; variant: string }> = {
-  PENDING:    { label: 'Chờ xác nhận', variant: 'warning' },
-  CONFIRMED:  { label: 'Đã xác nhận',  variant: 'success' },
-  CHECKED_IN: { label: 'Đã check-in',  variant: 'info' },
-  COMPLETED:  { label: 'Hoàn thành',   variant: 'secondary' },
-  CANCELLED:  { label: 'Đã huỷ',       variant: 'danger' },
+type BookingKind = 'court' | 'coach';
+type HistoryTab = 'upcoming' | 'done' | 'cancelled';
+
+const COURT_STATUS: Record<string, { label: string; variant: string }> = {
+  PENDING: { label: 'Chờ xác nhận', variant: 'warning' },
+  CONFIRMED: { label: 'Đã xác nhận', variant: 'success' },
+  CHECKED_IN: { label: 'Đã check-in', variant: 'info' },
+  COMPLETED: { label: 'Hoàn thành', variant: 'secondary' },
+  CANCELLED: { label: 'Đã hủy', variant: 'danger' },
 };
 
-const TAB_STATUSES: Record<string, string[]> = {
-  upcoming:  ['PENDING', 'CONFIRMED'],
-  checked_in: ['CHECKED_IN'],
-  done:      ['COMPLETED'],
+const COACH_STATUS: Record<CoachBooking['status'], { label: string; variant: string }> = {
+  PENDING_PAYMENT: { label: 'Chưa thanh toán', variant: 'warning' },
+  PENDING_COACH_CONFIRMATION: { label: 'Chờ Coach xác nhận', variant: 'info' },
+  CONFIRMED: { label: 'Đã xác nhận', variant: 'success' },
+  COMPLETED: { label: 'Hoàn thành', variant: 'secondary' },
+  REJECTED: { label: 'Coach từ chối', variant: 'danger' },
+  CANCELLED_BY_PLAYER: { label: 'Đã hủy', variant: 'danger' },
+  CANCELLED_BY_COACH: { label: 'Coach đã hủy', variant: 'danger' },
+  EXPIRED: { label: 'Hết hạn thanh toán', variant: 'secondary' },
+  NO_SHOW: { label: 'Vắng mặt', variant: 'secondary' },
+};
+
+const COURT_TABS: Record<HistoryTab, string[]> = {
+  upcoming: ['PENDING', 'CONFIRMED', 'CHECKED_IN'],
+  done: ['COMPLETED'],
   cancelled: ['CANCELLED'],
 };
 
-const BookingCard: React.FC<{
-  booking: Booking;
-  onClick: () => void;
-  onDelete?: (e: React.MouseEvent) => void;
-}> = ({ booking, onClick, onDelete }) => {
-  const status = STATUS_MAP[booking.status] ?? { label: booking.status, variant: 'secondary' };
-  const date = new Date(booking.bookingDate).toLocaleDateString('vi-VN', {
-    weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
-  });
-
-  const showDelete = booking.status === 'CANCELLED';
-
-  return (
-    <Card
-      className="border-0 shadow-sm mb-3"
-      style={{ borderRadius: '14px', cursor: 'pointer' }}
-      onClick={onClick}
-    >
-      <Card.Body className="p-3">
-        <div className="d-flex justify-content-between align-items-start mb-2">
-          <div>
-            <p className="fw-bold mb-0" style={{ fontSize: '15px' }}>
-              {(booking.courtId as any)?.venue?.name || 'Sân EZSport'}
-            </p>
-            <p className="text-muted mb-0" style={{ fontSize: '12px' }}>
-              {(booking.courtId as any)?.name || 'Sân 1'} · {booking.sport}
-            </p>
-          </div>
-          <div className="d-flex flex-column align-items-end gap-1">
-            <Badge bg={status.variant} style={{ fontSize: '11px' }}>{status.label}</Badge>
-            {showDelete && onDelete && (
-              <button
-                className="btn btn-link p-0 text-danger d-flex align-items-center mt-1 text-decoration-none"
-                style={{ fontSize: '12px', opacity: 0.8 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(e);
-                }}
-              >
-                <span className="material-symbols-outlined me-0.5" style={{ fontSize: '16px' }}>delete</span>
-                Xóa lịch sử
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="d-flex gap-3" style={{ fontSize: '13px', color: '#6b7280' }}>
-          <span>
-            <span className="material-symbols-outlined align-middle me-1" style={{ fontSize: '14px' }}>calendar_today</span>
-            {date}
-          </span>
-          <span>
-            <span className="material-symbols-outlined align-middle me-1" style={{ fontSize: '14px' }}>schedule</span>
-            {booking.startTime} – {booking.endTime}
-          </span>
-        </div>
-        <div className="d-flex justify-content-between align-items-center mt-2">
-          <span style={{ fontSize: '13px', color: '#6b7280' }}>#{booking._id.slice(-8).toUpperCase()}</span>
-          <span className="fw-bold" style={{ color: '#16a34a', fontSize: '15px' }}>
-            {booking.totalPrice.toLocaleString('vi-VN')}đ
-          </span>
-        </div>
-      </Card.Body>
-    </Card>
-  );
+const COACH_TABS: Record<HistoryTab, CoachBooking['status'][]> = {
+  upcoming: ['PENDING_PAYMENT', 'PENDING_COACH_CONFIRMATION', 'CONFIRMED'],
+  done: ['COMPLETED'],
+  cancelled: ['REJECTED', 'CANCELLED_BY_PLAYER', 'CANCELLED_BY_COACH', 'EXPIRED', 'NO_SHOW'],
 };
 
-const MyBookingsPage: React.FC = () => {
+const formatCoachDate = (value: string) => new Date(value).toLocaleDateString('vi-VN', {
+  weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh',
+});
+
+const formatCoachTime = (value: string) => new Date(value).toLocaleTimeString('vi-VN', {
+  hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh',
+});
+
+const MyBookingsPage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('upcoming');
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [kind, setKind] = useState<BookingKind>('court');
+  const [activeTab, setActiveTab] = useState<HistoryTab>('upcoming');
+  const [courtBookings, setCourtBookings] = useState<Booking[]>([]);
+  const [coachBookings, setCoachBookings] = useState<CoachBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setLoading(true);
-    bookingService
-      .getUserBookings({ limit: 50 })
-      .then(({ bookings }) => setBookings(bookings))
-      .catch(() => setError('Không thể tải lịch sử đặt sân.'))
-      .finally(() => setLoading(false));
+    Promise.allSettled([
+      bookingService.getUserBookings({ limit: 50 }),
+      coachService.playerBookings(),
+    ]).then(([courtResult, coachResult]) => {
+      if (courtResult.status === 'fulfilled') setCourtBookings(courtResult.value.bookings);
+      if (coachResult.status === 'fulfilled') setCoachBookings(coachResult.value as CoachBooking[]);
+      if (courtResult.status === 'rejected' && coachResult.status === 'rejected') setError('Không thể tải lịch của bạn.');
+    }).finally(() => setLoading(false));
   }, []);
 
-  const handleDeleteBooking = async (bookingId: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa đơn đặt sân này khỏi lịch sử không?')) {
-      return;
+  const visibleCourts = useMemo(
+    () => courtBookings.filter(booking => COURT_TABS[activeTab].includes(booking.status)),
+    [courtBookings, activeTab],
+  );
+  const visibleCoaches = useMemo(
+    () => coachBookings.filter(booking => COACH_TABS[activeTab].includes(booking.status)),
+    [coachBookings, activeTab],
+  );
+
+  const cancelCoachBooking = async (event: React.MouseEvent, booking: CoachBooking) => {
+    event.stopPropagation();
+    if (!window.confirm('Bạn có chắc muốn hủy lịch Coach này?')) return;
+    try {
+      await coachService.cancel(booking._id, 'Player hủy lịch');
+      setCoachBookings(current => current.map(item => item._id === booking._id
+        ? { ...item, status: 'CANCELLED_BY_PLAYER', paymentStatus: item.paymentStatus }
+        : item));
+    } catch {
+      window.alert('Không thể hủy lịch Coach.');
     }
+  };
+
+  const deleteCourtBooking = async (event: React.MouseEvent, bookingId: string) => {
+    event.stopPropagation();
+    if (!window.confirm('Bạn có chắc muốn xóa lịch sử đặt sân này?')) return;
     try {
       await bookingService.deleteBookingHistory(bookingId);
-      setBookings((prev) => prev.filter((b) => b._id !== bookingId));
-    } catch (err) {
-      alert('Không thể xóa lịch sử đặt sân.');
+      setCourtBookings(current => current.filter(item => item._id !== bookingId));
+    } catch {
+      window.alert('Không thể xóa lịch sử đặt sân.');
     }
   };
 
-  const handleDeleteAllBookings = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa tất cả lịch sử đặt sân đã hủy không?')) {
-      return;
-    }
-    try {
-      await bookingService.deleteAllBookingHistory();
-      // Keep only bookings that are NOT cancelled
-      setBookings((prev) => prev.filter((b) => b.status !== 'CANCELLED'));
-    } catch (err) {
-      alert('Không thể xóa tất cả lịch sử đặt sân.');
-    }
-  };
+  const currentItems = kind === 'court' ? visibleCourts.length : visibleCoaches.length;
 
-  const filtered = bookings.filter((b) => TAB_STATUSES[activeTab]?.includes(b.status));
+  return <Container className="py-4" style={{ maxWidth: 760 }}>
+    <div className="mb-4">
+      <h4 className="fw-bold mb-1">Lịch của tôi</h4>
+      <p className="text-muted mb-0">Quản lý lịch đặt sân và lịch tập cùng Coach.</p>
+    </div>
 
-  return (
-    <Container className="py-4" style={{ maxWidth: '720px' }}>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5 className="fw-bold mb-0">Lịch sử đặt sân</h5>
-        {activeTab === 'cancelled' && bookings.some(b => b.status === 'CANCELLED') && (
-          <button
-            className="btn btn-outline-danger btn-sm d-flex align-items-center px-2.5 py-1.5"
-            style={{ borderRadius: '10px', fontSize: '13px' }}
-            onClick={handleDeleteAllBookings}
-          >
-            <span className="material-symbols-outlined me-1" style={{ fontSize: '18px' }}>delete_sweep</span>
-            Xóa tất cả lịch sử
-          </button>
-        )}
-      </div>
+    <div className="d-flex gap-2 mb-3" role="group" aria-label="Loại lịch">
+      <Button variant={kind === 'court' ? 'success' : 'outline-success'} onClick={() => { setKind('court'); setActiveTab('upcoming'); }}>
+        Đặt sân <Badge bg={kind === 'court' ? 'light' : 'success'} text={kind === 'court' ? 'dark' : undefined} className="ms-1">{courtBookings.length}</Badge>
+      </Button>
+      <Button variant={kind === 'coach' ? 'success' : 'outline-success'} onClick={() => { setKind('coach'); setActiveTab('upcoming'); }}>
+        Đặt Coach <Badge bg={kind === 'coach' ? 'light' : 'success'} text={kind === 'coach' ? 'dark' : undefined} className="ms-1">{coachBookings.length}</Badge>
+      </Button>
+    </div>
 
-      <Tabs
-        activeKey={activeTab}
-        onSelect={(k) => setActiveTab(k || 'upcoming')}
-        className="mb-4"
-        style={{ borderBottom: '2px solid #e5e7eb' }}
-      >
-        <Tab eventKey="upcoming" title="Sắp tới" />
-        <Tab eventKey="checked_in" title="Đã check-in" />
-        <Tab eventKey="done" title="Hoàn thành" />
-        <Tab eventKey="cancelled" title="Đã huỷ" />
-      </Tabs>
+    <Tabs activeKey={activeTab} onSelect={key => setActiveTab((key || 'upcoming') as HistoryTab)} className="mb-4">
+      <Tab eventKey="upcoming" title="Sắp tới" />
+      <Tab eventKey="done" title="Hoàn thành" />
+      <Tab eventKey="cancelled" title="Đã hủy / Hết hạn" />
+    </Tabs>
 
-      {loading && (
-        <div className="text-center py-5"><Spinner variant="success" /></div>
-      )}
+    {loading && <div className="text-center py-5"><Spinner variant="success" /></div>}
+    {!loading && error && <p className="text-danger text-center">{error}</p>}
+    {!loading && !error && currentItems === 0 && <div className="text-center py-5 text-muted">
+      <span className="material-symbols-outlined d-block mb-2" style={{ fontSize: 48, color: '#d1d5db' }}>{kind === 'court' ? 'sports_tennis' : 'sports'}</span>
+      Chưa có lịch {kind === 'court' ? 'đặt sân' : 'Coach'} trong mục này.
+    </div>}
 
-      {!loading && error && (
-        <p className="text-danger text-center">{error}</p>
-      )}
+    {!loading && kind === 'court' && visibleCourts.map(booking => {
+      const status = COURT_STATUS[booking.status] || { label: booking.status, variant: 'secondary' };
+      return <Card key={booking._id} className="border-0 shadow-sm mb-3" style={{ borderRadius: 14, cursor: 'pointer' }} onClick={() => navigate(`/my-bookings/${booking._id}`)}>
+        <Card.Body className="p-3">
+          <div className="d-flex justify-content-between gap-3">
+            <div><strong>{(booking.courtId as any)?.venue?.name || 'Sân EZSport'}</strong><div className="small text-muted">{booking.sport} · {booking.startTime}–{booking.endTime}</div></div>
+            <div className="text-end"><Badge bg={status.variant}>{status.label}</Badge><div className="fw-bold text-success mt-2">{booking.totalPrice.toLocaleString('vi-VN')}đ</div></div>
+          </div>
+          {booking.status === 'CANCELLED' && <Button size="sm" variant="link" className="text-danger px-0 mt-2" onClick={event => deleteCourtBooking(event, booking._id)}>Xóa lịch sử</Button>}
+        </Card.Body>
+      </Card>;
+    })}
 
-      {!loading && !error && filtered.length === 0 && (
-        <div className="text-center py-5">
-          <span className="material-symbols-outlined d-block mb-2" style={{ fontSize: '48px', color: '#d1d5db' }}>sports_tennis</span>
-          <p className="text-muted">Không có đơn đặt sân nào.</p>
-        </div>
-      )}
-
-      {!loading && filtered.map((b) => (
-        <BookingCard
-          key={b._id}
-          booking={b}
-          onClick={() => navigate(`/my-bookings/${b._id}`)}
-          onDelete={() => handleDeleteBooking(b._id)}
-        />
-      ))}
-    </Container>
-  );
+    {!loading && kind === 'coach' && visibleCoaches.map(booking => {
+      const status = COACH_STATUS[booking.status];
+      const canCancel = ['PENDING_PAYMENT', 'PENDING_COACH_CONFIRMATION', 'CONFIRMED'].includes(booking.status);
+      return <Card key={booking._id} className="border-0 shadow-sm mb-3" style={{ borderRadius: 14, cursor: 'pointer' }} onClick={() => navigate(`/coach-bookings/success/${booking._id}`)}>
+        <Card.Body className="p-3">
+          <div className="d-flex justify-content-between gap-3">
+            <div>
+              <strong>{booking.coachId?.fullName || 'Coach EZSport'}</strong>
+              <div className="small text-muted">{booking.sport} · {formatCoachDate(booking.startAt)}</div>
+              <div className="small text-muted">{formatCoachTime(booking.startAt)} · {booking.durationMinutes} phút · {booking.teachingMode === 'online' ? 'Online' : 'Trực tiếp'}</div>
+            </div>
+            <div className="text-end"><Badge bg={status.variant}>{status.label}</Badge><div className="fw-bold text-success mt-2">{booking.totalPrice.toLocaleString('vi-VN')}đ</div></div>
+          </div>
+          {canCancel && <Button size="sm" variant="outline-danger" className="mt-3" onClick={event => cancelCoachBooking(event, booking)}>Hủy lịch Coach</Button>}
+        </Card.Body>
+      </Card>;
+    })}
+  </Container>;
 };
 
 export default MyBookingsPage;

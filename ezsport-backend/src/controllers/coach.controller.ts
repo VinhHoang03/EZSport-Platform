@@ -9,7 +9,7 @@ const param = (req: Request, name: string) => Array.isArray(req.params[name]) ? 
 
 class CoachController {
   async list(req: Request, res: Response) {
-    try { return res.json({ data: await coachService.listPublic({ sport: req.query.sport as string, mode: req.query.mode as string, area: req.query.area as string, q: req.query.q as string, minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined, maxPrice: req.query.maxPrice ? Number(req.query.maxPrice) : undefined }) }); }
+    try { return res.json({ data: await coachService.listPublic({ sport: req.query.sport as string, mode: req.query.mode as string, area: req.query.area as string, q: req.query.q as string, minPrice: req.query.minPrice ? Number(req.query.minPrice) : undefined, maxPrice: req.query.maxPrice ? Number(req.query.maxPrice) : undefined, date: req.query.date as string, startTime: req.query.startTime as string, durationMinutes: req.query.durationMinutes ? Number(req.query.durationMinutes) : undefined }) }); }
     catch (error: any) { return res.status(400).json({ message: error.message }); }
   }
   async getProfile(req: Request, res: Response) {
@@ -40,6 +40,10 @@ class CoachController {
     } catch (error: any) { return res.status(400).json({ message: error.message }); }
   }
   async playerBookings(req: Request, res: Response) { return res.json({ data: await coachService.getPlayerBookings(userId(req)!) }); }
+  async playerBooking(req: Request, res: Response) {
+    try { return res.json({ data: await coachService.getPlayerBooking(param(req, "id"), userId(req)!) }); }
+    catch (error: any) { return res.status(404).json({ message: error.message }); }
+  }
   async coachBookings(req: Request, res: Response) { return res.json({ data: await coachService.getCoachBookings(userId(req)!) }); }
   async cancel(req: Request, res: Response) {
     try { return res.json({ data: await coachService.cancelByPlayer(param(req, "id"), userId(req)!, req.body.reason) }); }
@@ -57,14 +61,23 @@ class CoachController {
     if (!profile) return res.status(404).json({ message: "Không tìm thấy hồ sơ Coach" });
     return res.json({ data: profile });
   }
+  async adminRefunds(req: Request, res: Response) {
+    try { return res.json({ data: await coachService.listRefunds(req.query.status as any) }); }
+    catch (error: any) { return res.status(400).json({ message: error.message }); }
+  }
+  async adminUpdateRefund(req: Request, res: Response) {
+    try { return res.json({ data: await coachService.updateRefund(param(req, "id"), userId(req)!, req.body) }); }
+    catch (error: any) { return res.status(400).json({ message: error.message }); }
+  }
   async syncPayment(req: Request, res: Response) {
     const booking = await CoachBooking.findById(req.params.id);
     if (!booking || booking.playerId.toString() !== userId(req)) return res.status(404).json({ message: "Không tìm thấy lịch hẹn" });
-    if (booking.status !== "PENDING_PAYMENT" || !booking.payosOrderCode) return res.json({ data: booking });
+    if (booking.status !== "PENDING_PAYMENT" || !booking.payosOrderCode) return res.json({ data: await coachService.getPlayerBooking(booking.id, userId(req)!) });
     const info = await payosService.getPaymentLinkInformation(booking.payosOrderCode);
     if (info.status === "PAID") await coachService.markPaymentPaid(booking.id);
-    else if (["CANCELLED", "EXPIRED"].includes(info.status)) await coachService.markPaymentFailed(booking.id);
-    return res.json({ data: await CoachBooking.findById(booking.id) });
+    else if (info.status === "CANCELLED") await coachService.markPaymentCancelled(booking.id);
+    else if (info.status === "EXPIRED") await coachService.markPaymentFailed(booking.id);
+    return res.json({ data: await coachService.getPlayerBooking(booking.id, userId(req)!) });
   }
 }
 

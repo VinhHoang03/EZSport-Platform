@@ -26,6 +26,7 @@ const ProfilePageWrapper    = lazy(() => import('../pages/player/ProfilePageWrap
 const PlaymatesWrapper      = lazy(() => import('../pages/player/PlaymatesWrapper'));
 const CoachListPage         = lazy(() => import('../pages/player/coaches/CoachListPage'));
 const CoachDetailPage       = lazy(() => import('../pages/player/coaches/CoachDetailPage'));
+const CoachBookingSuccessPage = lazy(() => import('../pages/player/coaches/CoachBookingSuccessPage'));
 const CoachDashboardPage    = lazy(() => import('../pages/coach/CoachDashboardPage'));
 const PlayerMessage         = lazy(() => import('../pages/player/chats/PlayerMessage'));
 const OwnerPageWrapper      = lazy(() => import('../pages/owner/OwnerPageWrapper'));
@@ -83,6 +84,7 @@ const router = createBrowserRouter([
         { path: ROUTES.PLAYMATES,       element: s(PlaymatesWrapper) },
         { path: ROUTES.COACHES,          element: s(CoachListPage) },
         { path: ROUTES.COACH_DETAIL,     element: s(CoachDetailPage) },
+        { path: ROUTES.COACH_BOOKING_SUCCESS, element: s(CoachBookingSuccessPage) },
         { path: ROUTES.MESSAGES,        element: s(PlayerMessage) },
         { path: ROUTES.SHOPS,           element: s(ShopListPage) },
         { path: ROUTES.SHOP_DETAIL,     element: s(ShopDetailPage) },

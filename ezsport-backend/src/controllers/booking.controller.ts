@@ -480,7 +480,7 @@ class BookingController {
         if (coachBooking) await coachService.markPaymentPaid(coachBooking._id.toString());
         else await bookingService.updatePaymentStatus(booking!._id.toString(), "CONFIRMED");
       } else {
-        if (coachBooking) await coachService.markPaymentFailed(coachBooking._id.toString());
+        if (coachBooking) await coachService.markPaymentCancelled(coachBooking._id.toString());
         else await bookingService.updatePaymentStatus(booking!._id.toString(), "CANCELLED");
       }
 

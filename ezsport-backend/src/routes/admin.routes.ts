@@ -35,5 +35,7 @@ router.delete(
 
 router.get("/coaches", verifyToken as any, authorizeRoles("admin") as any, coachController.adminList.bind(coachController));
 router.patch("/coaches/:id/review", verifyToken as any, authorizeRoles("admin") as any, coachController.adminReview.bind(coachController));
+router.get("/coach-refunds", verifyToken as any, authorizeRoles("admin") as any, coachController.adminRefunds.bind(coachController));
+router.patch("/coach-refunds/:id", verifyToken as any, authorizeRoles("admin") as any, coachController.adminUpdateRefund.bind(coachController));
 
 export default router;

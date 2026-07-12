@@ -17,6 +17,7 @@ export const ROUTES = {
   PLAYMATES: '/playmates',
   COACHES: '/coaches',
   COACH_DETAIL: '/coaches/:id',
+  COACH_BOOKING_SUCCESS: '/coach-bookings/success/:bookingId',
   COACH_DASHBOARD: '/coach/dashboard',
   MESSAGES: '/messages',
   SHOPS: '/shops',

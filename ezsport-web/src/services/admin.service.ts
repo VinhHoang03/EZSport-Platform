@@ -60,6 +60,19 @@ export interface CoachReviewRequest {
   reviewStatus: string;
 }
 
+export interface CoachRefundRequest {
+  _id: string;
+  bookingId: { _id: string; sport: string; startAt: string; totalPrice: number };
+  playerId: { _id: string; fullName: string; email?: string; phone?: string };
+  coachId: { _id: string; fullName: string; email?: string; phone?: string };
+  amount: number;
+  reason: string;
+  status: 'PENDING' | 'PROCESSING' | 'REFUNDED' | 'FAILED';
+  adminNote?: string;
+  transactionReference?: string;
+  createdAt: string;
+}
+
 export const adminService = {
   getUsers: async (params?: { role?: string; status?: string }): Promise<UserAdminInfo[]> => {
     const { data } = await api.get('/admin/users', { params });
@@ -76,6 +89,8 @@ export const adminService = {
   },
   getCoachRequests: async (): Promise<CoachReviewRequest[]> => (await api.get('/admin/coaches', { params: { status: 'PENDING_REVIEW' } })).data.data,
   reviewCoach: async (id: string, status: 'APPROVED' | 'REJECTED', note?: string) => (await api.patch(`/admin/coaches/${id}/review`, { status, note })).data.data,
+  getCoachRefunds: async (status?: string): Promise<CoachRefundRequest[]> => (await api.get('/admin/coach-refunds', { params: status ? { status } : undefined })).data.data,
+  updateCoachRefund: async (id: string, payload: { status: 'PROCESSING' | 'REFUNDED' | 'FAILED'; adminNote?: string; transactionReference?: string }) => (await api.patch(`/admin/coach-refunds/${id}`, payload)).data.data,
 
   getStats: async (): Promise<AdminStatsData> => {
     const { data } = await api.get('/analytics/admin/stats');
